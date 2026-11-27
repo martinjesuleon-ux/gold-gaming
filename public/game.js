@@ -36,8 +36,29 @@ addEventListener('resize',resize);resize();
 const recentActivity=[];
 window.gg17Activity=()=>recentActivity.slice();
 function recordActivity(msg){recentActivity.unshift({at:Date.now(),message:String(msg)});if(recentActivity.length>100)recentActivity.pop();}
-socket.on('v17:gateReward',r=>{window.dispatchEvent(new CustomEvent('gg17:gateReward',{detail:r}));});
-function notice(msg){recordActivity(msg);$('notice').textContent=msg;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',3600);}
+socket.on('v17:gateReward',r=>{if(joined&&r?.payout)rewardNotice('Portal '+String(r.gate||'').toUpperCase()+' completado',r.payout);window.dispatchEvent(new CustomEvent('gg17:gateReward',{detail:r}));});
+function notice(msg){recordActivity(msg);const n=$('notice');n.textContent=msg;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.textContent='',3600);}
+const rewardLabels={xp:'Experiencia',honor:'Honor',credits:'Créditos',uridium:'Uridium',ammo:'Munición UCB-100',disks:'Ficheros',xenomit:'Xenomit',vouchers:'Vales de reparación',keys:'Llaves de botín'};
+const rewardNumber=new Intl.NumberFormat('es-CL',{maximumFractionDigits:0});
+function rewardNotice(title,amounts){
+ const host=$('gg171-rewards');if(!host)return;
+ const card=document.createElement('section');card.className='gg171-reward';
+ const heading=document.createElement('strong');heading.textContent=String(title||'Recompensa');card.append(heading);
+ const entries=[];
+ for(const [key,label] of Object.entries(rewardLabels)){
+  const value=Number(amounts?.[key]);if(!Number.isFinite(value)||value===0)continue;
+  const line=document.createElement('span');line.className='gg171-reward-line';
+  if(value<0)line.classList.add('negative');const name=document.createElement('span'),count=document.createElement('b');
+  name.textContent=label;count.textContent=(value>0?'+':'')+rewardNumber.format(value);line.append(name,count);card.append(line);entries.push(label+' '+count.textContent);
+ }
+ if(typeof amounts?.item==='string'&&amounts.item){const line=document.createElement('span');line.textContent='Objeto: '+amounts.item+(amounts.itemQuantity>1?' ×'+amounts.itemQuantity:'');card.append(line);entries.push(line.textContent);}
+ if(!entries.length)return;
+ recordActivity(heading.textContent+' · '+entries.join(' · '));
+ host.prepend(card);while(host.children.length>5)host.lastElementChild.remove();
+ setTimeout(()=>card.classList.add('leaving'),5200);setTimeout(()=>card.remove(),5700);
+}
+socket.on('v171:reward',r=>{if(joined&&r&&typeof r.title==='string')rewardNotice(r.title,r.amounts);});
+
 let joinGeneration=0,joinPending=false,joinRetryTimer=null,joinAttempts=0,recovering=false;
 function retryJoinDelay(attempt,err,res){if(attempt>=6||(!err&&!['ACCOUNT_BUSY','DB_UNAVAILABLE','SERVER_UNAVAILABLE'].includes(res?.code)))return null;return Math.min(8000,500*2**attempt);}
 function clearJoinRetry(){if(joinRetryTimer!==null){clearTimeout(joinRetryTimer);joinRetryTimer=null;}}
