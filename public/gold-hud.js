@@ -2,7 +2,18 @@
 function init(){const hud=document.getElementById('hud');if(!hud||hud.dataset.gg121)return;hud.dataset.gg121='1';
 const css=document.createElement('link');css.rel='stylesheet';css.href='./gold-hud.css?v=190';document.head.append(css);
 const menus=['Piloto','Nave','Chat','Grupo','Clan','Misiones','Registro','Tienda','Hangar','Inventario','Sistema estelar','Refinación','Información','Arsenal','Amigos','Logros','Facción','Subastas','VANT','Habilidades','Portales','Clasificación','P.E.T.','Chip','Skylab','Comercio','Minas','Ensamblaje','Boosters','Estaciones CBS','UBA','Invasión','Spaceball','Hitac','Hielo'];const icons=['♟','✦','☏','♟','◎','☷','≡','▣','⚙','▦','◉','▥','!','⌖','♧','◈','♜','⚒','✥','✺','↔','▤','✧','▧','☼','¤','✹','⚒','↑','⬡','⚔','✦','◉','⬢','❄'];
-const layout=()=>{const top=hud.querySelector('.topbar'),vitals=hud.querySelector('.vitals');const toolbar=hud.querySelector('.gg-tool:not(.gg-right)');const toolbarBottom=toolbar?toolbar.getBoundingClientRect().bottom:74;hud.style.setProperty('--gg-topbar-top',Math.max(82,toolbarBottom+8)+'px');const bottom=top&&!top.hidden?top.getBoundingClientRect().bottom:Math.max(82,toolbarBottom+8);hud.style.setProperty('--gg-vitals-top',Math.max(82,bottom+8)+'px');const vbottom=vitals&&!vitals.hidden?vitals.getBoundingClientRect().bottom:bottom;hud.style.setProperty('--gg-module-top',Math.max(82,vbottom+8)+'px');};if(typeof ResizeObserver!=='undefined'){const ro=new ResizeObserver(layout);for(const q of hud.querySelectorAll('.topbar,.vitals'))ro.observe(q);}window.addEventListener('resize',layout);
+let layoutQueued=false;
+const setPosition=(name,value)=>{const next=Math.round(value)+'px';if(hud.style.getPropertyValue(name)!==next)hud.style.setProperty(name,next);};
+const layout=()=>{if(layoutQueued)return;layoutQueued=true;requestAnimationFrame(()=>{layoutQueued=false;if(hud.hidden)return;
+ const top=hud.querySelector('.topbar'),vitals=hud.querySelector('.vitals'),toolbar=hud.querySelector('.gg-tool:not(.gg-right)');
+ const toolbarBottom=toolbar?toolbar.getBoundingClientRect().bottom:74,topY=Math.max(82,toolbarBottom+8);
+ const topHeight=top&&!top.hidden?top.getBoundingClientRect().height:0,vitalsY=topY+topHeight+8;
+ const vitalsHeight=vitals&&!vitals.hidden?vitals.getBoundingClientRect().height:0;
+ setPosition('--gg-topbar-top',topY);setPosition('--gg-vitals-top',vitalsY);setPosition('--gg-module-top',vitalsY+vitalsHeight+8);
+ });};
+if(typeof ResizeObserver!=='undefined'){const ro=new ResizeObserver(layout);for(const q of hud.querySelectorAll('.topbar,.vitals'))ro.observe(q);ro.observe(hud);}
+if(typeof MutationObserver!=='undefined'){const observer=new MutationObserver(layout);observer.observe(hud,{attributes:true,attributeFilter:['hidden']});}
+window.addEventListener('resize',layout);
 const panels=new Map([['Piloto',hud.querySelector('.topbar')],['Nave',hud.querySelector('.vitals')],['Arsenal',hud.querySelector('.arsenal')],['Sistema estelar',hud.querySelector('.radar')]]);
 function panel(name,key,visible=false){const p=document.createElement('section');p.className='gg-window';p.dataset.key=key;p.hidden=!visible;const h=document.createElement('h2');h.textContent=name;const b=document.createElement('button');b.type='button';b.textContent='−';b.title='Cerrar';b.onclick=()=>p.hidden=true;h.append(b);const msg=document.createElement('p');msg.textContent='Módulo pendiente de conexión';p.append(h,msg);hud.append(p);return p;}
 for(const name of menus)if(!panels.get(name))panels.set(name,panel(name,({'P.E.T.':'pet','Grupo':'group','Chip':'chip'})[name]||'module',['P.E.T.','Grupo','Chip'].includes(name)));
