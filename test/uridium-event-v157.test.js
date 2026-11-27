@@ -32,3 +32,16 @@ test('Uridium administration rejects unauthenticated requests and validates chan
  assert.equal((await (await api()).json()).active,true);assert.equal((await (await api({action:'stop'})).json()).active,false);
  }finally{await game.close();}
 });
+
+test('independent events can be on separately or simultaneously and only eligible gate items double',async()=>{
+ const {specialGateQuantity}=require('../uridium-event-v157');const rows=new Map();
+ const pool={query:async(sql,args)=>{const table=sql.match(/gg_(?:uridium|gate_special)_event_v157/)[0];if(sql.startsWith('CREATE'))return {rows:[]};if(sql.startsWith('INSERT')){if(!rows.has(table))rows.set(table,{mode:'off',start_at:null,end_at:null});return {rows:[]};}if(sql.startsWith('UPDATE'))rows.set(table,{mode:args[0],start_at:args[1],end_at:args[2]});return {rows:[rows.get(table)]};}};
+ const u=createUridiumEvent(pool),g=createUridiumEvent(pool,'gate-special');await u.ready();await g.ready();
+ await u.change({action:'start'});assert.equal((await u.status()).multiplier,2);assert.equal((await g.status()).multiplier,1);
+ await g.change({action:'start'});assert.equal((await u.status()).multiplier,2);assert.equal((await g.status()).multiplier,2);
+ await u.change({action:'stop'});assert.equal((await u.status()).multiplier,1);assert.equal((await g.status()).multiplier,2);
+ await g.change({action:'stop'});assert.equal((await g.status()).multiplier,1);
+ for(const item of ['LF-4','Havoc','Hercules','Spartan']){assert.equal(specialGateQuantity(item,2),2);assert.equal(specialGateQuantity(item,1),1);}
+ for(const item of ['MUL-B03','SG3N-B03','Saturn'])assert.equal(specialGateQuantity(item,2),1);
+ assert.equal(specialGateQuantity(null,2),0);
+});
