@@ -17,6 +17,14 @@ async function rewardFactorRead(c,id,kind,now=Date.now()){
  const row=(await c.query('SELECT until_ms FROM gg_booster_active WHERE account_id=$1 AND code=$2 AND until_ms>$3',[id,code,now])).rows[0];
  return rewardFactor({[code]:row?.until_ms},kind,now);
 }
+function premiumCargo(base,hasCpu=false,skillFactor=1,active=false){
+ if(!Number.isSafeInteger(base)||base<0||!Number.isFinite(skillFactor)||skillFactor<1)throw Error('Capacidad inválida');
+ return Math.floor(base*(hasCpu?2:1)*skillFactor)+(active?1500:0);
+}
+function rocketCooldown(hasCpu=false,formationFactor=1,active=false){
+ if(!Number.isFinite(formationFactor)||formationFactor<=0)throw Error('Recarga inválida');
+ return Math.max(1,Math.round((hasCpu?1000:2000)*formationFactor*(active?.5:1)));
+}
 function premiumPrice(total,active=false){
  if(!Number.isSafeInteger(total)||total<0)throw Error('Precio inválido');
  return active?Number((BigInt(total)*95n+99n)/100n):total;
@@ -65,4 +73,4 @@ function createBoosters(pool){
  }
  return {ready:()=>ready(pool),read:id=>read(pool,id),status:id=>view(pool,id),action};
 }
-module.exports={CATALOG,createBoosters,ready,read,extend,factors,rewardFactor,rewardFactorRead,scaleReward,premiumPrice,premiumRead};
+module.exports={CATALOG,createBoosters,ready,read,extend,factors,rewardFactor,rewardFactorRead,scaleReward,premiumPrice,premiumRead,premiumCargo,rocketCooldown};
