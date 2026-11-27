@@ -88,7 +88,7 @@ async function iceMenu(){
  body.replaceChildren(el('h2','Meteorito de Hielo'),el('p','Cargando…'));
  try{const d=await api('ice');if(!modal?.open||mode!=='Hielo')return;
  body.replaceChildren(el('h2','Super Ice Meteoroid'),el('p',fmt(d.boss.hp)+' PV · '+fmt(d.boss.shield)+' escudo'),el('p','Cuenta atrás: 60 s · duración: 1 hora'),el('p','Un Icy cada 6 s, máximo 25. Cada Icy eliminado cura '+fmt(d.rules.heal)+' PV al jefe.'),el('h3','Bolsa compartida de recompensas'));
- for(const [key,label] of [['credits','Créditos'],['uridium','Uridium'],['xp','Experiencia'],['honor','Honor']])body.append(el('p',label+' · '+fmt(d.reward[key])));
+ body.append(rewardCards(Object.fromEntries(['credits','uridium','xp','honor'].map(k=>[k,d.reward[k]]))));
  body.append(el('p','15 cajas de 2.000 uridium, disponibles 5 minutos.'),el('p',d.enabled?(d.rewardsEnabled?'Combate y recompensas disponibles cuando se abre el evento.':'Combate de prueba. Recompensas deshabilitadas.'):'Evento en desarrollo. Combate y premios todavía deshabilitados.'));
  }catch(e){body.replaceChildren(el('p',e.message));}
 }
@@ -96,7 +96,7 @@ async function hitacMenu(){
  body.replaceChildren(el('h2','Convoy Hitac'),el('p','Cargando…'));
  try{const d=await api('hitac');if(!modal?.open||mode!=='Hitac')return;
  body.replaceChildren(el('h2','Convoy Hitac'),el('p',d.route.join(' → ')),el('p','1 nave nodriza y '+d.rules.guards+' guardias'));
- for(const [name,n] of [['Nave nodriza',d.boss],['Guardia',d.guard]])body.append(el('h3',name),el('p',fmt(n.hp)+' PV · '+fmt(n.shield)+' escudo · '+fmt(n.damage)+' daño'),el('p',fmt(n.credits)+' créditos · '+fmt(n.uridium)+' uridium · '+fmt(n.xp)+' EXP · '+fmt(n.honor)+' honor'));body.append(el('p',d.rewardsEnabled?'Recompensas al piloto que elimina la unidad.':'Recompensas todavía deshabilitadas.'));
+ const ships=el('div',null,'gg13-grid gg-event-cards');for(const [name,n] of [['Nave nodriza',d.boss],['Guardia',d.guard]]){const tile=el('section',null,'gg13-tile gg-event-card');tile.append(el('h3',name),el('p',fmt(n.hp)+' PV · '+fmt(n.shield)+' escudo · '+fmt(n.damage)+' daño'),rewardCards({credits:n.credits,uridium:n.uridium,xp:n.xp,honor:n.honor}));ships.append(tile);}body.append(ships);body.append(el('p',d.rewardsEnabled?'Recompensas al piloto que elimina la unidad.':'Recompensas todavía deshabilitadas.'));
  body.append(el('p','Protección alterna cada 10 s en la nodriza y 20 s en los guardias.'),el('p','Guardias: ralentización 30 % durante 4 s, explosión de 100.000 de daño al morir.'),el('p',d.enabled?'Combate de prueba: selecciona un Hitac y dispara cuando baje su protección.':'Evento en desarrollo. Combate todavía deshabilitado.'));const lottery=await api('hitac-lottery');if(!modal?.open||mode!=='Hitac')return;body.append(el('h3','Lotería Hitac'),el('p','Cápsulas: '+fmt(lottery.capsules)+' · '+(lottery.bag?'Bolsa abierta':'Bolsa cerrada')),el('p','Premios ilimitados'));for(const p of lottery.unlimited)body.append(el('p',p.code+' × '+fmt(p.quantity)));body.append(el('h3','Premios limitados'));for(const p of lottery.limited)body.append(el('p',(p.entitlement?'Premium (7 días)':p.code+' × '+fmt(p.quantity)+(p.level===16?' (+16)':''))+' · '+(lottery.bag?lottery.bag.stock[p.id]+' disponibles':p.stock+' por bolsa')));if(lottery.enabled&&lottery.bag){let requestId=null,running=false;const result=el('p'),draw=button('ABRIR CÁPSULA',async()=>{if(running)return;running=true;draw.disabled=true;requestId??=crypto.randomUUID();try{const r=await api('hitac-lottery/draw',{requestId});requestId=null;result.textContent='Premio: '+(r.prize.premiumPending?'Premium pendiente de activación':r.prize.code+' × '+fmt(r.prize.quantity)+(r.prize.level===16?' (+16)':''));draw.textContent='PREMIO RECIBIDO';body.append(button('ACTUALIZAR LOTERÍA',()=>hitacMenu()));}catch(e){result.textContent=e.message;draw.disabled=false;}finally{running=false;}});draw.disabled=lottery.capsules<1;body.append(draw,result,el('p','Cápsulas obtenidas en combate. Sin compras ni pagos.'));}else body.append(el('p','Lotería cerrada o deshabilitada.'));
  }catch(e){body.replaceChildren(el('p',e.message));}
 }
@@ -115,7 +115,7 @@ async function invasionMenu(){
  try{const d=await api('invasion');if(!modal?.open||mode!=='Invasión')return;
  const names={easy:'Fácil · nivel 5–9',medium:'Media · nivel 10–14',hard:'Difícil · nivel 15+'};
  body.replaceChildren(el('h2','Evento Invasión'),el('p','25 pilotos por mapa · portal abierto 60 s · descanso de 10 s entre oleadas'),el('p',d.difficulty?'Tu dificultad: '+names[d.difficulty]:'Requiere nivel 5'));
- for(const [key,waves] of Object.entries(d.waves)){const section=el('section',null,'gg13-tile');section.append(el('h3',names[key]),el('p',waves.map(([name,count])=>name+' ×'+count).join(' → ')));body.append(section);}
+ const difficulties=el('div',null,'gg13-grid gg-event-cards');for(const [key,waves] of Object.entries(d.waves)){const section=el('section',null,'gg13-tile gg-event-card');section.dataset.current=String(key===d.difficulty);section.append(el('h3',names[key]),el('small',key===d.difficulty?'Tu dificultad': 'Oleadas'));for(const [i,[name,count]] of waves.entries())section.append(el('p','Oleada '+(i+1)+' · '+name+' ×'+count));difficulties.append(section);}body.append(difficulties);
  body.append(el('p','Jefe final: Boss Kucurbium · 20 millones de vida y 20 millones de escudo · 4 escoltas'),el('p',d.enabled?'Combate cooperativo de prueba.':'Combate del evento todavía deshabilitado.'));if(d.lobbyEnabled){const panel=el('section');panel.id='gg-invasion-lobby';body.append(panel,el('p','Inscripción de prueba desde la base X-1 de tu compañía.'));try{invasionState=await window.gg135Invasion({action:'status'});}catch(err){invasionState=null;status.textContent=err.message;}drawInvasionLobby();}
  body.append(el('h3','Clasificación de Invasión'),el('p','Puntos de daño acumulados en eventos completados, sin premios monetarios.'));
  const scores=el('table');for(const [i,r] of (d.rows||[]).entries()){const tr=el('tr');for(const v of [i+1,r.name,fmt(r.points),r.completed+' eventos'])tr.append(el('td',String(v)));if(r.own)tr.className='gg13-own';scores.append(tr);}body.append(scores);
@@ -219,9 +219,9 @@ async function stationMenu(){
  try{const d=await api('stations');if(!modal?.open||mode!=='Estaciones CBS')return;
   body.replaceChildren(el('h2','Estaciones de batalla de clan'),el('p','20 asteroides · 10 módulos · construcción de 5 a 60 minutos.'));
   if(!d.constructionEnabled)body.append(el('p','Vista previa: construcción bloqueada hasta completar el combate y la recuperación de módulos.'));
-  const grid=el('div',null,'gg13-grid');
+  const summary=el('section',null,'gg-social-summary');summary.append(rewardCards({Asteroides:d.asteroids.length,Libres:d.asteroids.filter(a=>!a.station).length,Propios:d.asteroids.filter(a=>a.station?.owned).length,Módulos:d.inventory.length}));body.append(summary);const search=el('input');search.type='search';search.placeholder='Buscar mapa o clan…';search.setAttribute('aria-label','Buscar estación');body.append(search);const grid=el('div',null,'gg13-grid gg-station-grid');
   const run=async data=>{if(busy)return;busy=true;try{await window.gg115CBS({...data,requestId:crypto.randomUUID()});await refresh();await stationMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}};
-  for(const a of d.asteroids){const tile=el('section',null,'gg13-tile'),local=window.gg115Map()===a.map;
+  for(const a of d.asteroids){const tile=el('section',null,'gg13-tile gg-station-card'),local=window.gg115Map()===a.map;tile.dataset.search=(a.map+' '+(a.station?.clan_tag||'libre')).toLowerCase();tile.dataset.phase=a.station?.state||'free';const art=el('span','⬡','gg-station-icon');art.setAttribute('aria-hidden','true');tile.append(art);if(local)tile.append(el('small','MAPA ACTUAL'));
    tile.append(el('h3',a.map+' · Asteroide '+a.id.split(':')[1]),el('p','X: '+a.x+' · Y: '+a.y),el('p',a.station?'Clan '+a.station.clan_tag+' · '+({building:'En construcción',vulnerable:'Vulnerable',protected:'Deflector activo'}[a.station.state]||a.station.state):'Libre'));
    if(local)tile.append(button('VOLAR AL ASTEROIDE',()=>{try{window.gg115Travel(a);modal.close();}catch(e){status.textContent=e.message;}}));
    if(a.station?.deflector){tile.append(el('p','Carga: '+fmt(Math.floor(a.station.deflector.charge/60000))+' min'));if(Number(a.station.emergency_until)>Date.now())tile.append(el('p','Reparación de emergencia activa'));}
@@ -236,21 +236,21 @@ async function stationMenu(){
     const minutes=el('input');minutes.type='number';minutes.min='5';minutes.max='60';minutes.value='5';details.append(el('p','Minutos de construcción'),minutes);
     const build=button('CONSTRUIR',()=>{const moduleIds=selects.map(x=>x.value);if(moduleIds.some(x=>!x)||new Set(moduleIds).size!==10){status.textContent='Selecciona diez módulos distintos';return;}run({action:'build',asteroidId:a.id,minutes:Number(minutes.value),moduleIds});});build.disabled=!d.constructionEnabled;details.append(build);tile.append(details);
    }grid.append(tile);}
-  body.append(grid,el('p','Módulos disponibles: '+d.inventory.length));if(d.broken?.length){body.append(el('h3','Módulos recuperados · rotos'));for(const item of d.broken)body.append(el('p',item.code+' · Nv. '+item.level+' · reparación pendiente'));}
+  search.oninput=()=>{const q=search.value.trim().toLowerCase();for(const tile of grid.children)tile.hidden=!tile.dataset.search.includes(q);};body.append(grid,el('p','Módulos disponibles: '+d.inventory.length));if(d.broken?.length){body.append(el('h3','Módulos recuperados · rotos'));for(const item of d.broken)body.append(el('p',item.code+' · Nv. '+item.level+' · reparación pendiente'));}
  }catch(e){if(modal?.open&&mode==='Estaciones CBS')body.replaceChildren(el('p',e.message));}
 }
 async function boosterMenu(){
  body.replaceChildren(el('h2','Boosters'),el('p','Cargando…'));
  try{const d=await api('boosters');if(!modal?.open||mode!=='Boosters')return;
   body.replaceChildren(el('h2','Boosters'),el('p','10.000 uridium · 10 horas · activa el tiempo adquirido. Los compartidos benefician a aliados cercanos.'));
-  const grid=el('div',null,'gg13-grid'),names={damage:'Daño',xp:'Experiencia',honor:'Honor',hp:'Vida',repair:'Reparación',box:'Recursos',shield:'Escudo'};
+  const grid=el('div',null,'gg13-grid gg-booster-grid'),names={damage:'Daño',xp:'Experiencia',honor:'Honor',hp:'Vida',repair:'Reparación',box:'Recursos',shield:'Escudo'};
   const duration=s=>Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min';
-  for(const item of d.catalog){const tile=el('section',null,'gg13-tile'),remaining=Math.max(0,Math.ceil(((d.active[item.code]||0)-Date.now())/1000)),stock=(d.stock[item.code]||0)+(item.legacy?d.stock[item.legacy]||0:0)+(item.code==='MUL-B03'?Number(state.ammo.find(a=>a.code==='MUL-B03')?.quantity||0)*18000:0);
-   tile.append(el('h3',item.code+' · '+item.name),el('p',Object.entries(item.effects).map(([k,v])=>names[k]+' +'+Math.round(v*100)+'%').join(' · ')));
+  for(const item of d.catalog){const tile=el('section',null,'gg13-tile gg-booster-card'),remaining=Math.max(0,Math.ceil(((d.active[item.code]||0)-Date.now())/1000)),stock=(d.stock[item.code]||0)+(item.legacy?d.stock[item.legacy]||0:0)+(item.code==='MUL-B03'?Number(state.ammo.find(a=>a.code==='MUL-B03')?.quantity||0)*18000:0);
+   tile.dataset.active=String(remaining>0);const icon=el('span','✦','gg-booster-icon');icon.setAttribute('aria-hidden','true');const effects=el('div',null,'gg-reward-cards');for(const [k,v] of Object.entries(item.effects)){const chip=el('div',null,'gg-reward-chip');chip.append(el('strong','+'+Math.round(v*100)+'%'),el('small',names[k]||k));effects.append(chip);}tile.append(icon,el('h3',item.code+' · '+item.name),effects);
    if(Object.keys(item.shared).length)tile.append(el('p','Aliados: '+Object.entries(item.shared).map(([k,v])=>names[k]+' +'+Math.round(v*100)+'%').join(' · ')));
-   tile.append(el('p','Activo: '+duration(remaining)+' · Disponible: '+duration(stock)));
+   const time=el('section',null,'gg-booster-time');time.append(el('strong',remaining>0?'ACTIVO':'INACTIVO'),el('p','Tiempo activo: '+duration(remaining)),el('p','Tiempo disponible: '+duration(stock)));tile.append(time);
    const run=async action=>{if(busy)return;busy=true;try{await window.gg112Booster({action,code:item.code,requestId:crypto.randomUUID()});await refresh();await boosterMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}};
-   if(item.price)tile.append(button('COMPRAR 10.000 U',()=>run('buy')));
+   if(item.price)tile.append(button('COMPRAR '+fmt(item.price)+' U',()=>run('buy')));
    const activate=button('ACTIVAR TIEMPO',()=>run('activate'));activate.disabled=stock<=0;tile.append(activate);grid.append(tile);
   }body.append(grid);status.textContent='Uridium: '+fmt(d.balance.uridium);
  }catch(e){if(modal?.open&&mode==='Boosters')body.replaceChildren(el('p',e.message));}
