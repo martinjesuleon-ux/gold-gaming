@@ -184,6 +184,10 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const owned=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
    if(mode==='loot'&&!owned.some(x=>x.code==='G-AL1'))throw fail('Necesitas el engranaje G-AL1');
+   if(process.env.GG_PET_VITALS_ENABLED==='1'){
+    const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
+    if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido. Repáralo primero');
+   }
    const cost=10;
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=$2 RETURNING quantity",[id,cost])).rows[0];
    if(!r)throw fail('Combustible insuficiente');
