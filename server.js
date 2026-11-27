@@ -156,8 +156,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    if(boxCount>0&&zone==='5-3')for(let i=0;i<50;i++)spawnPalladium();
   if(boxCount>0&&!['4-4','4-5'].includes(zone))for(let i=0;i<(/^4-[123]$/.test(zone)?100:boxCount);i++)spawnBox(point(),zone);
  }
- function changeMap(p,zone,pos){const sock=io.sockets.sockets.get(p.id);sock?.leave(zoneOf(p));p.zone=zone;p.petAggressors=new Map();initMap(zone);sock?.join(zone);p.x=pos?.x??WORLD.w/2;p.y=pos?.y??WORLD.h/2;p.dest=null;p.target=null;p.attack=false;setPetMode(p,'off');sock?.emit('v14:map',{map:zone});sock?.emit('v16:basePortals',{map:zone,portals:personalPortals(p)});}
- function groupView(id){const g=groups.status(id);return {group:g?{...g,members:g.members.map(id=>({id,name:players.get(id)?.name||'Piloto',map:players.get(id)?.zone}))}:null,invite:(()=>{const i=groups.pending(id);return i?{...i,name:players.get(i.from)?.name||'Piloto'}:null;})(),pilots:[...players.values()].filter(p=>p.id!==id&&!p.gate&&!p.deadUntil&&!p.gatePending&&p.hp>0&&!groups.status(p.id)).map(p=>({id:p.id,name:p.name}))};}
+ function changeMap(p,zone,pos){const sock=io.sockets.sockets.get(p.id);sock?.leave(zoneOf(p));p.zone=zone;p.petAggressors=new Map();initMap(zone);sock?.join(zone);p.x=pos?.x??WORLD.w/2;p.y=pos?.y??WORLD.h/2;p.dest=null;p.target=null;p.attack=false;setPetMode(p,'off');sock?.emit('v14:map',{map:zone});sock?.emit('v16:basePortals',{map:zone,portals:personalPortals(p)});const group=groups.status(p.id);if(group)notifyGroup(group.members);}
+ function groupEligible(p){return !!p&&!p.gate&&!p.gatePending&&!p.gateWaiting&&!p.deadUntil&&!p.ubaReturn&&!p.invasionReturn&&p.hp>0;}
+ function groupView(id){const g=groups.status(id);return {group:g?{...g,members:g.members.map(id=>({id,name:players.get(id)?.name||'Piloto',map:players.get(id)?.zone}))}:null,invite:(()=>{const i=groups.pending(id);return i?{...i,name:players.get(i.from)?.name||'Piloto'}:null;})(),pilots:[...players.values()].filter(p=>p.id!==id&&groupEligible(p)&&!groups.status(p.id)).map(p=>({id:p.id,name:p.name}))};}
  function notifyGroup(ids){for(const id of ids){const p=players.get(id);if(p){p.group=groups.status(id)?.id||null;io.to(id).emit('v15:group',groupView(id));}}}
  function canPvp(a,b){return !!b&&!abilityActive(b,'ultimate-cloak',Date.now())&&!b.cloaked&&eligible(a,{...b,safe:safeZone(b)})&&!safeZone(a)&&!(a.hadesPending||b.hadesPending);}
  function groupMates(p,radius){return (groups.status(p.id)?.members||[]).map(id=>players.get(id)).filter(q=>q&&q!==p&&!q.deadUntil&&!q.gatePending&&q.hp>0&&sameZone(q,p)&&distance(p,q)<=radius);}
@@ -812,14 +813,14 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   try{
    const action=data?.action,old=groups.status(p.id)?.members||[p.id];let affected=[...old,...groups.invitees(p.id)];
    if(action==='create')groups.create(p.id);
-   else if(action==='invite'){const target=players.get(data.target);if(!target||p.gate||target.gate)throw Error('Piloto no disponible');groups.invite(p.id,target.id);affected.push(target.id);io.to(target.id).emit('notice',p.name+' te invitó a un grupo');}
-   else if(action==='accept'){if(p.gate)throw Error('Sal de la puerta primero');const g=groups.accept(p.id,data.from);affected.push(...g.members);}
+   else if(action==='invite'){const target=players.get(data.target);if(!groupEligible(p)||!groupEligible(target))throw Error('Piloto no disponible');groups.invite(p.id,target.id);affected.push(target.id);io.to(target.id).emit('notice',p.name+' te invitó a un grupo');}
+   else if(action==='accept'){if(!groupEligible(p)||!groupEligible(players.get(data.from)))throw Error('Piloto no disponible; sal de la puerta o del combate especial');const g=groups.accept(p.id,data.from);affected.push(...g.members);}
    else if(action==='decline')groups.decline(p.id,data.from);
    else if(action==='transfer')groups.transfer(p.id,data.target);
    else if(action==='leave')groups.leave(p.id);
    else if(action==='kick'){groups.kick(p.id,data.target);affected.push(data.target);}
    else if(action!=='status')throw Error('Acción inválida');
-   notifyGroup(new Set(affected));ack({ok:true,...groupView(p.id)});
+   if(action!=='status')notifyGroup(new Set(affected));ack({ok:true,...groupView(p.id)});
   }catch(e){ack({ok:false,error:e.message});}
  });
  socket.on('v15:company',async(company,ack)=>{
