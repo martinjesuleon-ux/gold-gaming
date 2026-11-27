@@ -14,9 +14,13 @@ function createGame(now=Date.now(),w=12000,h=8000){
 function rewards(random=Math.random){return Object.fromEntries(Object.entries(REWARDS).map(([k,[a,b]])=>[k,a+Math.floor(clamp(random(),0,.999999999)*(b-a+1))]));}
 function advance(g,now=Date.now()){for(const [id,b] of g.boxes)if(now>=b.expires)g.boxes.delete(id);if(g.resetAt&&now>=g.resetAt){g.ball={x:g.w/2,y:g.h/2};g.resetAt=0;}}
 function intersection(a,b,c,r){const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?clamp(((c.x-a.x)*dx+(c.y-a.y)*dy)/l,0,1):0;return Math.hypot(a.x+dx*t-c.x,a.y+dy*t-c.y)<=r;}
-function shot(g,p,code,now=Date.now(),random=Math.random){
+function validateShot(g,p,code,now=Date.now()){
  advance(g,now);if(!g.active||g.resetAt||p?.zone!==RULES.map||![1,2,3].includes(p.company)||!Number.isFinite(p.x)||!Number.isFinite(p.y)||!Object.hasOwn(PUSH,code))throw fail('Disparo inválido');
  const d=dist(p,g.ball);if(d>RULES.range||d<1)throw fail('Fuera de alcance');
+ return d;
+}
+function shot(g,p,code,now=Date.now(),random=Math.random){
+ const d=validateShot(g,p,code,now);
  const prev={...g.ball},step=PUSH[code]*RULES.pushPx;g.ball={x:clamp(prev.x+(prev.x-p.x)/d*step,0,g.w),y:clamp(prev.y+(prev.y-p.y)/d*step,0,g.h)};
  const goal=g.goals.find(x=>intersection(prev,g.ball,x,RULES.goalRadius));if(!goal)return {goal:null,ball:g.ball};
  // An own goal is not credited; reset without spawning rewards.
@@ -24,5 +28,5 @@ function shot(g,p,code,now=Date.now(),random=Math.random){
  g.resetAt=now+RULES.resetMs;return {goal:goal.company,scorer:goal.company===p.company?null:p.company,ball:g.ball};
 }
 function view(g,now=Date.now()){advance(g,now);return {id:g.id,map:RULES.map,active:g.active,ball:g.resetAt?null:g.ball,goals:g.goals,scores:{...g.scores},resetAt:g.resetAt,boxes:[...g.boxes.values()].map(({id,x,y,expires})=>({id,x,y,expires}))};}
-function preview(){return {rules:RULES,push:PUSH,rewards:REWARDS,enabled:false};}
-module.exports={RULES,PUSH,REWARDS,createGame,advance,shot,rewards,view,preview};
+function preview(){return {rules:RULES,push:PUSH,rewards:REWARDS,enabled:process.env.GG_SPACEBALL_ENABLED==='1',claimsEnabled:false};}
+module.exports={RULES,PUSH,REWARDS,createGame,advance,shot,validateShot,rewards,view,preview};
