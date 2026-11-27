@@ -259,15 +259,29 @@ function cpuMenu(){
  if(state.items.some(i=>i.code==='GEMINEX-XI'&&i.category==='cpus')&&!p.cpus?.includes('GEMINEX-XI'))grid.append(el('p','GEMINEX-XI activo permanentemente: bodega ×2'));
  body.append(grid);
 }
-let rankBoard='rank';
+let rankBoard='rank',rankViewGeneration=0;
 async function rankingMenu(){
- body.replaceChildren(el('h2','Clasificación'),el('p','Cargando…'));
- try{const d=await api('rankings?board='+rankBoard);if(!modal?.open||mode!=='Clasificación')return;
+ const generation=++rankViewGeneration,board=rankBoard,active=()=>generation===rankViewGeneration&&modal?.open&&mode==='Clasificación'&&rankBoard===board;
  body.replaceChildren(el('h2','Clasificación galáctica'));
- const nav=el('div',null,'gg-mission-tabs');for(const [key,label] of [['rank','RANGO'],['xp','EXPERIENCIA'],['honor','HONOR'],['clan','CLAN'],['war','GUERRA']]){const b=button(label,()=>{rankBoard=key;rankingMenu();});b.setAttribute('aria-pressed',String(rankBoard===key));nav.append(b);}body.append(nav);
- if(d.own){const own=el('section',null,'gg-social-summary');own.append(el('h3','Tu rango'),el('strong',d.names[d.own.rank]),el('small','Máximo histórico: '+d.names[d.own.highest]),el('p',fmt(d.own.points)+' puntos'));own.prepend(window.ggRankVisual.icon(d.own.rank));body.append(own);const ladder=el('details');ladder.append(el('summary','Lista completa de rangos'),window.ggRankVisual.list(d.own.rank));body.append(ladder);}
- const search=el('input');search.type='search';search.placeholder='Buscar piloto o clan…';search.setAttribute('aria-label','Buscar clasificación');const wrap=el('div',null,'gg-ranking-wrap'),table=el('table',null,'gg-ranking-table');const head=el('tr');for(const h of ['#','Nombre','Rango / clan','Puntos'])head.append(el('th',h));const thead=el('thead'),tbody=el('tbody');thead.append(head);table.append(thead,tbody);function list(){tbody.replaceChildren();d.rows.forEach((r,i)=>{if(!((r.name||'')+' '+(r.tag||'')).toLowerCase().includes(search.value.toLowerCase()))return;const tr=el('tr');for(const [j,v] of [i+1,r.name,r.tag?'['+r.tag+']':d.names[r.rank],fmt(r.value)].entries()){const td=el('td',String(v??''));if(j===1&&r.rank)td.prepend(window.ggRankVisual.icon(r.rank));tr.append(td);}if(r.own)tr.dataset.own='true';if(i<3)tr.dataset.podium=String(i+1);tbody.append(tr);});if(!tbody.children.length){const tr=el('tr'),td=el('td','No hay resultados');td.colSpan=4;tr.append(td);tbody.append(tr);}}search.oninput=list;list();wrap.append(table);body.append(search,wrap,el('p','Máximo 100 posiciones. Rangos actualizados diariamente; distribución inferior provisional. Historial desde esta actualización.'));
- }catch(e){if(modal?.open&&mode==='Clasificación')body.replaceChildren(el('p',e.message));}
+ const nav=el('div',null,'gg-mission-tabs');for(const [key,label] of [['rank','RANGO'],['xp','EXPERIENCIA'],['honor','HONOR'],['clan','CLAN'],['war','GUERRA']]){const b=button(label,()=>{rankBoard=key;rankingMenu();});b.setAttribute('aria-pressed',String(board===key));nav.append(b);}body.append(nav);
+ const summary=el('div'),ladder=el('details'),search=el('input'),wrap=el('div',null,'gg-ranking-wrap'),table=el('table',null,'gg-ranking-table'),updated=el('small','Cargando…');
+ search.type='search';search.placeholder='Buscar piloto o clan…';search.setAttribute('aria-label','Buscar clasificación');
+ const head=el('tr');for(const h of ['#','Nombre','Rango / clan','Puntos'])head.append(el('th',h));const thead=el('thead'),tbody=el('tbody');thead.append(head);table.append(thead,tbody);wrap.append(table);
+ body.append(summary,ladder,search,wrap,updated,el('p','Máximo 100 posiciones. Actualización automática cada 3 segundos mientras esta ventana esté abierta. Distribución inferior provisional.'));
+ let d=null,lastOwn='',lastRows='';
+ function list(){if(!d)return;const scroll=wrap.scrollTop;tbody.replaceChildren();d.rows.forEach((r,i)=>{if(!((r.name||'')+' '+(r.tag||'')).toLowerCase().includes(search.value.toLowerCase()))return;const tr=el('tr');for(const [j,v] of [i+1,r.name,r.tag?'['+r.tag+']':d.names[r.rank],fmt(r.value)].entries()){const td=el('td',String(v??''));if(j===1&&r.rank)td.prepend(window.ggRankVisual.icon(r.rank));tr.append(td);}if(r.own)tr.dataset.own='true';if(i<3)tr.dataset.podium=String(i+1);tbody.append(tr);});if(!tbody.children.length){const tr=el('tr'),td=el('td','No hay resultados');td.colSpan=4;tr.append(td);tbody.append(tr);}wrap.scrollTop=scroll;}
+ search.oninput=list;
+ async function poll(){
+  if(!active()||!body.contains(table))return;
+  try{const next=await api('rankings?board='+encodeURIComponent(board));if(!active()||!body.contains(table))return;d=next;
+   const ownKey=JSON.stringify(d.own?[d.own.rank,d.own.highest,d.own.points]:null);
+   if(ownKey!==lastOwn){lastOwn=ownKey;summary.replaceChildren();ladder.replaceChildren();if(d.own){const own=el('section',null,'gg-social-summary');own.append(window.ggRankVisual.icon(d.own.rank),el('h3','Tu rango'),el('strong',d.names[d.own.rank]),el('small','Máximo histórico: '+d.names[d.own.highest]),el('p',fmt(d.own.points)+' puntos'));summary.append(own);ladder.append(el('summary','Lista completa de rangos'),window.ggRankVisual.list(d.own.rank));}ladder.hidden=!d.own;}
+   const rowsKey=JSON.stringify(d.rows);if(rowsKey!==lastRows){lastRows=rowsKey;list();}
+   updated.textContent='Actualizado '+new Date().toLocaleTimeString('es-CL');
+  }catch(e){if(active())updated.textContent='No se pudo actualizar · '+e.message;}
+  finally{if(active()&&body.contains(table))setTimeout(poll,3000);}
+ }
+ await poll();
 }
 let auctionBoard='weekly-cbs';
 async function auctionMenu(){
