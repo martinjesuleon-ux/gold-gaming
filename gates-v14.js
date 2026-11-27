@@ -15,7 +15,7 @@ const REWARDS={alpha:[20000,4000000,100000,20000,2,200,2,0],beta:[40000,8000000,
 function spinGate(rows,gate,roll,random,useMultiplier=false){
  if(!DEFS[gate]||gate==='kronos'||!Number.isInteger(roll)||roll<0||roll>=100)throw Error('Tirada inválida');
  const current=rows[gate],multiplier=current.multiplier;
- const candidates=(SHARED.includes(gate)?SHARED:[gate]).filter(k=>!rows[k].built&&rows[k].pieces.length<DEFS[k].pieces);
+ const candidates=(SHARED.includes(gate)?SHARED:[gate]).filter(k=>(!SHARED.includes(gate)||!rows[k].built)&&rows[k].pieces.length<DEFS[k].pieces);
  if(roll>=67&&roll<80&&candidates.length){
   const target=candidates[random(candidates.length)],pieces=new Set(rows[target].pieces),amount=useMultiplier?multiplier:1;
   let awarded=0;for(let i=1;i<=DEFS[target].pieces&&awarded<amount;i++)if(!pieces.has(i)){pieces.add(i);awarded++;}
