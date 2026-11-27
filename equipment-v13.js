@@ -46,13 +46,13 @@ function configurations(shipId,configs,owned){
   const droneItems=[],mounted=new Set(),ranked=[];
   const drones=Array.isArray(config)?[]:config.drones??[];
   requireRule(Array.isArray(drones)&&drones.length<=10,'VANT inválidos');
-  for(const d of drones){const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);ranked.push(drone);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1,droneDesign:drone.design||null});}
-  const base=stats(shipId,ids.map(take),droneItems),rank=rankBonus(ranked);return {...base,damage:Math.round(base.damage*rank.damage),shield:Math.round(base.shield*rank.shield),droneRank:rank.mean,droneCount:drones.length};
+  for(const d of drones){requireRule(d&&typeof d==='object'&&!Array.isArray(d)&&typeof d.id==='string'&&d.id.length>0,'VANT inválido');const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);ranked.push(drone);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1,droneDesign:drone.design||null});}
+  const shipItems=ids.map(take);requireRule(shipItems.every(i=>['lasers','engines','shields','launchers','cpus','robots'].includes(i.category)),'Equipo de nave incompatible');requireRule(droneItems.every(i=>['lasers','shields'].includes(i.category)),'Equipo VANT incompatible');const base=stats(shipId,shipItems,droneItems),rank=rankBonus(ranked);return {...base,damage:Math.round(base.damage*rank.damage),shield:Math.round(base.shield*rank.shield),droneRank:rank.mean,droneCount:drones.length};
  });
 }
 function hit(target,amount,absorption=.5){
  requireRule(Number.isFinite(amount)&&amount>=0&&Number.isFinite(target.hp)&&target.hp>=0&&Number.isFinite(target.shield)&&target.shield>=0&&Number.isFinite(absorption)&&absorption>=0&&absorption<=1,'Daño inválido');
- const absorbed=Math.min(target.shield,Math.round(amount*absorption));
+ const absorbed=Math.min(target.shield,amount,Math.round(amount*absorption));
  return {hp:Math.max(0,target.hp-(amount-absorbed)),shield:target.shield-absorbed};
 }
 function salvo(attacker,target,ammoId,stock,roll){
@@ -60,8 +60,13 @@ function salvo(attacker,target,ammoId,stock,roll){
  requireRule(ammo&&Number.isSafeInteger(stock)&&Number.isFinite(roll)&&roll>=0&&roll<1&&Number.isFinite(attacker.damage)&&attacker.damage>=0,'Ataque inválido');
  const cost=attacker.lasers;
  requireRule(Number.isSafeInteger(cost)&&cost>0&&stock>=cost,'Munición insuficiente');
- const amount=roll<Math.min(1,1-(1-ammo.miss*(attacker.aimBoost?.5:1))*(attacker.accuracyFactor??1))?0:Math.round(attacker.damage*ammo.multiplier);
+ const accuracy=attacker.accuracyFactor??1;
+ requireRule(Number.isFinite(accuracy)&&accuracy>=0,'Precisión inválida');
+ const miss=Math.max(0,Math.min(1,1-(1-ammo.miss*(attacker.aimBoost?.5:1))*accuracy));
+ const amount=roll<miss?0:Math.round(attacker.damage*ammo.multiplier);
+ requireRule(Number.isSafeInteger(amount)&&amount>=0,'Daño inválido');
  if(ammo.shieldOnly){
+  requireRule(Number.isFinite(target.hp)&&target.hp>=0&&Number.isFinite(target.shield)&&target.shield>=0,'Objetivo inválido');
   const drained=Math.min(target.shield,amount);
   return {stock:stock-cost,intervalMs:ammo.intervalMs,damage:0,drained,target:{hp:target.hp,shield:target.shield-drained},attackerShield:Math.min(attacker.maxShield,attacker.shield+drained)};
  }
