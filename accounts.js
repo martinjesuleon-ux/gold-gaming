@@ -4,7 +4,7 @@ const {promisify}=require('node:util');
 const scrypt=promisify(crypto.scrypt);
 const {Pool}=require('pg');
 const {createInventory}=require('./inventory-v13');const {createClans}=require('./clans-v15');const {createDaily}=require('./daily-v16');const {createMissions}=require('./missions-v16');const {createMinerals}=require('./minerals-v17');const {createUpgrades}=require('./upgrades-v18');const {createAssembly}=require('./assembly-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot}=require('./pilot-v19');
-const catalogV13=require('./data/catalog-v13.json');const {createBoosters}=require('./boosters-v112');const {createUBA}=require('./uba-v126');const invasion=require('./invasion-v134');const {createResults}=require('./invasion-results-v137');const {createAchievements}=require('./achievements-v125');const {createRankings}=require('./rankings-v123');const {createStations}=require('./stations-v113');const {createAuctions}=require('./auction-v114');
+const catalogV13=require('./data/catalog-v13.json');const {createBoosters}=require('./boosters-v112');const {createUBA}=require('./uba-v126');const invasion=require('./invasion-v134');const spaceball=require('./spaceball-v138');const {createResults}=require('./invasion-results-v137');const {createAchievements}=require('./achievements-v125');const {createRankings}=require('./rankings-v123');const {createStations}=require('./stations-v113');const {createAuctions}=require('./auction-v114');
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
 const nameOK=s=>typeof s==='string'&&/^[\p{L}\p{N} _-]{2,18}$/u.test(s);
 const emailOK=s=>typeof s==='string'&&s.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -32,6 +32,7 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  app.get('/api/v13/auction-cbs',routeV13(req=>auctions.status(req.pilotV13.id,req.query.board||'weekly-cbs')));
  app.get('/api/v13/stations',routeV13(req=>stations.status(req.pilotV13.id)));
  app.get('/api/v13/boosters',routeV13(req=>boosters.status(req.pilotV13.id)));
+ app.get('/api/v13/spaceball',routeV13(()=>spaceball.preview()));
  app.get('/api/v13/invasion',routeV13(async req=>{const p=(await pool.query('SELECT level FROM player_progress WHERE account_id=$1',[req.pilotV13.id])).rows[0];return {...invasion.preview(p?.level),...await invasionResults.status(req.pilotV13.id)};}));
  app.get('/api/v13/uba',routeV13(req=>uba.status(req.pilotV13.id)));
  app.get('/api/v13/achievements',routeV13(req=>achievements.status(req.pilotV13.id)));
