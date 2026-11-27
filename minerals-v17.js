@@ -7,9 +7,9 @@ const RAW=['prometium','endurium','terbium'];
 const RATES=[0,2200,7400,15045,24890,36781,50604,66274,83720,102884,123715,146171,170212,195805,222919,251526,281600,313118,346059,380401,416126];
 const MODULES=['solar','basic','storage','transport',...RAW,'xenomit','prometid','duranium','promerium','seprom'];
 const PRODUCTION=MODULES.slice(4);
-function supply(l){return 150+15*l+5*l*l;}
+function supply(l){return 150+10*l+10*l*l;}
 function demand(l){return l?15+l*l:0;}
-function capacity(l,code){const raw=Math.floor(RATES[l]*48);if(RAW.includes(code))return raw;if(['prometid','duranium'].includes(code))return Math.floor(raw/20);if(code==='seprom')return Math.floor(raw/2200);return Math.floor(raw/200);}
+function capacity(l,code){const raw=({1:105600,10:5938324,20:19974063})[l]??Math.floor(RATES[l]*48);if(RAW.includes(code))return raw;if(['prometid','duranium'].includes(code))return Math.floor(raw/20);if(code==='seprom')return Math.floor(raw/2200);return Math.floor(raw/200);}
 function saleValue(code,n,honor){if(!PRICES[code])throw Error('Mineral no vendible');return Math.floor(PRICES[code]*n*Math.max(0,Math.min(2,1+honor/500000)));}
 function cargoUsed(cargo){return MINERALS.filter(k=>k!=='xenomit').reduce((a,k)=>a+(Number(cargo[k])||0),0);}
 function initial(now){return {levels:Object.fromEntries(MODULES.map(k=>[k,1])),enabled:Object.fromEntries(PRODUCTION.map(k=>[k,RAW.includes(k)])),stock:{},fraction:{},at:now};}
@@ -78,4 +78,4 @@ function createMinerals(pool){
  });}
  return {ready,status,action};
 }
-module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,capacity,cargoUsed,saleValue,createMinerals};
+module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,supply,demand,capacity,cargoUsed,saleValue,createMinerals};
