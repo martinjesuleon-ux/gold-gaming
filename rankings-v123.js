@@ -26,7 +26,7 @@ function createRankings(pool){
  function refresh(){
   if(running)return running;
   if(lastLocalRefresh&&Date.now()-lastLocalRefresh<RANK_REFRESH_MS)return Promise.resolve(false);
-  running=recalculate().then(changed=>{lastLocalRefresh=Date.now();return changed;}).finally(()=>{running=null;});return running;
+  const started=Date.now();running=recalculate().then(changed=>{lastLocalRefresh=started;return changed;}).finally(()=>{running=null;});return running;
  }
  async function recalculate(){
  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413004)');
