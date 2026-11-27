@@ -202,7 +202,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   return {x:clamp(p.x+310*Math.cos(phase),25,WORLD.w-25),y:clamp(p.y+310*Math.sin(phase),25,WORLD.h-25)};
  }
  function shootPetGuard(p,now){
-  if(process.env.GG_PET_GUARD_ENABLED!=='1'||!accounts.petGuardShot||p.petShotPending||now<(p.petNextShot||0))return;
+  if(!require('./pet-test-kit-v175').guardEnabled(p.accountId)||!accounts.petGuardShot||p.petShotPending||now<(p.petNextShot||0))return;
   const n=npcs.get(p.target),generation=p.petGeneration;
   const valid=()=>!closing&&players.get(p.id)===p&&p.petGeneration===generation&&npcs.get(n?.id)===n&&guardTarget(p,n,Date.now(),600)&&!safeZone(p)&&!immune(n)&&!abilityActive(p,'ultimate-cloak',Date.now());
   if(!valid())return;
@@ -223,7 +223,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.writes=job;pending.add(job);
  }
  function hitGuardPet(n,p,now){
-  if(process.env.GG_PET_VITALS_ENABLED!=='1'||!accounts.petDamage||!npcRetaliatesAgainstPet(p,n,now)||immune(p))return false;
+  if(!require('./pet-test-kit-v175').vitalsEnabled(p.accountId)||!accounts.petDamage||!npcRetaliatesAgainstPet(p,n,now)||immune(p))return false;
   const amount=Math.max(0,Math.round(n.damage));
   if(!Number.isSafeInteger(amount)||!amount)return false;
   p.petDamagePending=true;
@@ -854,7 +854,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  if(p.petMode&&p.petMode!=='off'&&now>=p.petUntil&&!p.petPending){
   const mode=p.petMode,generation=p.petGeneration;p.petPending=true;
   const job=p.writes.catch(()=>{}).then(()=>accounts.petInterval(p.accountId,mode)).then(async result=>{
-   if(process.env.GG_PET_VITALS_ENABLED==='1'&&accounts.petVitals){
+   if(require('./pet-test-kit-v175').vitalsEnabled(p.accountId)&&accounts.petVitals){
     const v=await accounts.petVitals(p.accountId);
     if(v.destroyed)throw Object.assign(Error('El P.E.T. está destruido. Repáralo primero'),{status:400});
     if(players.get(p.id)!==p||p.petGeneration!==generation||p.deadUntil)return;
