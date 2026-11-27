@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 1,
+  "ships": [
+    {
+      "id": "phoenix",
+      "name": "Phoenix",
+      "hp": 104000,
+      "speed": 320,
+      "lasers": 1,
+      "generators": 1,
+      "extras": 1,
+      "cargo": 100,
+      "price": 0,
+      "currency": "credits"
+    },
+    {
+      "id": "yamato",
+      "name": "Yamato",
+      "hp": 108000,
+      "speed": 340,
+      "lasers": 2,
+      "generators": 2,
+      "extras": 1,
+      "cargo": 200,
+      "price": 16000,
+      "currency": "credits"
+    },
+    {
+      "id": "defcom",
+      "name": "Defcom",
+      "hp": 116000,
+      "speed": 280,
+      "lasers": 3,
+      "generators": 5,
+      "extras": 2,
+      "cargo": 300,
+      "price": 32000,
+      "currency": "credits"
+    },
+    {
+      "id": "liberator",
+      "name": "Liberator",
+      "hp": 116000,
+      "speed": 330,
+      "lasers": 4,
+      "generators": 6,
+      "extras": 2,
+      "cargo": 400,
+      "price": 40000,
+      "currency": "credits"
+    },
+    {
+      "id": "piranha",
+      "name": "Piranha",
+      "hp": 64000,
+      "speed": 360,
+      "lasers": 6,
+      "generators": 8,
+      "extras": 2,
+      "cargo": 600,
+      "price": 100000,
+      "currency": "credits"
+    },
+    {
+      "id": "nostromo",
+      "name": "Nostromo",
+      "hp": 220000,
+      "speed": 340,
+      "lasers": 7,
+      "generators": 10,
+      "extras": 3,
+      "cargo": 700,
+      "price": 195000,
+      "currency": "credits"
+    },
+    {
+      "id": "bigboy",
+      "name": "BigBoy",
+      "hp": 260000,
+      "speed": 260,
+      "lasers": 8,
+      "generators": 15,
+      "extras": 3,
+      "cargo": 700,
+      "price": 285000,
+      "currency": "credits"
+    },
+    {
+      "id": "leonov",
+      "name": "Leonov",
+      "hp": 164000,
+      "speed": 360,
+      "lasers": 6,
+      "generators": 6,
+      "extras": 1,
+      "cargo": 1000,
+      "price": 15000,
+      "currency": "uridium"
+    },
+    {
+      "id": "vengeance",
+      "name": "Vengeance",
+      "hp": 280000,
+      "speed": 380,
+      "lasers": 10,
+      "generators": 10,
+      "extras": 2,
+      "cargo": 1000,
+      "price": 30000,
+      "currency": "uridium"
+    },
+    {
+      "id": "goliath",
+      "name": "Goliath",
+      "hp": 356000,
+      "speed": 300,
+      "lasers": 15,
+      "generators": 15,
+      "extras": 3,
+      "cargo": 1500,
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "spearhead",
+      "name": "Spearhead",
+      "hp": 200000,
+      "speed": 370,
+      "lasers": 5,
+      "generators": 12,
+      "extras": 2,
+      "cargo": 500,
+      "price": 45000,
+      "currency": "uridium"
+    },
+    {
+      "id": "aegis",
+      "name": "Aegis",
+      "hp": 375000,
+      "speed": 300,
+      "lasers": 10,
+      "generators": 15,
+      "extras": 3,
+      "cargo": 2000,
+      "price": 250000,
+      "currency": "uridium"
+    },
+    {
+      "id": "citadel",
+      "name": "Citadel",
+      "hp": 650000,
+      "speed": 240,
+      "lasers": 7,
+      "generators": 20,
+      "extras": 5,
+      "cargo": 4000,
+      "price": 80000,
+      "currency": "uridium"
+    }
+  ],
+  "lasers": [
+    {
+      "id": "LF-1",
+      "damage": 40,
+      "price": 10000,
+      "currency": "credits"
+    },
+    {
+      "id": "MP-1",
+      "damage": 60,
+      "price": 40000,
+      "currency": "credits"
+    },
+    {
+      "id": "LF-2",
+      "damage": 100,
+      "price": 5000,
+      "currency": "uridium"
+    },
+    {
+      "id": "LF-3",
+      "damage": 150,
+      "price": 10000,
+      "currency": "uridium"
+    },
+    {
+      "id": "LF-4",
+      "damage": 200,
+      "price": null,
+      "currency": null
+    },
+    {
+      "id": "Odysseus",
+      "damage": 200,
+      "price": null,
+      "currency": null
+    },
+    {
+      "id": "LF-P01",
+      "damage": 280,
+      "price": null,
+      "currency": null
+    }
+  ],
+  "ammo": [
+    {
+      "id": "LCB-10",
+      "multiplier": 1,
+      "miss": 0.2,
+      "intervalMs": 1000,
+      "price": 10,
+      "currency": "credits",
+      "shieldOnly": false
+    },
+    {
+      "id": "MCB-25",
+      "multiplier": 2,
+      "miss": 0.2,
+      "intervalMs": 1000,
+      "price": 25,
+      "currency": "credits",
+      "shieldOnly": false
+    },
+    {
+      "id": "MCB-50",
+      "multiplier": 3,
+      "miss": 0.2,
+      "intervalMs": 1000,
+      "price": 1,
+      "currency": "uridium",
+      "shieldOnly": false
+    },
+    {
+      "id": "UCB-100",
+      "multiplier": 4,
+      "miss": 0.2,
+      "intervalMs": 1000,
+      "price": null,
+      "currency": null,
+      "shieldOnly": false
+    },
+    {
+      "id": "RSB-75",
+      "multiplier": 6,
+      "miss": 0.25,
+      "intervalMs": 3000,
+      "price": 5,
+      "currency": "uridium",
+      "shieldOnly": false
+    },
+    {
+      "id": "SAB-50",
+      "multiplier": 2,
+      "miss": 0.2,
+      "intervalMs": 1000,
+      "price": 1,
+      "currency": "uridium",
+      "shieldOnly": true
+    }
+  ],
+  "shields": [
+    {
+      "id": "SG3N-A01",
+      "shield": 1000,
+      "absorption": 0.4,
+      "price": 8000,
+      "currency": "credits"
+    },
+    {
+      "id": "SG3N-A02",
+      "shield": 2000,
+      "absorption": 0.5,
+      "price": 16000,
+      "currency": "credits"
+    },
+    {
+      "id": "SG3N-A03",
+      "shield": 5000,
+      "absorption": 0.6,
+      "price": 128000,
+      "currency": "credits"
+    },
+    {
+      "id": "SG3N-B02",
+      "shield": 10000,
+      "absorption": 0.7,
+      "price": 10000,
+      "currency": "uridium"
+    },
+    {
+      "id": "SG3N-B03",
+      "shield": 15000,
+      "absorption": 0.8,
+      "price": null,
+      "currency": null
+    }
+  ],
+  "engines": [
+    {
+      "id": "G3N-1010",
+      "speed": 2,
+      "price": 2000,
+      "currency": "credits"
+    },
+    {
+      "id": "G3N-2010",
+      "speed": 3,
+      "price": 4000,
+      "currency": "credits"
+    },
+    {
+      "id": "G3N-3210",
+      "speed": 4,
+      "price": 8000,
+      "currency": "credits"
+    },
+    {
+      "id": "G3N-3310",
+      "speed": 5,
+      "price": 16000,
+      "currency": "credits"
+    },
+    {
+      "id": "G3N-6900",
+      "speed": 7,
+      "price": 50000,
+      "currency": "credits"
+    },
+    {
+      "id": "G3N-7900",
+      "speed": 10,
+      "price": 2000,
+      "currency": "uridium"
+    }
+  ],
+  "drones": {
+    "normalLimit": 8,
+    "totalLimit": 10,
+    "flax": {
+      "slots": 1,
+      "currency": "credits",
+      "prices": [
+        100000,
+        200000,
+        400000,
+        800000,
+        1600000,
+        3200000,
+        6400000,
+        12800000
+      ]
+    },
+    "iris": {
+      "slots": 2,
+      "currency": "uridium",
+      "prices": [
+        15000,
+        24000,
+        42000,
+        60000,
+        84000,
+        96000,
+        126000,
+        200000
+      ]
+    },
+    "apis": {
+      "slots": 2,
+      "pieces": 45,
+      "assemblyPrice": 2500000
+    },
+    "zeus": {
+      "slots": 2,
+      "pieces": 45,
+      "assemblyPrice": 2500000
+    },
+    "rankThresholds": [
+      0,
+      100,
+      300,
+      700,
+      1500,
+      3100
+    ]
+  },
+  "pet": {
+    "price": 50000,
+    "currency": "uridium",
+    "hp": 50000,
+    "fuelCapacity": 50000,
+    "fuelUnitPrice": 0.25,
+    "levelMax": 20
+  },
+  "rules": {
+    "range": 600,
+    "configurations": 2,
+    "maxUpgrade": 16,
+    "laserUpgradePerStep": 0.004,
+    "shieldUpgradePerStep": 0.01
+  }
+}
