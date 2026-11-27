@@ -25,6 +25,15 @@ function eligibility(row,previous){
  if(row.max_uses!==null&&BigInt(row.used)>=BigInt(row.max_uses))throw fail('Código agotado',409);
  if(row.once_per_account&&previous)throw fail('Código ya canjeado',409);
 }
+function normalizeCreate(body,now=Date.now()){
+ rule(record(body),'Configuración inválida');
+ const code=normalizeCode(body.code),reward=normalizeReward(body.reward);
+ const maxUses=body.maxUses??null;rule(maxUses===null||integer(maxUses,1000000),'Límite inválido');
+ const once=body.oncePerAccount??true;rule(typeof once==='boolean','Restricción inválida');
+ let expiresAt=body.expiresAt??null;
+ if(expiresAt!==null){rule(typeof expiresAt==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(expiresAt),'Fecha inválida');const t=Date.parse(expiresAt);rule(Number.isFinite(t)&&t>now&&new Date(t).toISOString()===expiresAt,'Fecha inválida');}
+ return {code,reward,maxUses,oncePerAccount:once,expiresAt};
+}
 function createBank(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_bank_codes_v222(code text PRIMARY KEY,reward jsonb NOT NULL,enabled boolean NOT NULL DEFAULT true,expires_at timestamptz,max_uses bigint CHECK(max_uses>0),used bigint NOT NULL DEFAULT 0 CHECK(used>=0),once_per_account boolean NOT NULL DEFAULT true);
  CREATE TABLE IF NOT EXISTS gg_bank_redemptions_v222(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,code text NOT NULL REFERENCES gg_bank_codes_v222(code),reward jsonb NOT NULL,redeemed_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(account_id,request_id));
@@ -48,6 +57,9 @@ function createBank(pool){
    await c.query('COMMIT');return {code,reward,replayed:false};
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- return {ready,history,redeem};
+ async function listCodes(){return {entries:(await pool.query('SELECT code,reward,enabled,expires_at,max_uses,used,once_per_account FROM gg_bank_codes_v222 ORDER BY code LIMIT 200')).rows};}
+ async function createCode(body){const d=normalizeCreate(body);const r=await pool.query('INSERT INTO gg_bank_codes_v222(code,reward,expires_at,max_uses,once_per_account) VALUES($1,$2,$3,$4,$5) ON CONFLICT(code) DO NOTHING RETURNING code,reward,enabled,expires_at,max_uses,used,once_per_account',[d.code,JSON.stringify(d.reward),d.expiresAt,d.maxUses,d.oncePerAccount]);if(!r.rows.length)throw fail('Código existente',409);return r.rows[0];}
+ async function setEnabled(body){const code=normalizeCode(body?.code);rule(typeof body.enabled==='boolean','Estado inválido');const r=await pool.query('UPDATE gg_bank_codes_v222 SET enabled=$2 WHERE code=$1 RETURNING code,reward,enabled,expires_at,max_uses,used,once_per_account',[code,body.enabled]);if(!r.rows.length)throw fail('Código no disponible',404);return r.rows[0];}
+ return {ready,history,redeem,listCodes,createCode,setEnabled};
 }
-module.exports={normalizeCode,normalizeReward,eligibility,createBank};
+module.exports={normalizeCode,normalizeReward,eligibility,normalizeCreate,createBank};
