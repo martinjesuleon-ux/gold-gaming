@@ -28,5 +28,7 @@
   c.save();c.rotate(t/6000);for(let i=0;i<8;i++){c.save();c.rotate(i*Math.PI/4);path(c,[[37,-10],[46,-7],[49,0],[46,7],[37,10],[34,5],[34,-5]],gradient(c,10,[[0,'#8494a6'],[.5,'#17232f'],[1,'#384857']]),'#657b90',.7);path(c,[[39,-3],[44,-3],[46,0],[44,3],[39,3]],color);c.restore();}c.restore();
   c.strokeStyle=color;c.lineWidth=2.5;c.beginPath();c.arc(0,0,33,0,Math.PI*2);c.stroke();c.save();c.rotate(-t/1700);for(let i=0;i<3;i++){c.strokeStyle=color;c.lineWidth=3;c.beginPath();c.arc(0,0,27,i*2.094,i*2.094+1.15);c.stroke();}c.restore();
  }
- root.ggGraphics161={draw,portal};
+ const droneColors=Object.freeze({Havoc:'#ff3838',Hercules:'#398dff',Spartan:'#ff8a24'});
+ function droneColor(design){return Object.hasOwn(droneColors,design)?droneColors[design]:'#aab4bd';}
+ root.ggGraphics161={draw,portal,droneColor};
 })(window);
