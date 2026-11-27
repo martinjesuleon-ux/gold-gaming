@@ -218,7 +218,7 @@ function renderPetPanel(){
 }
 socket.on('v181:petTradeState',s=>{petTradeUntil=Number(s?.until||0);renderPetPanel();});
 setInterval(()=>{if(petTradeUntil||petKamiReadyAt||petComboReadyAt||petComboView||petLocatorView||petGuardView){const now=Date.now();if(petTradeUntil<=now)petTradeUntil=0;if(petKamiReadyAt<=now)petKamiReadyAt=0;if(petComboReadyAt<=now)petComboReadyAt=0;if(petComboView?.until<=now)petComboView=null;if(petLocatorView?.until<=now)petLocatorView=null;if(petGuardView?.until<=now)petGuardView=null;renderPetPanel();}},1000);
-socket.on('v185:petXp',()=>refreshPetProgress());socket.on('v184:petKami',s=>{petKamiPending=!!s?.pending;petKamiReadyAt=Number(s?.readyAt||0);renderPetPanel();});socket.on('v14:petCombo',s=>{petComboView=s;if(s?.readyAt)petComboReadyAt=Number(s.readyAt);renderPetPanel();});
+socket.on('v189:petCooldowns',s=>{petComboReadyAt=Number(s?.comboReadyAt||0);renderPetPanel();});socket.on('v185:petXp',()=>refreshPetProgress());socket.on('v184:petKami',s=>{petKamiPending=!!s?.pending;petKamiReadyAt=Number(s?.readyAt||0);renderPetPanel();});socket.on('v14:petCombo',s=>{petComboView=s;if(s?.readyAt)petComboReadyAt=Number(s.readyAt);renderPetPanel();});
 socket.on('v14:petLocator',s=>{petLocatorView=s?{...s,until:Date.now()+2500}:null;renderPetPanel();});
 socket.on('v14:petGuard',s=>{petGuardView=s?.target?{...s,until:Date.now()+(s.blocked?5500:2500)}:null;renderPetPanel();});
 socket.on('v14:petState',s=>{petMode=s.mode;if(!['guard','combo-guard'].includes(petMode))petGuardView=null;if(!['locate-resource','locate-enemy'].includes(petMode))petLocatorView=null;petFuel=s.fuel;petPending=!!s.pending;if(s.vitals?.enabled){petVitalsEpoch++;petVitals=s.vitals;}renderPetPanel();if(petOwned===true&&!petVitals)refreshPetVitals();});
