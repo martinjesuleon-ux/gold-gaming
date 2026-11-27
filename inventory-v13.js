@@ -60,7 +60,8 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- async function purchase(id,{category,code,quantity,requestId,targetLevel}){
+ async function purchase(id,{category,code,quantity,requestId,targetLevel,expectedAccountId}){
+  if(expectedAccountId!==undefined&&expectedAccountId!==id)throw fail('La compra pertenece a otra cuenta',409);
   if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Identificador de compra inválido');
   let q=category==='resources'?require('./resource-shop-v176').quoteResource(code,quantity):category==='drones'||category==='pet'||category==='fuel'||category==='petGear'?null:quote(category,code,quantity);
   return transaction(id,async(c,p)=>{
