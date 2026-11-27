@@ -73,6 +73,22 @@ function createInventory(pool){
    return {ok:true,stats:computed[active]};
   });
  }
- return {ready,purchase,snapshot,equip};
+ async function combatLoadout(id){
+  return transaction(id,async c=>{
+   const h=(await c.query('SELECT ship,configs,active FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];
+   if(!h)return null;
+   const items=(await c.query('SELECT instance_id AS "instanceId",code,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
+   const stats=configurations(h.ship,h.configs,new Map(items.map(i=>[i.instanceId,i])));
+   return {ship:h.ship,active:h.active,...stats[h.active]};
+  });
+ }
+ async function consumeAmmo(id,code,count){
+  if(!catalog.ammo.some(a=>a.id===code)||!Number.isSafeInteger(count)||count<1||count>100)throw fail('Munición inválida');
+  return transaction(id,async c=>{
+   const row=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,code,count])).rows[0];
+   return row?Number(row.quantity):null;
+  });
+ }
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo};
 }
 module.exports={createInventory};
