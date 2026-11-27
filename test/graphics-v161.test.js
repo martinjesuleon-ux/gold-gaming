@@ -164,6 +164,6 @@ test('metallic cockpit keeps twenty arsenal slots in two rows of ten',()=>{
  const hud=read('gold-hud.js'),css=read('gold-hud.css'),html=read('index.html');
  assert.match(hud,/for\(let i=1;i<20;i\+\+\)/);assert.match(hud,/slots.append\(fire\)/);
  assert.match(css,/grid-template-columns:repeat\(10,minmax\(0,1fr\)\)/);
- assert.match(html,/gg-radar-key/);assert.match(hud,/gold-hud.css\?v=1648/);
+ assert.match(html,/gg-radar-key/);assert.match(hud,/gold-hud.css\?v=1649/);
 });
 
