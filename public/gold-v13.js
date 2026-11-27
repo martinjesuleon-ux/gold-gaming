@@ -8,7 +8,7 @@ function button(text,fn){const b=el('button',text);b.type='button';b.onclick=fn;
 function balance(){return 'Créditos: '+fmt(state.balance.credits)+'   |   Uridium: '+fmt(state.balance.uridium);}
 async function refresh(){state=await api('inventory');window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:state}));}
 window.addEventListener('gg13:lootRefresh',()=>{if(!busy&&modal?.open&&mode==='Inventario')refresh().then(()=>{if(!busy&&modal?.open&&mode==='Inventario')render();}).catch(()=>{});});
-async function open(which,gate){if(busy)return;if(modal?.open){modal.close();if(!gate)return;}mode=which;if(gate)pendingGate=gate; if(!modal){modal=el('dialog',null,'gg13');const head=el('header');head.append(el('strong','GOLD GAMING • V1.14'),button('Cerrar',()=>{if(!busy)modal.close();}));body=el('main');status=el('footer');status.setAttribute('role','status');modal.append(head,body,status);modal.addEventListener('cancel',e=>{if(busy)e.preventDefault();});document.body.append(modal);}modal.showModal();body.replaceChildren(el('p','Cargando…'));status.textContent='';busy=true;try{cat=await api('catalog');await refresh();render();}catch(e){body.replaceChildren(el('p',e.message));}finally{busy=false;}}
+async function open(which,gate){if(busy)return;if(modal?.open){modal.close();if(!gate)return;}mode=which;if(gate)pendingGate=gate; if(!modal){modal=el('dialog',null,'gg13');const head=el('header');head.append(el('strong','GOLD GAMING • V1.15'),button('Cerrar',()=>{if(!busy)modal.close();}));body=el('main');status=el('footer');status.setAttribute('role','status');modal.append(head,body,status);modal.addEventListener('cancel',e=>{if(busy)e.preventDefault();});document.body.append(modal);}modal.showModal();body.replaceChildren(el('p','Cargando…'));status.textContent='';busy=true;try{cat=await api('catalog');await refresh();render();}catch(e){body.replaceChildren(el('p',e.message));}finally{busy=false;}}
 function render(){body.replaceChildren();status.textContent=balance();if(mode==='Subastas'){auctionMenu();return;}if(mode==='Estaciones CBS'){stationMenu();return;}if(mode==='Boosters'){boosterMenu();return;}if(mode==='Piloto'){pilotMenu();return;}if(mode==='VANT'){formationMenu();return;}if(mode==='Ensamblaje'){assemblyMenu();return;}if(mode==='Chip'){cpuMenu();return;}if(mode==='Minas'){mineMenu();return;}if(mode==='Habilidades'){abilityMenu();return;}if(mode==='Portales'){gates();return;}if(mode==='Facción'){faction();return;}if(mode==='Grupo'){socialGroup();return;}if(mode==='Clan'){clanMenu();return;}if(mode==='Misiones'){missionMenu();return;}if(mode==='Registro'){activityMenu();return;}if(mode==='Registro diario'){dailyMenu();return;}if(mode==='Potenciación'){upgradeMenu();return;}if(['Skylab','Refinación','Comercio'].includes(mode)){mineralMenu(mode);return;}if(mode==='Tienda')shop();else if(mode==='Hangar')hangar();else inventory();}
 function shop(){const layout=el('div',null,'gg13-shop'),nav=el('aside'),grid=el('section',null,'gg13-grid'),detail=el('section',null,'gg13-detail');layout.append(nav,grid,detail);body.append(layout);
 function list(category){grid.replaceChildren();detail.replaceChildren(el('p','Selecciona un objeto'));for(const p of (category==='petGear'?[{id:'G-AL1',name:'G-AL1 Auto-botín',price:state.items.some(i=>i.category==='pet')&&!state.items.some(i=>i.code==='G-AL1')?7500:null,currency:'uridium'},{id:'G-KK1',name:'G-KK1 Kamikaze · PRUEBA',damage:1000000,price:state.items.some(i=>i.category==='pet')&&!state.items.some(i=>i.code==='G-KK1')?7500:null,currency:'uridium'}]:category==='fuel'?[{id:'pet-fuel',name:'Combustible P.E.T.',price:state.items.some(i=>i.category==='pet')?.25:null,currency:'uridium'}]:category==='pet'?[{id:'pet-10',name:'P.E.T. 10',hp:50000,price:state.items.some(i=>i.category==='pet')?null:50000,currency:'uridium'}]:category==='drones'?['flax','iris'].map(id=>({id,name:id.toUpperCase(),...cat.drones[id],price:cat.drones[id].prices[state.items.filter(i=>i.category==='drones'&&['flax','iris'].includes(i.code)).length]??null})):cat[category])){const card=button('',()=>select(category,p));card.append(el('span',category==='ships'?'◇':category==='lasers'?'╱╱':category==='ammo'?'•••':category==='shields'?'◈':'»','gg13-symbol'),el('strong',p.name||p.id),el('small',p.price==null?'Recompensa':fmt(p.price)+' '+p.currency));grid.append(card);}}
@@ -87,13 +87,27 @@ async function auctionMenu(){
  }catch(e){if(modal?.open&&mode==='Subastas')body.replaceChildren(el('p',e.message));}
 }
 async function stationMenu(){
- body.replaceChildren(el('h2','Estaciones de batalla de clan'),el('p','Cargando…'));
+ body.replaceChildren(el('h2','Estaciones CBS'),el('p','Cargando…'));
  try{const d=await api('stations');if(!modal?.open||mode!=='Estaciones CBS')return;
-  body.replaceChildren(el('h2','Estaciones de batalla de clan'),el('p','20 asteroides en 19 mapas · 10 módulos por estación · construcción de 5 a 60 minutos.'));
+  body.replaceChildren(el('h2','Estaciones de batalla de clan'),el('p','20 asteroides · 10 módulos · construcción de 5 a 60 minutos.'));
+  if(!d.constructionEnabled)body.append(el('p','Vista previa: construcción bloqueada hasta completar el combate y la recuperación de módulos.'));
   const grid=el('div',null,'gg13-grid');
-  for(const a of d.asteroids){const tile=el('section',null,'gg13-tile');tile.append(el('h3',a.map+' · Asteroide '+a.id.split(':')[1]),el('p','X: '+a.x+' · Y: '+a.y),el('p',a.station?'Clan '+a.station.clan_tag+' · '+({building:'En construcción',vulnerable:'Vulnerable',ready:'Construida',protected:'Deflector activo'}[a.station.state]||a.station.state):'Libre'));
-   grid.append(tile);}
-  body.append(grid,el('p','Módulos disponibles: '+d.inventory.length+' · Construcción y combate aún en desarrollo.'));
+  const run=async data=>{if(busy)return;busy=true;try{await window.gg115CBS({...data,requestId:crypto.randomUUID()});await refresh();await stationMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}};
+  for(const a of d.asteroids){const tile=el('section',null,'gg13-tile'),local=window.gg115Map()===a.map;
+   tile.append(el('h3',a.map+' · Asteroide '+a.id.split(':')[1]),el('p','X: '+a.x+' · Y: '+a.y),el('p',a.station?'Clan '+a.station.clan_tag+' · '+({building:'En construcción',vulnerable:'Vulnerable',protected:'Deflector activo'}[a.station.state]||a.station.state):'Libre'));
+   if(local)tile.append(button('VOLAR AL ASTEROIDE',()=>{try{window.gg115Travel(a);modal.close();}catch(e){status.textContent=e.message;}}));
+   if(a.station?.deflector){tile.append(el('p','Carga: '+fmt(Math.floor(a.station.deflector.charge/1000))+' min'));}
+   if(a.station?.owned&&d.canManage&&a.station.state==='protected'){
+    const input=el('input');input.type='number';input.min='30';input.max='2880';input.value='30';const lower=button('BAJAR DEFLECTOR',()=>run({action:'lower',asteroidId:a.id,minutes:Number(input.value)}));lower.disabled=!d.constructionEnabled;tile.append(input,lower);
+   }
+   if(!a.station&&local&&d.canManage){
+    const details=el('details');details.append(el('summary','Configurar módulos'));const selects=[];
+    for(let slot=0;slot<10;slot++){const row=el('label','Ranura '+(slot+1)+' '),sel=el('select'),blank=el('option','Seleccionar módulo');blank.value='';sel.append(blank);
+     for(const item of d.inventory.filter(x=>slot===0?x.code==='HULM-1':slot===1?x.code==='DEFM-1':!['HULM-1','DEFM-1'].includes(x.code))){const o=el('option',item.code+' · Nv. '+item.level+' · '+item.instanceId.slice(0,8));o.value=item.instanceId;sel.append(o);}row.append(sel);details.append(row);selects.push(sel);}
+    const minutes=el('input');minutes.type='number';minutes.min='5';minutes.max='60';minutes.value='5';details.append(el('p','Minutos de construcción'),minutes);
+    const build=button('CONSTRUIR',()=>{const moduleIds=selects.map(x=>x.value);if(moduleIds.some(x=>!x)||new Set(moduleIds).size!==10){status.textContent='Selecciona diez módulos distintos';return;}run({action:'build',asteroidId:a.id,minutes:Number(minutes.value),moduleIds});});build.disabled=!d.constructionEnabled;details.append(build);tile.append(details);
+   }grid.append(tile);}
+  body.append(grid,el('p','Módulos disponibles: '+d.inventory.length));
  }catch(e){if(modal?.open&&mode==='Estaciones CBS')body.replaceChildren(el('p',e.message));}
 }
 async function boosterMenu(){
