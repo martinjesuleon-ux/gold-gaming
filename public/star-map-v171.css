@@ -27,3 +27,14 @@
 #gg171-selection,#gg171-status{overflow-wrap:anywhere;}
 #gg171-status{grid-column:1/-1;font-size:12px;color:#a9b9cb;min-height:1.2em;}
 @media(max-width:640px){#gg171-star-dialog footer{grid-template-columns:1fr;}#gg171-chart{min-height:180px;}#gg171-star-dialog h2{font-size:13px;}}
+
+#gg171-rewards{position:fixed;top:112px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:stretch;gap:5px;width:min(260px,42vw);max-height:55vh;overflow:hidden;z-index:9;pointer-events:none;font:12px system-ui,sans-serif;}
+.gg171-reward{display:grid;gap:3px;padding:8px 12px;color:#e9edf4;background:#0b121be8;border:1px solid #b89a556b;border-radius:4px;box-shadow:0 2px 10px #0008;animation:gg171-in .18s ease-out;}
+.gg171-reward>strong{text-align:center;color:#eacb80;font-size:12px;margin-bottom:3px;}
+.gg171-reward-line{display:flex;justify-content:space-between;gap:6px;font-variant-numeric:tabular-nums;}
+.gg171-reward-line b{color:#a4edb6;}
+.gg171-reward-line.negative b{color:#ff8f87;}
+.gg171-reward.leaving{opacity:0;transition:opacity .5s;}
+@keyframes gg171-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:700px){#gg171-rewards{top:245px;width:min(230px,72vw);}}
+@media(prefers-reduced-motion:reduce){.gg171-reward{animation:none}.gg171-reward.leaving{transition:none}}
