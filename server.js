@@ -888,6 +888,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
     if(accounts.achievementRead)for(const p of pilots){if(players.get(p.id)!==p)continue;try{const a=await accounts.achievementRead(p.accountId);if(players.get(p.id)===p){p.pilotTitle=a.title;p.gateRings=a.rings;}}catch(e){log('pilot achievements',e);}}
    }],
    ['clan taxes',async()=>{const charges=await accounts.collectClanTaxes();for(const charge of charges){const p=active.get(charge.id);if(p)io.to(p.id).emit('notice','Impuesto del clan: '+charge.credits+' créditos / '+charge.uridium+' uridium');}}],
+   ['Skylab deliveries',async()=>{if(!accounts.skylabDeliverDue||!active.size)return;const deliveries=await accounts.skylabDeliverDue([...active.keys()]);for(const {accountId,delivery} of deliveries){const p=active.get(accountId);if(!p||players.get(p.id)!==p)continue;io.to(p.id).emit('notice','Skylab: entrega completada · '+delivery.quantity+' '+delivery.code+(delivery.fee?' · refinado '+delivery.fee+' créditos':''));io.to(p.id).emit('v13:inventoryChanged');}}],
    ['progress sync',()=>Promise.allSettled([...players.values()].map(syncProgress))],
    ['clan tags',async()=>{const tags=await accounts.clanTags([...active.keys()]);const byId=new Map(tags.map(t=>[t.account_id,t.tag]));for(const p of players.values())p.clanTag=byId.get(p.accountId)||'';}]
   ],log);pending.add(job);job.catch(e=>console.error('Maintenance:',e.code||e.message)).finally(()=>{maintenanceBusy=false;pending.delete(job);});
