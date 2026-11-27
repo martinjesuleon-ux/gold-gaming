@@ -14,7 +14,7 @@ test('game loads graphics module before the render loop and keeps existing porta
  const html=read('index.html'),game=read('game.js');
  assert.ok(html.indexOf('src="graphics-v161.js')>=0);assert.ok(html.indexOf('src="graphics-v161.js')<html.indexOf('src="game.js'));
  assert.match(game,/function portalRange\(p\)\{return p.kind==='galaxy'\|\|p.kind==='exit'\?125:180;\}/);
- assert.match(game,/Math.min\(10,Math.max\(0,Number\(o.droneCount\)/);
+ assert.match(game,/formationOffsets\(o.droneCount,o.formation\)/);
 });
 
 test('each drone palette reflects its equipped design, not its rank or unknown values',()=>{
@@ -90,4 +90,18 @@ test('detailed NPC hulls render for every NPC in the catalog without invalid geo
  assert.equal(count,names.length);
  assert.equal(g.npcStyle('Boss Kristallin','boss').color,'#46a7ff');
  assert.notEqual(g.npcStyle('Boss Kristallin','boss').kind,g.npcStyle('Kristallin','drone').kind);
+});
+
+test('adaptive labels clear ten drone formations at all rotations, bars stay bounded',()=>{
+ const window={};vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161;
+ const visual=g.playerStyle('goliath',null,true);
+ for(const formation of ['normal','arrow','double-arrow','chevron','drill','ring','dome','heart','wave','bat','moth','star','diamond']){
+ const offsets=g.formationOffsets(10,formation);assert.equal(offsets.length,10);
+ for(const angle of [0,Math.PI/4,Math.PI/2,Math.PI,Math.PI*1.5]){
+ const layout=g.labelLayout({},visual,false,1,angle,offsets);
+ for(const {x,y} of offsets){const v=x*Math.sin(angle)+y*Math.cos(angle);assert.ok(layout.top>=-v+15);assert.ok(layout.name>=v+19);}
+ }}
+ assert.equal(g.formationOffsets(99,'normal').length,10);assert.equal(g.formationOffsets(-1,'normal').length,0);
+ assert.equal(g.safeRatio(1,0),0);assert.equal(g.safeRatio(12,10),1);assert.equal(g.safeRatio(-1,10),0);assert.equal(g.safeRatio(5,10),.5);
+ const boss=g.labelLayout({type:'boss'},g.npcStyle('Boss Kristallin','boss'),true,1.7);assert.ok(boss.top>75);
 });
