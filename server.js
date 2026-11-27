@@ -404,6 +404,16 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    ack({ok:true,stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo colocar la mina'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
  });
+ socket.on('v120:cbsSell',(data,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
+  if(process.env.GG_CBS_COMBAT_ENABLED!=='1'||!p||p.deadUntil||p.gate||p.gatePending||p.cbsBusy)return ack({ok:false,error:'Comercio CBS no disponible'});
+  p.cbsBusy=true;const zone=p.zone,request={action:'cbs-sell',code:data?.code,quantity:data?.quantity,asteroidId:data?.asteroidId,requestId:data?.requestId};
+  const job=p.writes.catch(()=>{}).then(()=>{
+   if(players.get(p.id)!==p||p.deadUntil||p.zone!==zone||p.gatePending||p.gate)throw Object.assign(Error('Comercio no disponible'),{status:400});
+   return accounts.stationMineralSale(p.accountId,request,{zone:p.zone,x:p.x,y:p.y});
+  });p.writes=job;pending.add(job);
+  job.then(r=>{p.credits=Number(r.balance.credits);ack({ok:true,...r});}).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo vender el mineral'})).finally(()=>{p.cbsBusy=false;pending.delete(job);});
+ });
  socket.on('v116:cbsShot',(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id),now=Date.now();
   if(process.env.GG_CBS_COMBAT_ENABLED!=='1')return ack({ok:false,error:'Combate CBS en pruebas'});

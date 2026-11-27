@@ -30,6 +30,15 @@ test('CBS construction consumes owned modules once and rejects occupied asteroid
   assert.equal((await service.status(ids[1])).inventory.length,10);
   // Isolated fixture: move construction clock into the vulnerable phase without waiting.
   const now=Date.now();await pool.query('UPDATE gg_cbs_stations SET ready_at=$2,down_until=$3 WHERE asteroid_id=$1',[asteroid.id,now-1000,now+1799000]);
+  const minerals=require('../minerals-v17').createMinerals(pool);
+  await pool.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'prometium',100)",[ids[0]]);
+  const sale={action:'cbs-sell',asteroidId:asteroid.id,code:'prometium',quantity:10,requestId:randomUUID()};
+  await assert.rejects(minerals.action(ids[0],sale),/Acércate/);
+  await assert.rejects(minerals.action(ids[0],sale,{...position,x:0}),/Acércate/);
+  await assert.rejects(minerals.action(ids[1],sale,position),/Estación de tu clan/);
+  const before=Number((await pool.query('SELECT credits FROM player_progress WHERE account_id=$1',[ids[0]])).rows[0].credits);
+  const sold=await minerals.action(ids[0],sale,position);assert.equal(Number(sold.balance.credits),before+110);assert.equal(sold.cargo.prometium,90);
+  assert.deepEqual(await minerals.action(ids[0],sale,position),sold);
   const shot={asteroidId:asteroid.id,slot:2,damage:20000000,requestId:randomUUID()};
   await assert.rejects(service.hit(ids[0],shot,position),/propia estación/);
   await assert.rejects(service.hit(ids[1],{...shot,slot:0},position),/protegido/);

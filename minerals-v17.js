@@ -1,5 +1,5 @@
 'use strict';
-const {bonus:pilotBonus}=require('./pilot-v19');
+const {bonus:pilotBonus}=require('./pilot-v19');const {ASTEROIDS}=require('./stations-v113');
 const catalog=require('./data/catalog-v13.json');const {penalty}=require('./pvp-v15');
 const MINERALS=['prometium','endurium','terbium','prometid','duranium','promerium','seprom','xenomit','paladio'];
 const PRICES={prometium:10,endurium:15,terbium:25,prometid:50,duranium:75,promerium:150,seprom:300};
@@ -44,7 +44,7 @@ function createMinerals(pool){
  ALTER TABLE gg_v15_honor_penalty ADD COLUMN IF NOT EXISTS theft_step integer NOT NULL DEFAULT 0;
  ALTER TABLE gg_v15_honor_penalty ADD COLUMN IF NOT EXISTS theft_last bigint NOT NULL DEFAULT 0;
  CREATE TABLE IF NOT EXISTS gg_v17_mineral_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
- async function tx(id,fn){const c=await pool.connect();try{await c.query('BEGIN');const p=(await c.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rows[0];if(!p)throw fail('Piloto no disponible');const result=await fn(c,p);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
+ async function tx(id,fn,cbs=false){const c=await pool.connect();try{await c.query('BEGIN');if(cbs)await c.query('SELECT pg_advisory_xact_lock(71413003)');const p=(await c.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rows[0];if(!p)throw fail('Piloto no disponible');const result=await fn(c,p);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
  async function labRow(c,id){const row=(await c.query('SELECT data FROM gg_v17_skylab WHERE account_id=$1',[id])).rows[0];return row?.data||initial(Date.now());}
  async function save(c,id,lab){await c.query('INSERT INTO gg_v17_skylab(account_id,data) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET data=EXCLUDED.data',[id,JSON.stringify(lab)]);}
  async function cargo(c,id){const rows=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1 AND code=ANY($2::text[])',[id,MINERALS])).rows;return Object.fromEntries(rows.map(x=>[x.code,Number(x.quantity)]));}
@@ -62,7 +62,8 @@ function createMinerals(pool){
   return {taken,balance:p,penalty:fine};
  });}
  async function status(id){return tx(id,async(c,p)=>view(c,id,p,await labRow(c,id)));}
- async function action(id,d){if(!d||typeof d.requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(d.requestId))throw fail('Solicitud inválida');
+ async function action(id,d,position=null){if(!d||typeof d.requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(d.requestId))throw fail('Solicitud inválida');
+ if(d.action==='cbs-sell'&&(!position||typeof position.zone!=='string'||!Number.isFinite(position.x)||!Number.isFinite(position.y)))throw fail('Acércate a tu estación CBS');
  return tx(id,async(c,p)=>{
  const prior=(await c.query('SELECT response FROM gg_v17_mineral_requests WHERE account_id=$1 AND request_id=$2',[id,d.requestId])).rows[0];if(prior)return prior.response;
  const lab=await labRow(c,id);tick(lab,Date.now());const b=await cargo(c,id),limit=await maxCargo(c,id),k=d.code,n=d.quantity;
@@ -78,6 +79,11 @@ function createMinerals(pool){
  if(Number(p.credits)<r.fee*n)throw fail('Créditos insuficientes');
  for(const [input,amount] of Object.entries(r.inputs))await take(c,id,input,n*amount);
  await add(c,id,k,n);await c.query('UPDATE player_progress SET credits=credits-$2 WHERE account_id=$1',[id,r.fee*n]);p.credits=String(Number(p.credits)-r.fee*n);
+ }else if(d.action==='cbs-sell'){
+ const a=ASTEROIDS.find(a=>a.id===d.asteroidId);if(!a||a.map!==position.zone||Math.hypot(position.x-a.x,position.y-a.y)>250)throw fail('Acércate a tu estación CBS');
+ const owned=await c.query('SELECT 1 FROM gg_cbs_stations s JOIN gg_v15_clan_members m ON m.clan_id=s.clan_id WHERE s.asteroid_id=$1 AND m.account_id=$2 AND s.ready_at<=$3 FOR SHARE OF s,m',[a.id,id,Date.now()]);if(!owned.rowCount)throw fail('Estación de tu clan no disponible');
+ if(!PRICES[k])throw fail('Mineral no vendible');
+ const payment=Math.floor(saleValue(k,n,Number(p.honor))*11/10);await take(c,id,k,n);await c.query('UPDATE player_progress SET credits=credits+$2 WHERE account_id=$1',[id,payment]);p.credits=String(Number(p.credits)+payment);
  }else if(d.action==='sell'){
  const location=(await c.query('SELECT map FROM gg_v14_location WHERE account_id=$1',[id])).rows[0]?.map||'1-1';
  if(!/^[123]-[18]$/.test(location)&&location!=='5-2')throw fail('El comercio está disponible en un mapa con base');
@@ -90,7 +96,7 @@ function createMinerals(pool){
  }else throw fail('Acción inválida');
  }
  const result=await view(c,id,p,lab);await c.query('INSERT INTO gg_v17_mineral_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,d.requestId,JSON.stringify(result)]);return result;
- });}
+ },d.action==='cbs-sell');}
  return {ready,status,action,collect};
 }
 module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,supply,demand,capacity,cargoUsed,saleValue,npcCargo,fitCargo,createMinerals};
