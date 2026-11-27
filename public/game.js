@@ -160,8 +160,7 @@ async function buyPetFuel(fill=false){
   const d=await r.json();
   if(!r.ok){if(r.status<500)petFuelBuyRequest=null;throw Error(d.error||'Compra no disponible');}
   petFuelBuyRequest=null;notice('Combustible comprado: '+fmt(d.quantity)+' unidades · '+fmt(d.total)+' U');
-  const inv=await fetch('/api/v13/inventory',{credentials:'same-origin',cache:'no-store'});
-  if(inv.ok){const snapshot=await inv.json();window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:snapshot}));}else window.dispatchEvent(new Event('gg13:refresh'));
+  if(window.gg13RefreshInventory)await window.gg13RefreshInventory();else window.dispatchEvent(new Event('gg13:refresh'));
  }catch(e){notice(e.message||'Compra no confirmada. Reintenta con el mismo botón.');}
  finally{petFuelBuyPending=false;renderPetPanel();}
 }
