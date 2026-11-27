@@ -42,5 +42,17 @@ test('weekly auction escrow, refund, exactly-once module delivery',{skip:process
   const hourBid={board:'hourly',code:'MCB-50',amount:500000,roundStart:hourly.roundStart,requestId:randomUUID()};await svc.bid(ids[1],hourBid);
   await pool.query("UPDATE gg_cbs_auction_lots SET round_start=$1 WHERE round_start=$2 AND code='MCB-50'",[hourly.roundStart-3600000,hourly.roundStart]);
   await svc.settle();await svc.settle();assert.equal(Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='MCB-50'",[ids[1]])).rows[0].quantity),1000);
+  await pool.query('UPDATE player_progress SET uridium=300000 WHERE account_id=$1',[ids[0]]);
+  const cpu={board:'hourly',action:'buy',code:'CLO4K-CPU',requestId:randomUUID()};
+  await svc.bid(ids[0],cpu);
+  assert.equal(Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='CLO4K-CPU-uses'",[ids[0]])).rows[0].quantity),10);
+  await assert.rejects(svc.bid(ids[0],{...cpu,requestId:randomUUID()}),/ya adquirido/);
+  const boost={board:'hourly',action:'buy',code:'DMG-B01',requestId:randomUUID()};
+  await svc.bid(ids[0],boost);await svc.bid(ids[0],boost);
+  assert.equal(Number((await pool.query("SELECT seconds FROM gg_v16_entitlements WHERE account_id=$1 AND code='DMG-B01'",[ids[0]])).rows[0].seconds),36000);
+  for(let i=0;i<8;i++)await svc.bid(ids[0],{board:'hourly',action:'buy',code:'iris',requestId:randomUUID()});
+  await assert.rejects(svc.bid(ids[0],{board:'hourly',action:'buy',code:'iris',requestId:randomUUID()}),/ocho VANT/);
+  assert.equal(Number((await pool.query("SELECT count(*) AS n FROM gg_v13_inventory WHERE account_id=$1 AND category='drones' AND code='iris'",[ids[0]])).rows[0].n),8);
+
  }finally{await pool.query('DELETE FROM gg_cbs_auction_lots WHERE bidder=ANY($1::uuid[])',[ids]);for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
