@@ -13,10 +13,19 @@ window.gg17Activity=()=>recentActivity.slice();
 function recordActivity(msg){recentActivity.unshift({at:Date.now(),message:String(msg)});if(recentActivity.length>100)recentActivity.pop();}
 socket.on('v17:gateReward',r=>{window.dispatchEvent(new CustomEvent('gg17:gateReward',{detail:r}));});
 function notice(msg){recordActivity(msg);$('notice').textContent=msg;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',3600);}
-function join(){if(!profile||!socket.connected)return;$('launch').disabled=true;socket.timeout(6000).emit('join',profile,(err,res)=>{$('launch').disabled=false;if(err||!res?.ok){$('joinStatus').textContent=err?'El servidor no respondió':res?.error||'Error';$('hangar').hidden=false;$('hud').hidden=true;joined=false;$('connection').hidden=true;profile=null;return;}meId=res.id;world=res.world;joined=true;socket.emit('v13:ammo',selectedAmmo);syncAmmoButtons();selected=null;attacking=false;dest=null;pendingSelectUntil=pendingAttackUntil=0;entities.clear();state={players:[],npcs:[],boxes:[]};$('hangar').hidden=true;$('hud').hidden=false;$('connection').hidden=true;$('pilotName').textContent=profile.name;});}
-socket.on('connect',()=>{$('joinStatus').textContent='Servidor conectado · listo para despegar';$('launch').disabled=false;if(profile)join();});
-socket.on('disconnect',()=>{$('joinStatus').textContent='Sin conexión · reconectando';$('launch').disabled=true;if(joined)$('connection').hidden=false;});
-socket.on('connect_error',()=>{$('joinStatus').textContent='Conectando… el hosting podría estar iniciando.';});
+let joinGeneration=0,joinPending=false,joinRetryTimer=null,joinAttempts=0,recovering=false;
+function retryJoinDelay(attempt,err,res){if(attempt>=6||(!err&&!['ACCOUNT_BUSY','DB_UNAVAILABLE','SERVER_UNAVAILABLE'].includes(res?.code)))return null;return Math.min(8000,500*2**attempt);}
+function clearJoinRetry(){if(joinRetryTimer!==null){clearTimeout(joinRetryTimer);joinRetryTimer=null;}}
+function connectionText(message){$('joinStatus').textContent=message;$('connection').textContent=message;}
+function join(){if(!profile||!socket.connected||joinPending)return;clearJoinRetry();joinPending=true;$('launch').disabled=true;const generation=joinGeneration;
+ socket.timeout(6000).emit('join',profile,(err,res)=>{if(generation!==joinGeneration||!profile||!socket.connected)return;joinPending=false;
+ if(err||!res?.ok){const retry=retryJoinDelay(joinAttempts,err,res);if(retry!==null){joinAttempts++;connectionText('Recuperando sesión · intento '+joinAttempts+'/6');joinRetryTimer=setTimeout(()=>{joinRetryTimer=null;join();},retry);return;}
+ connectionText(err?'El servidor no respondió. Inicia sesión nuevamente.':res?.error||'No se pudo recuperar la sesión');$('launch').disabled=false;$('hangar').hidden=false;$('hud').hidden=true;joined=false;$('connection').hidden=true;profile=null;recovering=false;return;}
+ joinAttempts=0;recovering=false;meId=res.id;world=res.world;joined=true;socket.emit('v13:ammo',selectedAmmo);syncAmmoButtons();selected=null;attacking=false;dest=null;pendingSelectUntil=pendingAttackUntil=0;entities.clear();state={players:[],npcs:[],boxes:[]};$('hangar').hidden=true;$('hud').hidden=false;$('connection').hidden=true;$('launch').disabled=false;$('pilotName').textContent=profile.name;window.dispatchEvent(new Event('gg13:lootRefresh'));});
+}
+socket.on('connect',()=>{joinGeneration++;joinPending=false;joinAttempts=0;clearJoinRetry();connectionText(profile?'Recuperando sesión…':'Servidor conectado · listo para despegar');$('launch').disabled=!!profile;if(profile)join();});
+socket.on('disconnect',()=>{joinGeneration++;joinPending=false;clearJoinRetry();recovering=recovering||joined;joined=false;selected=null;attacking=false;dest=null;pendingSelectUntil=pendingAttackUntil=0;dragging=false;entities.clear();state={players:[],npcs:[],boxes:[]};lasers=[];connectionText('Sin conexión · reconectando');$('launch').disabled=true;if(recovering)$('connection').hidden=false;});
+socket.on('connect_error',()=>{connectionText('Conectando… el hosting podría estar iniciando.');});
 $('launch').disabled=true;$('join').addEventListener('submit',e=>{e.preventDefault();profile={name:$('nick').value.trim(),ship:new FormData(e.currentTarget).get('ship')};join();});
 $('exit').onclick=()=>{profile=null;location.reload();};
 socket.on('notice',notice);
@@ -151,7 +160,7 @@ socket.on('state',s=>{if(!joined)return;if(state.map!==s.map){entities.clear();s
 function sendMove(x,y){if(!joined||!socket.connected)return;dest={x:clamp(x,25,world.w-25),y:clamp(y,25,world.h-25)};socket.emit('move',dest);}
 function intersectsViewport(q,r,w=W,h=H){return q.x+r>=0&&q.x-r<=w&&q.y+r>=0&&q.y-r<=h;}
 function screen(x,y){return {x:x-camera.x+W/2,y:y-camera.y+H/2};}
-function select(id){selected=id;attacking=false;pendingSelectUntil=pendingAttackUntil=performance.now()+250;socket.emit('select',id);}
+function select(id){if(!joined||!socket.connected)return;selected=id;attacking=false;pendingSelectUntil=pendingAttackUntil=performance.now()+250;socket.emit('select',id);}
 function toggleAttack(){if(!joined||!socket.connected)return;if(!selected){notice('Selecciona un enemigo primero');return;}attacking=!attacking;pendingAttackUntil=performance.now()+250;socket.emit('attack',attacking);}
 let jumpPending=false,personalGalaxy={map:null,portals:[]};
 function visiblePortals(){return [...(state.portals||[]),...(state.map&&state.map===personalGalaxy.map?personalGalaxy.portals:[]),...(gateState.inside&&gateState.phase==='between'&&gateState.exitPortal&&performance.now()<gateState.localUntil?[gateState.exitPortal]:[])];}
