@@ -33,7 +33,12 @@ test('CBS construction consumes owned modules once and rejects occupied asteroid
   const shot={asteroidId:asteroid.id,slot:2,damage:20000000,requestId:randomUUID()};
   await assert.rejects(service.hit(ids[0],shot,position),/propia estación/);
   await assert.rejects(service.hit(ids[1],{...shot,slot:0},position),/protegido/);
-  const firstHit=await service.hit(ids[1],shot,position);assert.equal(firstHit.uridium,700);assert.deepEqual(await service.hit(ids[1],shot,position),firstHit);
+  const weapon={code:'LCB-10',count:2};
+  await assert.rejects(service.hit(ids[1],shot,position,weapon),/Munición insuficiente/);
+  await pool.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'LCB-10',10)",[ids[1]]);
+  await assert.rejects(service.hit(ids[1],{...shot,slot:0},position,weapon),/protegido/);
+  const firstHit=await service.hit(ids[1],shot,position,weapon);assert.equal(firstHit.uridium,700);assert.equal(firstHit.stock,8);assert.deepEqual(await service.hit(ids[1],shot,position,weapon),firstHit);
+  assert.equal(Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='LCB-10'",[ids[1]])).rows[0].quantity),8);
   await assert.rejects(service.hit(ids[1],{...shot,requestId:randomUUID()},position),/destruido/);
   for(const slot of [1,3,4,5,6,7,8,9])await service.hit(ids[1],{...shot,slot,requestId:randomUUID()},position);
   const finalShot={...shot,slot:0,requestId:randomUUID()},final=await service.hit(ids[1],finalShot,position);assert.equal(final.stationDestroyed,true);assert.deepEqual(await service.hit(ids[1],finalShot,position),final);
