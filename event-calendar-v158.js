@@ -18,6 +18,7 @@ function createCalendar(pool){
  }
  async function add(body){const x=validate(body);return (await pool.query("INSERT INTO gg_event_calendar_v158(id,kind,start_at,payload) VALUES($1,$2,$3,$4) RETURNING *",[randomUUID(),x.kind,x.startAt,JSON.stringify(x.payload)])).rows[0];}
  async function list(){return (await pool.query("SELECT id,kind,start_at,payload,status,detail FROM gg_event_calendar_v158 ORDER BY (status='pending') DESC,start_at DESC LIMIT 100")).rows;}
+ async function upcoming(){return (await pool.query("SELECT kind,start_at,payload,status FROM gg_event_calendar_v158 WHERE status='pending' AND start_at>now() ORDER BY start_at LIMIT 12")).rows;}
  async function cancel(id){if(typeof id!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))throw Object.assign(Error('Identificador inválido'),{status:400});const r=await pool.query("UPDATE gg_event_calendar_v158 SET status='cancelled',updated_at=now() WHERE id=$1 AND status='pending' RETURNING id",[id]);if(!r.rowCount)throw Object.assign(Error('Programación no disponible'),{status:409});return {ok:true};}
  async function claim(){
   // Never replay a side effect after a crash. An ambiguous claim becomes failed for admin review.
@@ -26,7 +27,7 @@ function createCalendar(pool){
   return (await pool.query("WITH next AS (SELECT id FROM gg_event_calendar_v158 WHERE status='pending' AND start_at<=now() ORDER BY start_at,id LIMIT 10 FOR UPDATE SKIP LOCKED) UPDATE gg_event_calendar_v158 j SET status='claimed',updated_at=now() FROM next WHERE j.id=next.id RETURNING j.*")).rows;
  }
  async function finish(id,ok,detail){await pool.query("UPDATE gg_event_calendar_v158 SET status=$2,detail=$3,updated_at=now() WHERE id=$1 AND status='claimed'",[id,ok?'started':'failed',String(detail||'').slice(0,200)]);}
- return {ready,add,list,cancel,claim,finish};
+ return {ready,add,list,upcoming,cancel,claim,finish};
 }
 async function runDue(calendar,dispatch){for(const j of await calendar.claim()){let result;try{result=await dispatch(j.kind,j.payload);}catch{result={ok:false,detail:'No se pudo iniciar el evento'};}await calendar.finish(j.id,result.ok,result.detail);}}
 module.exports={KINDS,validate,createCalendar,runDue};
