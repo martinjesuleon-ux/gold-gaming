@@ -206,22 +206,37 @@ function createInventory(pool){
   if(!GATES.includes(gate)||!validRequest(requestId)||typeof useMultiplier!=='boolean'||typeof allowUridium!=='boolean')throw fail('Solicitud de puerta inválida');
   return transaction(id,async(c,p)=>{
    const old=(await c.query('SELECT response FROM gg_v14_gate_spins WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old)return old.response;
-   const rows=await gateRows(c,id),g=rows[gate],def=DEFS[gate];let reward=null;
+   const rows=await gateRows(c,id),g=rows[gate],def=DEFS[gate];let reward=null,batch=null;
    if(action==='spin'){
     if(gate==='kronos')throw fail('Kronos se construye completando otras puertas');
     const pool=SHARED.includes(gate)?SHARED:[gate];
     if(!pool.some(k=>(!SHARED.includes(gate)||!rows[k].built)&&rows[k].pieces.length<DEFS[k].pieces))throw fail('No hay puertas disponibles para recibir piezas');
-    const next=spinGate(rows,gate,crypto.randomInt(100),n=>crypto.randomInt(n),useMultiplier);
-    const energy=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='gate-energy' AND quantity>=1 RETURNING quantity",[id])).rows[0];
-    if(!energy){
-     if(!allowUridium||Number(p.uridium)<100)throw fail('Autoriza el gasto de 100 uridium o consigue energía');
-     await c.query('UPDATE player_progress SET uridium=uridium-100 WHERE account_id=$1',[id]);
+    const count=body.count===undefined?1:body.count;
+    if(![1,10,100,1000].includes(count))throw fail('Cantidad de tiradas inválida');
+    const availableEnergy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
+    const availableUri=Number(p.uridium);
+    const totals=new Map();let spins=0,energyUsed=0,uridiumUsed=0;
+    for(let i=0;i<count;i++){
+     if(!pool.some(k=>(!SHARED.includes(gate)||!rows[k].built)&&rows[k].pieces.length<DEFS[k].pieces))break;
+     if(energyUsed<availableEnergy)energyUsed++;
+     else if(allowUridium&&availableUri-uridiumUsed>=100)uridiumUsed+=100;
+     else break;
+     const next=spinGate(rows,gate,crypto.randomInt(100),n=>crypto.randomInt(n),useMultiplier);
+     if(next.target)rows[next.target].pieces=next.pieces;
+     for(const k of pool)rows[k].multiplier=next.multiplier;
+     reward=next.reward;spins++;
+     const key=reward.code+(reward.gate?':'+reward.gate:'');const old=totals.get(key);
+     totals.set(key,{...reward,quantity:(old?.quantity||0)+reward.quantity});
     }
-    if(next.target)rows[next.target].pieces=next.pieces;
-    for(const k of pool){rows[k].multiplier=next.multiplier;await saveGateRow(c,id,rows[k]);}
-    reward=next.reward;
-    if(reward.code==='nanohull-percent')await addStack(c,id,'nanohull-basis-points',250);
-    else if(reward.code!=='piece')await addStack(c,id,reward.code,reward.quantity);
+    if(!spins)throw fail('Autoriza el gasto de 100 uridium o consigue energía');
+    if(energyUsed)await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='gate-energy'",[id,energyUsed]);
+    if(uridiumUsed)await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1',[id,uridiumUsed]);
+    for(const k of pool)await saveGateRow(c,id,rows[k]);
+    for(const item of totals.values()){
+     if(item.code==='nanohull-percent')await addStack(c,id,'nanohull-basis-points',Math.round(item.quantity*100));
+     else if(item.code!=='piece')await addStack(c,id,item.code,item.quantity);
+    }
+    batch={requested:count,spins,energyUsed,uridiumUsed,rewards:[...totals.values()]};
    }else if(action==='build'){
     if(g.built||g.pieces.length!==def.pieces)throw fail('Completa las piezas antes de construir');
     g.built=true;g.pieces=[];g.wave=0;g.lives=3;g.kills=[];await saveGateRow(c,id,g);
@@ -230,7 +245,7 @@ function createInventory(pool){
     if(!allowUridium||Number(p.uridium)<25000)throw fail('Se necesitan 25.000 uridium y autorización');
     await c.query('UPDATE player_progress SET uridium=uridium-25000 WHERE account_id=$1',[id]);g.lives++;await saveGateRow(c,id,g);
    }else throw fail('Acción inválida');
-   const result={...await gateView(c,id,rows),reward};
+   const result={...await gateView(c,id,rows),reward,batch};
    await c.query('INSERT INTO gg_v14_gate_spins(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);return result;
   });
  }
