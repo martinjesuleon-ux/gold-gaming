@@ -27,9 +27,9 @@ function shares(contributors){
  for(const [key,pool] of Object.entries(REWARD)){let used=0;for(let i=0;i<rows.length;i++){out[i][key]=Number(BigInt(pool)*BigInt(rows[i][1])/total);used+=out[i][key];}for(let i=0;i<pool-used;i++)out[i][key]++;}
  return out;
 }
+function validateShot(e,p,id,now=Date.now()){advance(e,now);const u=id===e.boss.id?e.boss:e.icy.get(id);if(e.phase!=='active'||!u||!p||p.zone!==e.map||p.deadUntil||p.godMode||!p.accountId||!Number.isFinite(p.x)||!Number.isFinite(p.y)||dist(p,u)>RULES.range)throw fail('Ataque inválido');return u;}
 function hit(e,p,id,amount,now=Date.now()){
- advance(e,now);const boss=id===e.boss.id,u=boss?e.boss:e.icy.get(id);
- if(e.phase!=='active'||!u||!p||p.zone!==e.map||p.deadUntil||p.godMode||!p.accountId||!Number.isFinite(p.x)||!Number.isFinite(p.y)||dist(p,u)>RULES.range||!Number.isSafeInteger(amount)||amount<=0)throw fail('Ataque inválido');
+ const u=validateShot(e,p,id,now),boss=u===e.boss;if(!Number.isSafeInteger(amount)||amount<=0)throw fail('Ataque inválido');
  const absorb=Math.min(u.shield,Math.floor(amount*.8)),hull=Math.min(u.hp,amount-absorb);u.shield-=absorb;u.hp-=hull;const dealt=absorb+hull;
  if(boss)e.contributors.set(p.accountId,(e.contributors.get(p.accountId)||0)+dealt);
  if(u.hp>0)return {killed:false,dealt};
@@ -39,5 +39,5 @@ function hit(e,p,id,amount,now=Date.now()){
  return {killed:true,boss:true,dealt,shares:shares(e.contributors)};
 }
 function view(e){return {id:e.id,map:e.map,phase:e.phase,startAt:e.startAt,endAt:e.endAt,boss:e.phase==='countdown'||e.phase==='active'?e.boss:null,icy:[...e.icy.values()],boxes:[...e.boxes.values()].map(({id,x,y,expires})=>({id,x,y,expires}))};}
-function preview(){return {rules:RULES,reward:REWARD,boss:NPCS['Super Ice Meteoroid'],icy:NPCS.Icy,enabled:false};}
-module.exports={RULES,REWARD,createEvent,advance,hit,shares,view,preview};
+function preview(){return {rules:RULES,reward:REWARD,boss:NPCS['Super Ice Meteoroid'],icy:NPCS.Icy,enabled:process.env.GG_ICE_ENABLED==='1',rewardsEnabled:false};}
+module.exports={RULES,REWARD,createEvent,advance,hit,shares,view,preview,validateShot};
