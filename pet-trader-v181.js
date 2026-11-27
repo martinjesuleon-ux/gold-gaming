@@ -1,6 +1,6 @@
 'use strict';
 const {supportSpec}=require('./pet-support-gears-v178');
-function traderEnabled(id){const rules=require('./pet-test-kit-v175');return rules.gearEnabled(id)&&(rules.testKitEnabled(id)||process.env.GG_PET_TRADER_ENABLED==='1');}
+function traderEnabled(id){const rules=require('./pet-test-kit-v175');return rules.gearEnabled(id)&&rules.vitalsEnabled(id)&&(rules.testKitEnabled(id)||process.env.GG_PET_TRADER_ENABLED==='1');}
 function tradeQuote(level,cargo,honor,saleValue,now){
  const spec=supportSpec('G-TRA1',level);
  if(!spec||!cargo||!Number.isFinite(honor)||!Number.isSafeInteger(now)||now<0)throw Error('Datos de comercio inválidos');
