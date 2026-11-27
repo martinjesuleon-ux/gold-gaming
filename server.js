@@ -32,6 +32,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const a=alienStats[name];if(!a)return;
   const n=spawnNPC(false,point());Object.assign(n,{zone,name,type:name.startsWith('Boss')?'boss':'drone',hp:a.hp,maxHp:a.hp,shield:a.shield,maxShield:a.shield,speed:a.speed,damage:a.damage,reward:a.credits,xpReward:a.xp,uridiumReward:a.uridium,honorReward:a.honor,mapNPC:true});
  }
+ function spawnPirate(zone){const b=spawnBox(point(),zone);b.kind='pirate';return b;}
  function spawnPalladium(){const q={x:random(WORLD.w*.15,WORLD.w*.85),y:random(WORLD.h*.2,WORLD.h*.8)};const b=spawnBox(q,'5-3');b.kind='paladio';b.contents={paladio:1};return b;}
  function dropCargo(p,n){const b=spawnBox(n,n.zone);b.kind='cargo';b.owner=p.accountId;b.contents=npcCargo(n.name,n.reward);b.expires=Date.now()+90000;later(()=>boxes.delete(b.id),90000);}
  function spawnMine(zone,position,code,owner=null){const now=Date.now(),m={id:id(),zone,x:position.x,y:position.y,code,owner,armedAt:now+(owner?MR.armMs:0),expires:owner?now+MR.lifetimeMs:Infinity};mines.set(m.id,m);return m;}
@@ -55,7 +56,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function initMap(zone){if(initializedMaps.has(zone)||!MAPS[zone])return;initializedMaps.add(zone);
   for(let i=0;i<({'5-1':85,'5-3':66}[zone]||0);i++)spawnMine(zone,point(),'ACM-01');
   if(npcCount>0)for(const [name,count] of population(zone))for(let i=0;i<count;i++)spawnMapNPC(name,zone);
-  if(boxCount>0&&zone==='5-3')for(let i=0;i<50;i++)spawnPalladium();
+  if(boxCount>0&&MAPS[zone].pirate)for(let i=0;i<Math.min(12,boxCount);i++)spawnPirate(zone);
+   if(boxCount>0&&zone==='5-3')for(let i=0;i<50;i++)spawnPalladium();
   if(boxCount>0&&!['4-4','4-5'].includes(zone))for(let i=0;i<(/^4-[123]$/.test(zone)?100:boxCount);i++)spawnBox(point(),zone);
  }
  function changeMap(p,zone,pos){const sock=io.sockets.sockets.get(p.id);sock?.leave(zoneOf(p));p.zone=zone;initMap(zone);sock?.join(zone);p.x=pos?.x??WORLD.w/2;p.y=pos?.y??WORLD.h/2;p.dest=null;p.target=null;p.attack=false;setPetMode(p,'off');sock?.emit('v14:map',{map:zone});sock?.emit('v16:basePortals',{map:zone,portals:personalPortals(p)});}
@@ -212,7 +214,28 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    io.to(p.id).emit('notice',(byPet?'P.E.T.':'Carga')+': '+Object.entries(r.taken).map(([k,n])=>n+' '+k).join(' · ')+(r.penalty?' · Honor -'+r.penalty:''));
   });p.writes=job;pending.add(job);job.catch(()=>{p.cargoRetry=Date.now()+3000;io.to(p.id).emit('notice','No se pudo recoger la carga');}).finally(()=>{b.pending=false;p.cargoBusy=false;pending.delete(job);});
  }
+ function collectPirate(p,b){
+   if(closing||b.pending||boxes.get(b.id)!==b||p.pirateBusy||p.pirateRetry>Date.now())return;
+   b.pending=true;p.pirateBusy=true;
+   const retire=()=>{if(boxes.delete(b.id))later(()=>spawnPirate(b.zone),30000);};
+   const job=p.writes.catch(()=>{}).then(async()=>{
+    if(closing||players.get(p.id)!==p||p.deadUntil||p.gatePending||!sameZone(p,b)||distance(p,b)>=52)return;
+    const r=await accounts.awardBox(p.accountId,b.zone,p.level,'pirate');
+    retire();p.credits=Number(r.balance.credits);
+    io.to(p.id).emit('v13:ammoStock',{code:'green-key',quantity:r.keys});
+    io.to(p.id).emit('notice','Cofre pirata: +'+r.loot.quantity+' '+r.loot.code+' · Llaves restantes: '+r.keys);
+    io.to(p.id).emit('v14:loot',r);
+    await accounts.missionEvent(p.accountId,'box','pirate').catch(()=>{});
+   });
+   p.writes=job;pending.add(job);
+   job.catch(e=>{
+    p.pirateRetry=Date.now()+5000;
+    if(e.code==='NO_GREEN_KEY')io.to(p.id).emit('notice','Cofre pirata: necesitas una llave verde');
+    else{retire();io.to(p.id).emit('notice','No se pudo confirmar el cofre. Revisa tu inventario.');}
+   }).finally(()=>{b.pending=false;p.pirateBusy=false;pending.delete(job);});
+ }
  function collectBox(p,b,byPet=false){
+   if(b.kind==='pirate'){if(!byPet)collectPirate(p,b);return;}
   if(b.kind==='cargo'||b.kind==='paladio'){collectCargo(p,b,byPet);return;}
   if(!boxes.delete(b.id))return;
   if(closing)return;
@@ -509,7 +532,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  if(p.petUntil>now&&p.petMode!=='off'){
   let targetBox=null,best=700;
-  if(p.petMode==='loot'&&!p.gate)for(const b of boxes.values()){if(!sameZone(p,b)||b.pending||(b.kind==='cargo'&&b.owner!==p.accountId))continue;const d=distance(p,b);if(d<best){best=d;targetBox=b;}}
+  if(p.petMode==='loot'&&!p.gate)for(const b of boxes.values()){if(!sameZone(p,b)||b.pending||b.kind==='pirate'||(b.kind==='cargo'&&b.owner!==p.accountId))continue;const d=distance(p,b);if(d<best){best=d;targetBox=b;}}
   const goal=targetBox||{x:p.x-70*Math.cos(p.angle),y:p.y-70*Math.sin(p.angle)};
   if(Math.hypot(p.petX-p.x,p.petY-p.y)>850){p.petX=p.x;p.petY=p.y;}
   const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy);
