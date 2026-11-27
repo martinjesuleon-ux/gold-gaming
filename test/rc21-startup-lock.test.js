@@ -6,7 +6,7 @@ assert.ok(line);
 const script=new vm.Script(line+'\nready;');
 const install=env=>script.runInNewContext(env);
 
-const names=['eventCalendar','uridiumEvent','gateSpecialEvent','inventory','petProgression','drones','clans','daily','bank','missions','minerals','upgrades','assembly','formations','pilot','boosters','stations','auctions','rankings','achievements','uba','invasionResults','spaceballRewards','hitacLottery','hitacRewards','iceRewards','eventQueue'];
+const names=['eventCalendar','uridiumEvent','gateSpecialEvent','inventory','petProgression','drones','clans','daily','bank','respawn','missions','minerals','upgrades','assembly','formations','pilot','boosters','stations','auctions','rankings','achievements','uba','invasionResults','spaceballRewards','hitacLottery','hitacRewards','iceRewards','eventQueue'];
 function setup(failAt){
  const calls=[];
  const lock={query:async sql=>{calls.push(sql);if(failAt==='lock'&&sql.includes('pg_advisory_xact_lock'))throw Error('lock failed');},release:()=>calls.push('release')};
