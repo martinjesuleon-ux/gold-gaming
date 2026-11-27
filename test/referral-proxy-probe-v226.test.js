@@ -1,0 +1,11 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {createProxyProbe}=require('../referral-proxy-probe-v226');
+const nonce='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-8000-000000000002';
+const probe=createProxyProbe(Buffer.alloc(32,7)),req=(xff,cf='192.0.2.8',client='192.0.2.8')=>({headers:{'x-forwarded-for':xff,'cf-connecting-ip':cf,'true-client-ip':client},socket:{remoteAddress:'10.0.0.1'}});
+test('appended trusted candidate remains stable despite forged prefix',()=>{const a=probe(req('192.0.2.8'),nonce),b=probe(req('203.0.113.77, 198.51.100.42, 192.0.2.8'),nonce);assert.equal(a.candidate,b.candidate);assert.equal(b.chainLength,3);assert.equal(b.headersAgree,true);assert.equal(b.candidateIsPeer,false);});
+test('forged last entry is explicitly detected',()=>{const p=probe(req('192.0.2.8, 203.0.113.77'),nonce);assert.equal(p.candidateIsSentinel,true);assert.equal(p.headersAgree,false);});
+test('missing or malformed chain never provides candidate',()=>{for(const x of [null,'bad, 192.0.2.8','192.0.2.8,','x'.repeat(2049)]){const p=probe(req(x),nonce);assert.equal(p.validChain,false);assert.equal(p.candidate,null);}});
+test('identifiers isolate diagnostic tags',()=>{assert.notEqual(probe(req('192.0.2.8'),nonce).candidate,probe(req('192.0.2.8'),other).candidate);assert.throws(()=>probe(req('192.0.2.8'),'bad'));});
+test('raw addresses never returned and peer match is flagged',()=>{const p=probe(req('10.0.0.1'),nonce);assert.equal(p.candidateIsPeer,true);assert.equal(p.probeOnly,true);assert.equal(JSON.stringify(p).includes('10.0.0.1'),false);});
+test('missing edge corroboration is inconclusive',()=>{assert.equal(probe(req('192.0.2.8',undefined,''),nonce).headersAgree,false);});
