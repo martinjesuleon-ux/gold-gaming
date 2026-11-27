@@ -21,24 +21,26 @@ function multiply(amount,active){
 function createUridiumEvent(pool,kind='uridium'){
  if(!['uridium','gate-special'].includes(kind))throw Error('Evento desconocido');
  const table=kind==='uridium'?'gg_uridium_event_v157':'gg_gate_special_event_v157';
+ const query=(client,sql,args)=>client.query(sql.replaceAll('gg_uridium_event_v157',table),args);
  async function ready(){
-  await pool.query("CREATE TABLE IF NOT EXISTS gg_uridium_event_v157 (id integer PRIMARY KEY CHECK(id=1), mode text NOT NULL CHECK(mode IN ('off','on','scheduled')), start_at timestamptz, end_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(), CHECK ((mode='scheduled' AND start_at IS NOT NULL AND end_at IS NOT NULL AND end_at>start_at) OR (mode<>'scheduled' AND start_at IS NULL AND end_at IS NULL)))");
-  await pool.query("INSERT INTO gg_uridium_event_v157(id,mode) VALUES(1,'off') ON CONFLICT(id) DO NOTHING");
+  await query(pool,"CREATE TABLE IF NOT EXISTS gg_uridium_event_v157 (id integer PRIMARY KEY CHECK(id=1), mode text NOT NULL CHECK(mode IN ('off','on','scheduled')), start_at timestamptz, end_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(), CHECK ((mode='scheduled' AND start_at IS NOT NULL AND end_at IS NOT NULL AND end_at>start_at) OR (mode<>'scheduled' AND start_at IS NULL AND end_at IS NULL)))");
+  await query(pool,"INSERT INTO gg_uridium_event_v157(id,mode) VALUES(1,'off') ON CONFLICT(id) DO NOTHING");
  }
  function view(row){
   const s=row?{mode:row.mode,startAt:row.start_at?new Date(row.start_at).toISOString():null,endAt:row.end_at?new Date(row.end_at).toISOString():null}:OFF;
   return {...s,active:activeAt(s),multiplier:activeAt(s)?2:1};
  }
- async function status(){return view((await pool.query('SELECT mode,start_at,end_at FROM gg_uridium_event_v157 WHERE id=1')).rows[0]);}
+ async function status(){return view((await query(pool,'SELECT mode,start_at,end_at FROM gg_uridium_event_v157 WHERE id=1')).rows[0]);}
  async function change(body){
   const s=normalizeAction(body);
-  return view((await pool.query('UPDATE gg_uridium_event_v157 SET mode=$1,start_at=$2,end_at=$3,updated_at=now() WHERE id=1 RETURNING mode,start_at,end_at',[s.mode,s.startAt,s.endAt])).rows[0]);
+  return view((await query(pool,'UPDATE gg_uridium_event_v157 SET mode=$1,start_at=$2,end_at=$3,updated_at=now() WHERE id=1 RETURNING mode,start_at,end_at',[s.mode,s.startAt,s.endAt])).rows[0]);
  }
  async function factor(c){
   // Read once in the same transaction as the reward; database clock is authoritative.
-  const r=(await c.query("SELECT (mode='on' OR (mode='scheduled' AND statement_timestamp()>=start_at AND statement_timestamp()<end_at)) AS active FROM gg_uridium_event_v157 WHERE id=1")).rows[0];
+  const r=(await query(c,"SELECT (mode='on' OR (mode='scheduled' AND statement_timestamp()>=start_at AND statement_timestamp()<end_at)) AS active FROM gg_uridium_event_v157 WHERE id=1")).rows[0];
   return r?.active===true?2:1;
  }
  return {ready,status,change,factor};
 }
-module.exports={activeAt,normalizeAction,multiply,createUridiumEvent};
+const specialGateQuantity=(item,factor)=>item?(['LF-4','Havoc','Hercules','Spartan'].includes(item)?factor:1):0;
+module.exports={specialGateQuantity,activeAt,normalizeAction,multiply,createUridiumEvent};
