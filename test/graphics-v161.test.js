@@ -33,7 +33,7 @@ test('NPC variants use different species silhouettes and preserve blue Boss Kris
  assert.equal(style('Boss Kristallin','boss').color,'#46a7ff');
  assert.equal(style('Uber-Kristallon','boss').tier,'uber');
  assert.equal(style('Emperor-Kristallon','boss').tier,'emperor');
- assert.equal(style('Streuner','npc').kind,'scout-npc');
+ assert.equal(style('Streuner','npc').kind,'streuner-original');assert.equal(style('StreuneR','npc').kind,'scout-npc');assert.equal(style('Boss Streuner','boss').kind,'scout-npc');assert.equal(style('Uber-Streuner','boss').kind,'scout-npc');assert.equal(style('Interceptor','npc').kind,'scout-npc');
  assert.equal(style('Lordakia','npc').kind,'claw');
  assert.equal(style('Saimon','npc').kind,'wing');
  assert.equal(style('Mordon','npc').kind,'armor');
@@ -179,3 +179,5 @@ test('conservative laser culling retains crossing segments and viewport-edge eff
  assert.match(game,/radarIntervals=\{low:200,medium:150,high:100\}/);
  assert.match(game,/radarMap===state.map/);
 });
+
+test('normal Streuner receives an isolated cached metallic hull; other NPCs keep their original artwork',()=>{let canvases=0,draws=0;const grad={addColorStop(){}};const ctx=()=>new Proxy({createLinearGradient:()=>grad,createRadialGradient:()=>grad,drawImage(){draws++;}},{get:(t,k)=>k in t?t[k]:()=>{}});const window={document:{createElement(){canvases++;return {getContext:ctx};}}};vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161,style=g.npcStyle('Streuner','drone');assert.equal(style.kind,'streuner-original');assert.equal(style.color,'#b94c3e');g.draw(ctx(),style.kind,style.color);g.draw(ctx(),style.kind,style.color);assert.equal(canvases,1);assert.equal(draws,2);});
