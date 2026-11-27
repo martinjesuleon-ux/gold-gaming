@@ -52,7 +52,7 @@
   else if(n.startsWith('cubikon')){family='cube';color='#e8c36e';}
   else if(/^(vagrant|marauder|barracuda|saboteur|annihilator|deadly battleray)/.test(n)){family='pirate';color='#d88956';}
   if(tier==='uber')color='#b77bff';else if(tier==='emperor')color='#ffd077';else if(tier==='boss'&&family!=='crystal')color='#70a7ff';
-  return {kind:family,color,tier};
+  return {kind:family==='crystal'&&tier!=='normal'?'crystal-elite':family,color,tier};
  }
  function npcHull(c,kind,color){
   const armor=gradient(c,28,[[0,'#acb8c7'],[.26,'#344758'],[.5,'#0c1521'],[.7,'#536678'],[1,'#172233']]);
@@ -66,10 +66,24 @@
    cube:[[25,-25],[31,-16],[31,16],[25,25],[-25,25],[-31,16],[-31,-16],[-25,-25]],
    pirate:[[31,0],[13,-14],[-3,-18],[-14,-28],[-25,-19],[-17,-6],[-30,0],[-17,6],[-25,19],[-14,28],[-3,18],[13,14]]
   };
+  if(kind==='cube'){
+   // Isometric armored cube: distinct from the aircraft silhouettes.
+   const top=[[0,-32],[30,-16],[0,0],[-30,-16]],left=[[-30,-16],[0,0],[0,32],[-30,16]],right=[[0,0],[30,-16],[30,16],[0,32]];
+   path(c,top,'#617587','#9baebf',1);path(c,left,'#293849','#899daf',1);path(c,right,'#14212f','#899daf',1);
+   for(const side of [-1,1]){path(c,[[side*4,5],[side*25,-7],[side*25,13],[side*4,25]],'#384c60',color,.8);path(c,[[side*8,8],[side*21,1],[side*21,10],[side*8,17]],'#101c29',color,.6);}
+   path(c,[[0,-26],[19,-16],[0,-6],[-19,-16]],energy,color,1);path(c,[[0,-23],[12,-16],[0,-9],[-12,-16]],color,'#e6eef7',.7);
+   return;
+  }
+  const elite=kind==='crystal-elite';if(elite)kind='crystal';
   engine(c,-23,0,color);path(c,shapes[kind],armor,color,1.2);
+  if(elite)for(const side of [-1,1]){
+   path(c,[[19,9*side],[14,34*side],[3,41*side],[-2,24*side],[-16,37*side],[-28,28*side],[-22,13*side]],armor,color,1);
+   path(c,[[14,31*side],[3,39*side],[3,23*side]],energy,color,.8);
+   path(c,[[-16,34*side],[-26,27*side],[-19,18*side]],color,'#c1e5ff',.5);
+  }
   for(const side of [-1,1]){
    if(kind==='crystal'){path(c,[[12,8*side],[8,27*side],[-3,16*side],[-16,29*side],[-19,15*side],[-6,4*side]],energy,color,.9);path(c,[[8,24*side],[-2,15*side],[-6,9*side]],'#a8dfff',color,.5);}
-   else if(kind==='cube'){path(c,[[23,5*side],[23,21*side],[-23,21*side],[-23,5*side]],energy,color,.7);for(const x of [-15,0,15])path(c,[[x-4,10*side],[x+4,10*side],[x+4,15*side],[x-4,15*side]],color);}
+   else if(kind==='armor'){path(c,[[16,9*side],[5,22*side],[-14,23*side],[-23,13*side],[-11,7*side]],armor,color,.8);for(const x of [-14,-6,2])path(c,[[x,14*side],[x+3,14*side],[x+3,18*side],[x,18*side]],color);}
    else{path(c,[[13,6*side],[-2,15*side],[-15,20*side],[-18,10*side],[-8,4*side]],energy,color,.75);path(c,[[2,10*side],[-7,14*side],[-11,9*side]],color);}
   }
   path(c,[[23,0],[7,-8],[-10,-7],[-15,0],[-10,7],[7,8]],'#111c2a',color,1);path(c,[[15,0],[2,-4],[-6,0],[2,4]],color,'#e0f5ff',.65);
@@ -112,7 +126,7 @@
   path(c,[[nose*.4,0],[nose*.15,-body*.17],[nose*.02,0]],'#e7faff');
   if(style===3)for(const side of [-1,1])path(c,[[nose*.65,body*.4*side],[nose*.4,body*.78*side],[nose*.12,body*.64*side],[nose*.35,body*.3*side]],color);
  }
- function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key))return cache.get(key);const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind.startsWith('drone'))drone(c,color,kind);else if(kind==='pet')pet(c,color);else if(['crystal','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=64)cache.clear();cache.set(key,value);return value;}
+ function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key))return cache.get(key);const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind.startsWith('drone'))drone(c,color,kind);else if(kind==='pet')pet(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=64)cache.clear();cache.set(key,value);return value;}
  function draw(c,kind,color){const s=sprite(kind,color);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
  function portal(c,color,t){
   const center=c.createRadialGradient(0,0,3,0,0,46);center.addColorStop(0,'#03060d');center.addColorStop(.45,'#0b1625');center.addColorStop(.78,color+'24');center.addColorStop(1,color+'00');c.fillStyle=center;c.beginPath();c.arc(0,0,46,0,Math.PI*2);c.fill();
