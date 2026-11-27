@@ -39,7 +39,7 @@ test('GOLD auto quality is optional, persisted and separate from classic artwork
 test('PET escort keeps independent spacing and heading in both themes',()=>{
  const server=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
  const match=server.match(/function petFollowGoal\(p\)\{[\s\S]*?\n \}/);assert.ok(match);
- const goal=vm.runInNewContext('const WORLD={w:12000,h:8000},clamp=(n,a,b)=>Math.max(a,Math.min(b,n));'+match[0]+';petFollowGoal');
+ const goal=vm.runInNewContext('const WORLD={w:12000,h:8000};'+match[0]+';petFollowGoal',{petNavigation:require('../pet-navigation-v187')});
  const p={x:500,y:500,angle:0},g=goal(p);
  assert.ok(Math.hypot(g.x-p.x,g.y-p.y)>190);assert.equal(g.x,330);assert.equal(g.y,605);
  assert.equal(goal({x:25,y:25,angle:0}).x,25);
