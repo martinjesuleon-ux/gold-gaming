@@ -16,3 +16,11 @@ test('game loads graphics module before the render loop and keeps existing porta
  assert.match(game,/function portalRange\(p\)\{return p.kind==='galaxy'\|\|p.kind==='exit'\?125:180;\}/);
  assert.match(game,/Math.min\(10,Math.max\(0,Number\(o.droneCount\)/);
 });
+
+test('each drone palette reflects its equipped design, not its rank or unknown values',()=>{
+ const window={};vm.runInNewContext(read('graphics-v161.js'),{window});
+ const color=window.ggGraphics161.droneColor;
+ assert.equal(color(undefined),'#aab4bd');assert.equal(color(null),'#aab4bd');assert.equal(color('unknown'),'#aab4bd');
+ assert.equal(color('Havoc'),'#ff3838');assert.equal(color('Hercules'),'#398dff');assert.equal(color('Spartan'),'#ff8a24');
+ assert.match(read('game.js'),/droneColor\(drone\?\.design\)/);
+});
