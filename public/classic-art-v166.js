@@ -246,6 +246,15 @@
    }
    polygon(c,[[nose-2,0],[nose*.38,-5],[-12,-7],[rear+6,0],[-12,7],[nose*.38,5]],steel,'#87989c',.65);
    polygon(c,[[nose*.42,0],[nose*.08,-4],[-6,0],[nose*.08,4]],color,'#cee5e0',.55);
+   // Recessed cockpit, segmented armor and engine ports follow each hull's proportions.
+   const canopy=linear(c,-8,-5,nose*.42,5,[[0,'#08131e'],[.35,'#39596b'],[.58,'#b0d9e6'],[1,'#18303e']]);
+   polygon(c,[[nose*.40,0],[nose*.20,-3.5],[-4,-4],[-9,0],[-4,4],[nose*.20,3.5]],canopy,'#9bb6c3',.6);
+   for(const s of [-1,1]){
+    polygon(c,[[nose*.12,span*.64*s],[-5,span*.80*s],[rear*.62,span*.59*s],[-5,span*.69*s]],steel,'#80949d',.45);
+    for(let j=0;j<3;j++){const x=rear*.55+j*4;c.fillStyle='#101c25';c.fillRect(x,span*.27*s-1.4,2.7,2.8);c.fillStyle='#a5b8c1';c.fillRect(x,span*.27*s-1.4,2.7,.6);}
+    polygon(c,[[rear+4,5*s],[rear+10,5*s],[rear+10,9*s],[rear+4,8*s]],'#0c1822','#91a6b1',.55);
+    polygon(c,[[rear+5,6*s],[rear+8,6*s],[rear+8,8*s],[rear+5,7*s]],color,'#d5e7ed',.35);
+   }
    if(ship==='aegis')for(const s of [-1,1])polygon(c,[[-9,15*s],[2,15*s],[2,24*s],[-9,24*s]],'#b2d1cb',color,.7);
    if(ship==='citadel')for(const s of [-1,1])polygon(c,[[22,10*s],[31,15*s],[25,25*s],[15,22*s]],steel,'#92a5a7',.9);
   }
