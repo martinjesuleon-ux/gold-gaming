@@ -169,6 +169,7 @@ function drawPortals(t){
 let mineEffects=[];
 socket.on('v18:mineBlast',e=>mineEffects.push({...e,born:performance.now()}));
 let empPending=false;
+window.gg116Shot=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v116:cbsShot',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Disparo no disponible'));else{cbsPoll=0;resolve(r);}});});
 window.gg115CBS=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v115:cbs',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Estación no disponible'));else resolve(r);});});
 window.gg115Map=()=>state.map;
 window.gg115Travel=a=>{if(!joined||state.map!==a.map)throw Error('Viaja primero al sector '+a.map);sendMove(a.x,a.y);};
@@ -184,7 +185,7 @@ function drawCBS(t){
  for(const a of cbsMarkers){const p=screen(a.x,a.y);if(p.x<-120||p.x>W+120||p.y<-120||p.y>H+120)continue;
  ctx.save();ctx.translate(p.x,p.y);const color=a.station?.state==='protected'?'#8dc5ff':a.station?'#e7bb67':'#aaa5a0';
  ctx.fillStyle='#2c2930';ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();for(let i=0;i<10;i++){const ang=i*Math.PI/5,r=38+(i%2)*10;const x=Math.cos(ang)*r,y=Math.sin(ang)*r;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();ctx.stroke();
- if(a.station){for(let i=0;i<8;i++){const angle=i*Math.PI/4;ctx.fillStyle='#605542';ctx.strokeStyle=color;ctx.beginPath();ctx.arc(Math.cos(angle)*62,Math.sin(angle)*62,9,0,2*Math.PI);ctx.fill();ctx.stroke();}if(a.station.state==='protected'){ctx.strokeStyle='#70baff90';ctx.beginPath();ctx.arc(0,0,82,0,Math.PI*2);ctx.stroke();}}
+ if(a.station){for(let i=0;i<8;i++){const angle=i*Math.PI/4;ctx.fillStyle=a.station.modules?.find(m=>m.slot===i+2)?.hp===0?'#302323':'#605542';ctx.strokeStyle=color;ctx.beginPath();ctx.arc(Math.cos(angle)*62,Math.sin(angle)*62,9,0,2*Math.PI);ctx.fill();ctx.stroke();}if(a.station.state==='protected'){ctx.strokeStyle='#70baff90';ctx.beginPath();ctx.arc(0,0,82,0,Math.PI*2);ctx.stroke();}}
  ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillStyle=color;ctx.fillText(a.station?'CBS ['+a.station.clan_tag+']':'Asteroide libre',0,99);ctx.restore();}
 }
 window.gg114Bid=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v114:bid',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Puja no disponible'));else resolve(r);});});
