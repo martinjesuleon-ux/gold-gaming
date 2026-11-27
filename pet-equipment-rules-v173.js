@@ -28,7 +28,7 @@ function validatePetEquipment(state,equipment,owned,configs=[]){
    const spec=catalog[category].find(x=>x.id===item.code);
    if(item.category!==category||!spec)throw fail('Equipo incompatible con la ranura P.E.T.');
    const level=item.level??1;
-   if(!Number.isInteger(level)||level<1||level>16)throw fail('Mejora de equipo inválida');
+   if(!Number.isInteger(level)||level<1||(level>16&&!(level===20&&((category==='lasers'&&item.code==='LF-4')||(category==='shields'&&item.code==='SG3N-B03')))))throw fail('Mejora de equipo inválida');
    seen.add(id);out[type].push(id);
    if(type==='laser')damage+=spec.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep);
    else{shield+=spec.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep);absorption=Math.max(absorption,spec.absorption);}

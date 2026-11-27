@@ -1,0 +1,10 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {validatePetEquipment}=require('../pet-equipment-rules-v173'),{quote}=require('../equipment-upgrade-v19'),catalog=require('../data/catalog-v13.json');
+const state={experience:0,slots:{laser:1,generator:2,gear:1,protocol:2}},eq={laser:['laser'],generator:['shield']};
+const owned=new Map([['laser',{category:'lasers',code:'LF-4',level:20}],['shield',{category:'shields',code:'SG3N-B03',level:20}]]);
+test('reward equipment level 20 mounts on PET and receives full damage and shield bonuses',()=>{const r=validatePetEquipment(state,eq,owned);assert.deepEqual(r.equipment,eq);assert.equal(r.stats.damage,Math.round(catalog.lasers.find(x=>x.id==='LF-4').damage*(1+19*catalog.rules.laserUpgradePerStep)));assert.equal(r.stats.shield,Math.round(catalog.shields.find(x=>x.id==='SG3N-B03').shield*(1+19*catalog.rules.shieldUpgradePerStep)));});
+test('level 20 cannot be assigned to arbitrary laser or shield',()=>{for(const [id,code] of [['laser','LF-3'],['shield','SG3N-B02']]){const copy=new Map(owned);copy.set(id,{...copy.get(id),code});assert.throws(()=>validatePetEquipment(state,eq,copy),/Mejora de equipo inválida/);}});
+test('levels 17,18,19,21 remain invalid',()=>{for(const level of [17,18,19,21]){const copy=new Map(owned);copy.set('laser',{...copy.get('laser'),level});assert.throws(()=>validatePetEquipment(state,eq,copy),/Mejora de equipo inválida/);}});
+test('special level 20 cannot be upgraded or downgraded by upgrade shop',()=>{for(const item of owned.values())for(const n of [-4,0,1,4])assert.throws(()=>quote(item,n),/Mejora inválida/);});
+test('ship and drone reservation still prevents double equipment',()=>{assert.throws(()=>validatePetEquipment(state,eq,owned,[{ship:['laser'],drones:[]}]),/duplicado/);assert.throws(()=>validatePetEquipment(state,eq,owned,[{ship:[],drones:[{items:['shield']}]}]),/duplicado/);});
