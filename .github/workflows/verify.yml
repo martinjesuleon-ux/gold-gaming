@@ -35,3 +35,5 @@ jobs:
       - run: PGPASSWORD=gg_ci_only psql -h localhost -U gg_test -d gg_test -v ON_ERROR_STOP=1 -f test/ci-schema.sql
       - run: node --test test/pirate-v110.test.js
       - run: npm test
+      - name: Verify 40 authenticated pilots on disposable PostgreSQL
+        run: node test/rc21-load-ci.js
