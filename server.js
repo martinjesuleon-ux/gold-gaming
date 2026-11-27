@@ -234,6 +234,53 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  app.get('/api/admin/players',admin,(req,res)=>res.json({players:[...players.values()].map(publicPlayer),npcs:npcs.size,boxes:boxes.size}));
  app.post('/api/admin/credits',admin,async(req,res)=>{const{playerId,amount}=req.body||{},p=players.get(playerId);if(!p||!Number.isSafeInteger(amount)||amount<1||amount>1000000||!Number.isSafeInteger(p.credits+amount))return res.status(400).json({error:'Jugador o monto inválido'});try{const credits=await award(p,amount,0,`Administración: +${amount} créditos`);res.json({ok:true,credits});}catch{res.status(503).json({error:'No se pudo confirmar el guardado'});}});
  app.post('/api/admin/boss',admin,(req,res)=>{if(npcs.size>=100||[...npcs.values()].filter(n=>n.type==='boss').length>=5)return res.status(409).json({error:'Límite de enemigos o jefes alcanzado'});const p=players.get(req.body?.playerId),pos=p?{x:clamp(p.x+650,80,WORLD.w-80),y:p.y}:{x:WORLD.w/2+700,y:WORLD.h/2};const n=spawnNPC(true,pos);n.zone=p&&!p.gate?p.zone:'1-1';initMap(n.zone);io.to(n.zone).emit('notice','¡Un TITAN ha aparecido en el sector!');res.json({ok:true,id:n.id,x:n.x,y:n.y});});app.use(express.static(path.join(__dirname,'public')));
+ function shootOrdnance(p,code,ack){
+  const special=catalogV13.specialRockets.find(r=>r.id===code),shell=catalogV13.launcherAmmo.find(r=>r.id===code);
+  if(!p||(!special&&!shell)||p.deadUntil||p.gatePending||p.gateWaiting||p.shotPending||p.upgradePending||p.reloadPending)return ack({ok:false,error:'Arma no disponible ahora'});
+  const n=npcs.get(p.target)||players.get(p.target),pvp=!!n&&players.get(n.id)===n;
+  if(!n||n.gateShielded||!sameZone(p,n)||distance(p,n)>600||(pvp&&!canPvp(p,n)))return ack({ok:false,error:'Selecciona un objetivo válido a menos de 600 unidades'});
+  const launcher=catalogV13.launchers.find(l=>l.id===p.launcher);
+  if(shell&&!launcher)return ack({ok:false,error:'Equipa un Hellstorm en el hangar'});
+  const key=special?code:'hellstorm',cooldown=special?special.cooldown:5000,count=special?1:launcher.capacity,zone=p.zone;
+  p.ordnanceUntil??={};
+  if(Date.now()<(p.ordnanceUntil[key]||0))return ack({ok:false,error:'Arma en recarga'});
+  p.upgradePending=true;
+  const job=p.writes.catch(()=>{}).then(()=>accounts.consumeOrdnance(p.accountId,code,count));p.writes=job;pending.add(job);
+  job.then(stock=>{
+   if(stock===null)return ack({ok:false,error:'Necesitas '+count+' '+code});
+   p.ordnanceUntil[key]=Date.now()+cooldown;breakCloak(p);
+   io.to(p.id).emit('v13:ammoStock',{code,quantity:stock});
+   if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?players.get(n.id)!==n||!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock,cooldown,count,key});
+   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
+   let amount=0;
+   if(!immune(n)){
+    if(special){const field={accuracy:'accuracyUntil',slow:'slowUntil',freeze:'freezeUntil'}[special.effect];n[field]=Math.max(n[field]||0,Date.now()+special.duration);if(!pvp)n.target=p.id;}
+    else{const scale=(pvp?damageFactor(p.honor):1)*markFactor(p,n,Date.now());const drain=Math.min(n.shield,Math.round((shell.drain||0)*count*scale));n.shield-=drain;p.shield=Math.min(p.maxShield,p.shield+drain);amount=Math.round((shell.damage||0)*count*scale);if(amount)damage(n,amount);if(drain||amount)finishCombat(p,n,pvp);}
+   }
+   ack({ok:true,damage:amount,stock,cooldown,count,key,effect:immune(n)?null:special?.effect||null});
+  }).catch(()=>ack({ok:false,error:'No se pudo confirmar el disparo'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
+ }
+ function shootRocket(p,code,ack){
+  const rocket=catalogV13.rockets.find(r=>r.id===code);
+  if(!p||!rocket||p.deadUntil||p.gatePending||p.gateWaiting||p.shotPending||p.upgradePending)return ack({ok:false,error:'Cohete no disponible ahora'});
+  const n=npcs.get(p.target)||players.get(p.target),pvp=!!n&&players.get(n.id)===n;
+  if(!n||n.gateShielded||!sameZone(p,n)||distance(p,n)>600||(pvp&&!canPvp(p,n)))return ack({ok:false,error:'Selecciona un objetivo válido a menos de 600 unidades'});
+  if(Date.now()<(p.rocketUntil||0))return ack({ok:false,error:'Cohete en recarga'});
+  const zone=p.zone;p.upgradePending=true;
+  const job=p.writes.catch(()=>{}).then(()=>accounts.upgradedShot(p.accountId,code,1,'rocket',{autoMineral:p.cpus?.includes('NC-AWB')}));
+  p.writes=job;pending.add(job);
+  job.then(shot=>{
+   if(!shot)return ack({ok:false,error:'No tienes '+code});
+   const cd=p.cpus?.includes('R0K-T01')?1000:2000;p.rocketUntil=Date.now()+cd;breakCloak(p);applyMineralStats(p,shot.upgrades);for(const [code,quantity] of Object.entries(shot.resources||{}))io.to(p.id).emit('v13:ammoStock',{code,quantity});
+   io.to(p.id).emit('v13:ammoStock',{code,quantity:shot.stock});
+   if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock:shot.stock,cooldown:cd});
+   const amount=Math.random()<1-(1-rocket.miss)*(p.accuracyUntil>Date.now()?.6:1)?0:Math.round(rocket.damage*shot.factor*markFactor(p,n,Date.now())*(pvp?damageFactor(p.honor):1));
+   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
+   if(amount&&!immune(n)){damage(n,amount);finishCombat(p,n,pvp);}
+   ack({ok:true,damage:immune(n)?0:amount,stock:shot.stock,cooldown:cd});
+  }).catch(()=>ack({ok:false,error:'No se pudo confirmar el disparo'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
+ }
+
  io.on('connection',socket=>{let budget=50,windowStart=Date.now(),joining=false;const allowed=()=>{const now=Date.now();if(now-windowStart>=1000){budget=50;windowStart=now;}return --budget>=0;};
  socket.on('join',async(data,ack)=>{if(typeof ack!=='function'||!allowed()||joining||closing)return;if(players.has(socket.id))return ack({ok:true,id:socket.id,world:WORLD});if(players.size>=40)return ack({ok:false,error:'Servidor lleno (40 pilotos)'});joining=true;try{const a=await accounts.authenticate(socket.handshake.headers);if(!socket.connected)return;if(!a)return ack({ok:false,error:'Inicia sesión o regístrate primero'});if(active.has(a.id))return ack({ok:false,error:'Cuenta ya conectada o guardando. Reintenta.'});if(players.size>=40||closing)return ack({ok:false,error:'Servidor no disponible'});const ship=Object.hasOwn(SHIPS,a.ship)?a.ship:'scout',s=SHIPS[ship];const p={id:socket.id,accountId:a.id,name:a.username,godAllowed:a.id==='14733365-e185-4d81-90a8-b3c95baf0af7',godMode:false,ship,maxHp:s.hp,maxShield:s.shield,speed:s.speed,damage:s.damage,credits:Number(a.credits),experience:Number(a.experience),level:Number(a.level),honor:Number(a.honor),lastShot:0,writes:Promise.resolve()};const loadout=await accounts.combatLoadout?.(a.id);p.mineralUpgrades=(await accounts.upgradeStatus(a.id)).upgrades;p.baseSpeed=s.speed;p.baseShield=s.shield;const loc=await accounts.location(a.id);const daily=await accounts.dailyClaim(a.id);p.credits=Number(daily.balance.credits);p.company=loc.company;p.companyChosen=loc.company_chosen;p.zone=loc.map;initMap(p.zone);if(!socket.connected||closing||active.has(a.id)||players.size>=40)return ack({ok:false,error:'Cuenta o servidor no disponible'});applyLoadout(p,loadout);if(!loadout)applyMineralStats(p,p.mineralUpgrades);spawnPlayer(p);p.protectedUntil=Date.now()+3000;active.set(a.id,p);players.set(socket.id,p);socket.join(p.zone);ack({ok:true,id:socket.id,world:WORLD,map:p.zone});refreshGalaxy(p).catch(()=>{});if(!daily.already)io.to(p.id).emit('notice','Recompensa diaria '+daily.day+'/28 acreditada');}catch{ack({ok:false,error:'Base de datos no disponible'});}finally{joining=false;}});
  socket.on('move',data=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||!validPoint(data))return;p.dest={x:clamp(data.x,25,WORLD.w-25),y:clamp(data.y,25,WORLD.h-25)};});socket.on('select',target=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil)return;const n=npcs.get(target)||players.get(target);p.target=n&&sameZone(p,n)&&distance(p,n)<1800&&(npcs.has(target)||canPvp(p,n)||groupMates(p,1800).includes(n))?n.id:null;p.attack=false;});socket.on('attack',on=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||typeof on!=='boolean')return;const n=npcs.get(p.target)||players.get(p.target);p.attack=on&&!!n&&sameZone(p,n)&&!p.gatePending&&(npcs.has(p.target)||canPvp(p,n));if(p.attack)p.protectedUntil=0;});
@@ -293,53 +340,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    ack({ok:true,stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo colocar la mina'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
  });
- function shootOrdnance(p,code,ack){
-  const special=catalogV13.specialRockets.find(r=>r.id===code),shell=catalogV13.launcherAmmo.find(r=>r.id===code);
-  if(!p||(!special&&!shell)||p.deadUntil||p.gatePending||p.gateWaiting||p.shotPending||p.upgradePending||p.reloadPending)return ack({ok:false,error:'Arma no disponible ahora'});
-  const n=npcs.get(p.target)||players.get(p.target),pvp=!!n&&players.get(n.id)===n;
-  if(!n||n.gateShielded||!sameZone(p,n)||distance(p,n)>600||(pvp&&!canPvp(p,n)))return ack({ok:false,error:'Selecciona un objetivo válido a menos de 600 unidades'});
-  const launcher=catalogV13.launchers.find(l=>l.id===p.launcher);
-  if(shell&&!launcher)return ack({ok:false,error:'Equipa un Hellstorm en el hangar'});
-  const key=special?code:'hellstorm',cooldown=special?special.cooldown:5000,count=special?1:launcher.capacity,zone=p.zone;
-  p.ordnanceUntil??={};
-  if(Date.now()<(p.ordnanceUntil[key]||0))return ack({ok:false,error:'Arma en recarga'});
-  p.upgradePending=true;
-  const job=p.writes.catch(()=>{}).then(()=>accounts.consumeOrdnance(p.accountId,code,count));p.writes=job;pending.add(job);
-  job.then(stock=>{
-   if(stock===null)return ack({ok:false,error:'Necesitas '+count+' '+code});
-   p.ordnanceUntil[key]=Date.now()+cooldown;breakCloak(p);
-   io.to(p.id).emit('v13:ammoStock',{code,quantity:stock});
-   if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?players.get(n.id)!==n||!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock,cooldown,count,key});
-   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
-   let amount=0;
-   if(!immune(n)){
-    if(special){const field={accuracy:'accuracyUntil',slow:'slowUntil',freeze:'freezeUntil'}[special.effect];n[field]=Math.max(n[field]||0,Date.now()+special.duration);if(!pvp)n.target=p.id;}
-    else{const scale=(pvp?damageFactor(p.honor):1)*markFactor(p,n,Date.now());const drain=Math.min(n.shield,Math.round((shell.drain||0)*count*scale));n.shield-=drain;p.shield=Math.min(p.maxShield,p.shield+drain);amount=Math.round((shell.damage||0)*count*scale);if(amount)damage(n,amount);if(drain||amount)finishCombat(p,n,pvp);}
-   }
-   ack({ok:true,damage:amount,stock,cooldown,count,key,effect:immune(n)?null:special?.effect||null});
-  }).catch(()=>ack({ok:false,error:'No se pudo confirmar el disparo'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
- }
  socket.on('v18:ordnance',(code,ack)=>{if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);if(p&&catalogV13.launcherAmmo.some(x=>x.id===code))p.autoShell=code;shootOrdnance(p,code,ack);});
- function shootRocket(p,code,ack){
-  const rocket=catalogV13.rockets.find(r=>r.id===code);
-  if(!p||!rocket||p.deadUntil||p.gatePending||p.gateWaiting||p.shotPending||p.upgradePending)return ack({ok:false,error:'Cohete no disponible ahora'});
-  const n=npcs.get(p.target)||players.get(p.target),pvp=!!n&&players.get(n.id)===n;
-  if(!n||n.gateShielded||!sameZone(p,n)||distance(p,n)>600||(pvp&&!canPvp(p,n)))return ack({ok:false,error:'Selecciona un objetivo válido a menos de 600 unidades'});
-  if(Date.now()<(p.rocketUntil||0))return ack({ok:false,error:'Cohete en recarga'});
-  const zone=p.zone;p.upgradePending=true;
-  const job=p.writes.catch(()=>{}).then(()=>accounts.upgradedShot(p.accountId,code,1,'rocket',{autoMineral:p.cpus?.includes('NC-AWB')}));
-  p.writes=job;pending.add(job);
-  job.then(shot=>{
-   if(!shot)return ack({ok:false,error:'No tienes '+code});
-   const cd=p.cpus?.includes('R0K-T01')?1000:2000;p.rocketUntil=Date.now()+cd;breakCloak(p);applyMineralStats(p,shot.upgrades);for(const [code,quantity] of Object.entries(shot.resources||{}))io.to(p.id).emit('v13:ammoStock',{code,quantity});
-   io.to(p.id).emit('v13:ammoStock',{code,quantity:shot.stock});
-   if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock:shot.stock,cooldown:cd});
-   const amount=Math.random()<1-(1-rocket.miss)*(p.accuracyUntil>Date.now()?.6:1)?0:Math.round(rocket.damage*shot.factor*markFactor(p,n,Date.now())*(pvp?damageFactor(p.honor):1));
-   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
-   if(amount&&!immune(n)){damage(n,amount);finishCombat(p,n,pvp);}
-   ack({ok:true,damage:immune(n)?0:amount,stock:shot.stock,cooldown:cd});
-  }).catch(()=>ack({ok:false,error:'No se pudo confirmar el disparo'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
- }
  socket.on('v18:rocket',(code,ack)=>{if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);if(p&&catalogV13.rockets.some(x=>x.id===code))p.autoRocket=code;shootRocket(p,code,ack);});
  socket.on('v13:reload',()=>{const p=players.get(socket.id);if(!allowed()||!p)return;p.reloadRequested=true;p.attack=false;io.to(p.id).emit('notice','Equipamiento guardado. Activando configuración…');});
 
