@@ -1,5 +1,5 @@
 'use strict';
-const {factors:boosterFactors}=require('./boosters-v112');const express=require('express');const http=require('node:http');const path=require('node:path');const crypto=require('node:crypto');const {Server}=require('socket.io');const {createAccounts}=require('./accounts');
+const {factors:boosterFactors}=require('./boosters-v112');const {clanStationEffects}=require('./stations-v113');const express=require('express');const http=require('node:http');const path=require('node:path');const crypto=require('node:crypto');const {Server}=require('socket.io');const {createAccounts}=require('./accounts');
 const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const {MAPS,homeBase,galaxyPortals,portals,requiredLevel,population}=require('./maps-v14');const {eligible,damageFactor}=require('./pvp-v15');const {createGroups}=require('./groups-v15');const {npcCargo}=require('./minerals-v17');const {factor}=require('./upgrades-v18');const {MINES,RULES:MR,mineImpact}=require('./mines-v18');const {repairRate}=require('./cpus-v18');const {TECH,isActive:techActive,leechAmount}=require('./assembly-v19');const {points:dronePoints}=require('./drones-v19');const {get:formationDef,bonuses:formationBonus,stats:formationStats,absorption:formationAbsorption,combatFactor,shieldDelta}=require('./formations-v19');const {ABILITIES,definitions:abilityDefinitions,active:abilityActive,activate:activateAbility,heal,speedFactor,incoming,breakCloak}=require('./abilities-v18');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo,hit}=require('./equipment-v13');
 const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,damage:110},tank:{hp:1800,shield:950,speed:255,damage:155}};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n)),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),random=(a,b)=>a+Math.random()*(b-a),point=()=>({x:random(150,WORLD.w-150),y:random(150,WORLD.h-150)}),validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
@@ -12,7 +12,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function updateBoosters(p,now=Date.now()){
   if(!p.rawBoosters)p.rawBoosters={};
   const nearby=[...players.values()].filter(q=>q!==p&&!q.deadUntil&&q.company===p.company&&sameZone(p,q)&&distance(p,q)<=1000).map(q=>q.rawBoosters);
-  const next=boosterFactors(p.rawBoosters,nearby,now),old=p.boost||{};
+  const next=boosterFactors(p.rawBoosters,nearby,now),old=p.boost||{},cbs=stationEffects(p,now);
+  next.damage*=cbs.damage;next.xp*=cbs.xp;next.honor*=cbs.honor;
   if(old.hp!==next.hp||old.shield!==next.shield){
    p.boost=next;
    if(p.unformedStats)applyFormation(p,p.formation);
@@ -90,7 +91,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(abilityActive(p,'repair-pod',now)&&a['repair-pod'].zone===p.zone){const pod=a['repair-pod'];for(const q of players.values())if(!q.deadUntil&&!q.gatePending&&q.hp>0&&sameZone(p,q)&&distance(pod,q)<=350&&(q===p||q.company===p.company||p.group&&p.group===q.group))heal(q,'hp',18000*dt);}
   if(abilityActive(p,'draw-fire',now)&&!safeZone(p)){for(const n of npcs.values())if(sameZone(p,n)&&distance(p,n)<=500&&!(n.empUntil>now)){n.target=p.id;}}
  }
- function safeZone(p){const b=homeBase(p.zone,WORLD.w,WORLD.h);return b?distance(p,b)<b.radius:!!MAPS[p.zone]?.base&&distance(p,{x:WORLD.w/2,y:WORLD.h/2})<450;}
+ function safeZone(p){if(stationEffects(p).safe)return true;const b=homeBase(p.zone,WORLD.w,WORLD.h);return b?distance(p,b)<b.radius:!!MAPS[p.zone]?.base&&distance(p,{x:WORLD.w/2,y:WORLD.h/2})<450;}
  function personalPortals(p){return galaxyPortals(p.zone,p.company,p.ggBuilt||[],WORLD.w,WORLD.h);}
  function atGalaxyPortal(p,gate){const q=galaxyPortals(p.zone,p.company,[gate],WORLD.w,WORLD.h)[0];return !!q&&distance(p,q)<=125;}
  async function refreshGalaxy(p){const data=await accounts.gateStatus(p.accountId);if(players.get(p.id)!==p)return;p.ggBuilt=data.gates.filter(g=>data.states[g].built);io.to(p.id).emit('v16:basePortals',{map:p.zone,portals:personalPortals(p)});}
@@ -589,12 +590,13 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   })();pending.add(job);job.catch(e=>console.error('Maintenance:',e.code||e.message)).finally(()=>{maintenanceBusy=false;pending.delete(job);});
  },30000);
  const cbsDefense=require('./stations-v113').defenseShots;
- let defenseSnapshot=null,defenseBusy=false,defenseNext=0;const defenseCooldowns=new Map();
+ let defenseSnapshot=null,defenseMembers=new Map(),defenseBusy=false,defenseNext=0;const defenseCooldowns=new Map();
+ function stationEffects(p,now=Date.now()){if(process.env.GG_CBS_COMBAT_ENABLED!=='1'||!defenseSnapshot||now-defenseSnapshot.at>1500||p.gate)return {safe:false,xp:1,honor:1,damage:1};return clanStationEffects(defenseSnapshot.stations,defenseMembers.get(p.accountId),p.zone,p,now);}
  function updateDefense(now){
   if(process.env.GG_CBS_COMBAT_ENABLED!=='1'||!players.size)return;
   if(!defenseBusy&&now>=defenseNext){
    defenseNext=now+1000;defenseBusy=true;
-   const job=accounts.stationDefense().then(r=>{defenseSnapshot=r;const keys=new Set(r.stations.flatMap(s=>s.modules.map(m=>s.asteroid_id+':'+m.instanceId)));for(const key of defenseCooldowns.keys())if(!keys.has(key))defenseCooldowns.delete(key);}).catch(()=>{defenseSnapshot=null;}).finally(()=>{defenseBusy=false;pending.delete(job);});pending.add(job);
+   const job=accounts.stationDefense([...active.keys()]).then(r=>{defenseSnapshot=r;defenseMembers=new Map(r.members.map(m=>[m.account_id,m.clan_id]));const keys=new Set(r.stations.flatMap(s=>s.modules.map(m=>s.asteroid_id+':'+m.instanceId)));for(const key of defenseCooldowns.keys())if(!keys.has(key))defenseCooldowns.delete(key);}).catch(()=>{defenseSnapshot=null;defenseMembers.clear();}).finally(()=>{defenseBusy=false;pending.delete(job);});pending.add(job);
   }
   if(!defenseSnapshot||now-defenseSnapshot.at>1500)return;
   const candidates=[...players.values()].map(p=>({...p,safe:safeZone(p),protected:p.protectedUntil>now||abilityActive(p,'ultimate-cloak',now)}));
