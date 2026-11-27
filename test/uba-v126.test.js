@@ -25,6 +25,16 @@ test('UBA rating result is idempotent and never changes honor or currency',{skip
  for(let i=0;i<2;i++){const n='U'+randomUUID().replaceAll('-','').slice(0,12),id=(await pool.query('INSERT INTO accounts(username,email,password_hash) VALUES($1,$2,$3) RETURNING id',[n,n+'@example.test','fixture'])).rows[0].id;ids.push(id);await pool.query("INSERT INTO player_progress(account_id,ship,credits,uridium,honor) VALUES($1,'scout',1000,100,200)",[id]);}
  const svc=createUBA(pool),batch=randomUUID();await pool.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'MCB-50',10)",[ids[0]]);const plans=[{accountId:ids[0],code:'MCB-50',count:3},{accountId:ids[1],code:'MCB-50',count:3}];const paid=await svc.authorizeAmmo(batch,plans);assert.equal(paid[ids[0]],7);assert.equal(paid[ids[1]],null);assert.deepEqual(await svc.authorizeAmmo(batch,plans),paid);assert.equal(Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='MCB-50'",[ids[0]])).rows[0].quantity),7);const key=randomUUID();const r=await svc.settle(key,...ids);assert.equal(r.winnerScore,60);assert.equal(r.loserScore,50);assert.deepEqual(await svc.settle(key,...ids),r);await assert.rejects(svc.settle(key,...ids.slice().reverse()),/conflicto/);
  assert.equal((await svc.status(ids[0])).own.wins,1);assert.equal((await svc.status(ids[1])).own.losses,1);
+ const {createAchievements}=require('../achievements-v125'),ach=createAchievements(pool);
+ assert.equal((await svc.status(ids[0])).champion.name,(await pool.query('SELECT username FROM accounts WHERE id=$1',[ids[0]])).rows[0].username);
+ assert.equal((await ach.select(ids[0],'uba')).title,'Campeón de UBA');
+ await assert.rejects(ach.select(ids[1],'uba'),/no desbloqueado/);
+ await pool.query('UPDATE gg_uba_scores SET score=80,wins=3 WHERE account_id=$1',[ids[1]]);
+ assert.equal((await ach.read(ids[0])).title,null);
+ assert.equal((await ach.select(ids[1],'uba')).title,'Campeón de UBA');
+ await pool.query('INSERT INTO gg_rank_profiles(account_id,admin) VALUES($1,true) ON CONFLICT(account_id) DO UPDATE SET admin=true',[ids[1]]);
+ assert.equal((await ach.read(ids[1])).title,null);
+ assert.equal((await ach.read(ids[0])).title,'Campeón de UBA');
  const balances=(await pool.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=ANY($1::uuid[])',[ids])).rows;assert.ok(balances.every(x=>Number(x.credits)===1000&&Number(x.uridium)===100&&Number(x.honor)===200));
  }finally{for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });

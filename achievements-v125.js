@@ -1,5 +1,6 @@
 'use strict';
-const TITLES={kappa:'Campeón de Kappa',lambda:'Campeón de Lambda',hades:'Campeón de Hades',kronos:'Campeón de Kronos'};
+const {champion}=require('./uba-v126');
+const TITLES={uba:'Campeón de UBA',kappa:'Campeón de Kappa',lambda:'Campeón de Lambda',hades:'Campeón de Hades',kronos:'Campeón de Kronos'};
 const TYPES=['alien','box','distance'];
 const fail=message=>Object.assign(Error(message),{status:400});
 function createAchievements(pool){
@@ -9,6 +10,7 @@ function createAchievements(pool){
  async function read(id){
   const gates=(await pool.query('SELECT gate,completions FROM gg_v14_gates WHERE account_id=$1 AND completions>0 ORDER BY gate',[id])).rows;
   const unlocked=gates.filter(g=>Object.hasOwn(TITLES,g.gate)).map(g=>({id:g.gate,name:TITLES[g.gate]}));
+  const leader=await champion(pool);if(leader?.account_id===id)unlocked.push({id:'uba',name:TITLES.uba});
   const selected=(await pool.query('SELECT title FROM gg_achievement_titles WHERE account_id=$1',[id])).rows[0]?.title;
   const title=unlocked.find(t=>t.id===selected)||null;
   return {rings:gates.map(g=>g.gate),gates,unlocked,selected:title?.id||null,title:title?.name||null};
