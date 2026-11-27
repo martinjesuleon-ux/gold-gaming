@@ -106,7 +106,23 @@ function fireOrdnance(code){
   ordnanceUntil[r.key]=performance.now()+r.cooldown;ammoStock[code]=r.stock;syncAmmoButtons();notice(code+' ×'+r.count+' · '+(r.effect?'Efecto aplicado':r.damage?fmt(r.damage)+' daño':'Disparo confirmado'));
  });
 }
-function syncAmmoButtons(){const buttons=document.querySelectorAll('.gg-slots button');ammoCodes.forEach((code,i)=>{const b=buttons[i+1];if(!b)return;b.disabled=false;b.textContent=code;b.title=code+(ammoStock[code]===undefined?'':' · '+ammoStock[code]);b.classList.toggle('active',code===selectedAmmo);b.onclick=()=>{if(!joined)return;selectedAmmo=code;socket.emit('v13:ammo',code);syncAmmoButtons();};});rocketCodes.forEach((code,i)=>{const b=buttons[i+7];if(!b)return;b.disabled=false;b.textContent=code;b.title='Disparar '+code+' · '+(ammoStock[code]??'—')+' disponibles · recarga 2 s';b.onclick=()=>fireRocket(code);});ordnanceCodes.forEach((code,i)=>{const b=buttons[i+11];if(!b)return;b.disabled=false;b.textContent=code;b.title='Disparar '+code+' · '+(ammoStock[code]??'—')+' disponibles';b.onclick=()=>fireOrdnance(code);});}
+function decorateAmmoSlot(b,category,code,action,active=false){
+ const visual=window.ggShopVisual;
+ if(b.dataset.ammoCode!==code){
+  b.dataset.ammoCode=code;b.classList.add('gg-ammo-slot');b.style.setProperty('--ammo-color',visual.itemColor(category,{id:code}));
+  const icon=visual.art(category,{id:code});icon.setAttribute('aria-hidden','true');icon.removeAttribute('role');icon.removeAttribute('aria-label');
+  const name=document.createElement('span');name.className='gg-ammo-code';name.textContent=code;
+  const count=document.createElement('span');count.className='gg-ammo-count';b.replaceChildren(icon,name,count);
+ }
+ const qty=ammoStock[code],count=b.querySelector('.gg-ammo-count'),label=qty===undefined?'—':fmt(qty);
+ if(count.textContent!==label)count.textContent=label;
+ b.title=action+' '+code+' · '+(qty===undefined?'Cantidad sin actualizar':label+' disponibles');
+ if(b.getAttribute('aria-label')!==b.title)b.setAttribute('aria-label',b.title);
+ b.classList.toggle('active',active);b.classList.toggle('gg-ammo-empty',qty===0);
+ if(category==='ammo')b.setAttribute('aria-pressed',String(active));
+ b.disabled=false;
+}
+function syncAmmoButtons(){const buttons=document.querySelectorAll('.gg-slots button');ammoCodes.forEach((code,i)=>{const b=buttons[i+1];if(!b)return;decorateAmmoSlot(b,'ammo',code,'Seleccionar',code===selectedAmmo);b.onclick=()=>{if(!joined)return;selectedAmmo=code;socket.emit('v13:ammo',code);syncAmmoButtons();};});rocketCodes.forEach((code,i)=>{const b=buttons[i+7];if(!b)return;decorateAmmoSlot(b,'rockets',code,'Disparar');b.onclick=()=>fireRocket(code);});ordnanceCodes.forEach((code,i)=>{const b=buttons[i+11];if(!b)return;decorateAmmoSlot(b,i<3?'specialRockets':'launcherAmmo',code,'Disparar');b.onclick=()=>fireOrdnance(code);});}
 socket.on('v13:ammoStock',({code,quantity})=>{ammoStock[code]=quantity;syncAmmoButtons();});
 window.addEventListener('gg13:loadout',()=>socket.emit('v13:reload'));
 window.addEventListener('gg13:inventory',e=>{for(const a of e.detail.ammo||[])ammoStock[a.code]=a.quantity;syncAmmoButtons();});
