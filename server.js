@@ -220,7 +220,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function shootPetGuard(p,now){
   if(!require('./pet-test-kit-v175').guardEnabled(p.accountId)||!accounts.petGuardShot||p.petShotPending||now<(p.petNextShot||0))return;
   const pilotEnabled=require('./pet-test-kit-v175').testKitEnabled(p.accountId)||process.env.GG_PET_GUARD_PVP_ENABLED==='1';
-  const npc=selectGuardTarget(p,npcs.values(),now,600),pilot=pilotEnabled?selectPilotGuardTarget(p,players.values(),now,600,canPvp):null;
+  const npc=selectGuardTarget(p,[...npcs.values()].filter(n=>!immune(n)),now,600),pilot=pilotEnabled?selectPilotGuardTarget(p,players.values(),now,600,(a,b)=>canPvp(a,b)&&!immune(b)):null;
   const n=pilot&&(!npc||distance({x:p.petX,y:p.petY},pilot)<distance({x:p.petX,y:p.petY},npc))?pilot:npc,pvp=!!n&&n===pilot,generation=p.petGeneration;
   const valid=()=>!!n&&!closing&&players.get(p.id)===p&&p.petGeneration===generation&&!p.petTradePending&&(pvp?players.get(n.id)===n&&pilotGuardTarget(p,n,Date.now(),600,canPvp):npcs.get(n.id)===n&&guardTarget(p,n,Date.now(),600))&&!safeZone(p)&&!immune(n)&&!abilityActive(p,'ultimate-cloak',Date.now());
   if(!valid()){if(p.petGuardStatus){p.petGuardStatus=null;io.to(p.id).emit('v14:petGuard',{target:null});}return;}
@@ -235,7 +235,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    const result=salvo({damage:shot.damage*(pvp?damageFactor(p.honor)*incoming(n,Date.now())*(abilityActive(n,'prism',Date.now())?.1:1):1),lasers:shot.count,accuracyFactor:pvp?(1-(formationBonus(n.formation).evasion||0))*(1-(n.pilotBonus?.evasion||0)):1},n,shot.code,shot.stock+shot.count,Math.random());
    p.petGuardStatus=n.name;io.to(p.id).emit('v14:petGuard',{target:n.name,damage:result.damage,lasers:shot.count});
    if(result.damage<=0)return;
-   if(pvp){const amount=protectDamage(n,result.damage),resolved=hit(n,amount,formationAbsorption(p,n)),shieldLoss=n.shield-resolved.shield;resolved.shield=Math.max(0,n.shield-shieldLoss*(abilityActive(n,'fortress',Date.now())?.7:1));Object.assign(n,resolved);finishCombat(p,n,true,true);return;}
+   if(pvp){const amount=protectDamage(n,result.damage),resolved=hit(n,amount,formationAbsorption(p,n)),shieldLoss=n.shield-resolved.shield;resolved.shield=Math.max(0,n.shield-shieldLoss*(n.weakenUntil>Date.now()?1.5:1)*(abilityActive(n,'fortress',Date.now())?.7:1));Object.assign(n,resolved);finishCombat(p,n,true,true);return;}
    Object.assign(n,result.target);n.lastHit=Date.now();p.petLastHitNpc=n.id;p.petLastAttackAt=n.lastHit;
    laserDamage(p,n,result.damage,n.type==='boss'?100:64);
    finishNPC(p,n,false,true);
