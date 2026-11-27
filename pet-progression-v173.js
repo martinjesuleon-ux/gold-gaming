@@ -45,7 +45,10 @@ function createPetProgression(pool){
    await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- async function status(id){return transaction(id,async(_c,p)=>p);}
+ async function status(id){return transaction(id,async(_c,p,balance)=>({
+  ...p,uridium:String(balance.uridium),purchasesEnabled:process.env.GG_PET_PROGRESSION_ENABLED==='1',
+  nextSlots:Object.fromEntries(TYPES.map(type=>[type,p.slots[type]<p.limits[type]?quoteSlot(p,type):null]))
+ }));}
  // Internal server-only grant. The caller must establish the XP sharing rule and event idempotency before enabling grants.
  async function grantInTransaction(c,id,amount){
   if(!Number.isSafeInteger(amount)||amount<0||amount>MAX_XP)throw fail('Experiencia P.E.T. inválida');
