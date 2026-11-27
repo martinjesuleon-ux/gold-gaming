@@ -339,21 +339,22 @@ function adminController(){
 
  }
 }
+const oreColors={prometium:'#f36a42',endurium:'#8dc7e7',terbium:'#d7d75a',prometid:'#f2addc',duranium:'#73e0ab',promerium:'#ffbc52',seprom:'#b38bff',xenomit:'#c1e2ef',paladio:'#b3d2f1'};
+function oreCard(code,count){const tile=el('section',null,'gg-ore-card');const art=el('span',null,'gg-mineral-art');art.style.setProperty('--mineral-color',oreColors[code]||'#92a9c1');art.append(el('span'),el('span'),el('span'));art.setAttribute('aria-hidden','true');tile.append(el('strong',code.charAt(0).toUpperCase()+code.slice(1)),art,el('b',fmt(count||0)));tile.title=code+' · '+fmt(count||0)+' disponibles';return tile;}
+function refineryTabs(current){const nav=el('div',null,'gg-pilot-tabs');for(const [key,label] of [['Refinación','REFINERÍA'],['Potenciación','MEJORAR']]){const b=button(label,()=>{if(busy||mode===key)return;mode=key;if(key==='Potenciación')upgradeMenu();else mineralMenu(key);});b.setAttribute('aria-pressed',String(current===key));nav.append(b);}return nav;}
 async function upgradeMenu(){
- body.replaceChildren(el('h2','Potenciación de equipo'),el('p','Cargando minerales…'));
- try{let data=await api('upgrades'),cargo=(await api('minerals')).cargo;
- function draw(){if(!modal.open||mode!=='Potenciación')return;body.replaceChildren(el('h2','Potenciación de equipo'),el('p','1 mineral = 10 rondas. Los generadores consumen una ronda por intervalo de uso de 10 segundos (provisional).'));
- const grid=el('div',null,'gg13-grid');const names={laser:'Láseres',rocket:'Cohetes',speed:'Motores',shield:'Escudos'};
- for(const slot of data.slots){
-  const active=data.upgrades[slot],tile=el('section',null,'gg13-tile');tile.append(el('h3',names[slot]),el('p',active?.rounds>0?active.code.toUpperCase()+' · '+fmt(active.rounds)+' rondas':'Sin mineral activo'));
-  for(const [code,values] of Object.entries(data.bonus)){if(!values[slot])continue;
-   const n=cargo[code]||0,q=el('input');q.type='number';q.min=1;q.max=Math.min(n,1000000);q.value=1;q.style.width='85px';
-   const b=button('CARGAR',async()=>{if(busy||!q.checkValidity())return;busy=true;b.disabled=true;try{data=await window.gg18Charge({slot,code,quantity:Number(q.value),requestId:crypto.randomUUID()});cargo=(await api('minerals')).cargo;status.textContent='Mineral cargado';draw();}catch(e){status.textContent=e.message;}finally{busy=false;b.disabled=false;}});
-   b.disabled=n===0||!!(active?.rounds>0&&active.code!==code);tile.append(el('p',code.toUpperCase()+' · +'+Math.round((values[slot]-1)*100)+' % · Bodega '+fmt(n)),q,b);
-  }grid.append(tile);
- }body.append(grid,button('ACTUALIZAR',()=>upgradeMenu()),button('VOLVER A REFINACIÓN',()=>{mode='Refinación';mineralMenu(mode);}));
+ body.replaceChildren(el('h2','Refinado'),el('p','Cargando minerales…'));
+ try{let data=await api('upgrades'),cargo=(await api('minerals')).cargo,selectedCode=null;
+ function draw(){if(!modal.open||mode!=='Potenciación')return;body.replaceChildren(el('h2','Refinado'),refineryTabs('Potenciación'));
+ const raw=el('div',null,'gg-ore-row');for(const code of ['prometium','endurium','terbium','xenomit','paladio'])raw.append(oreCard(code,cargo[code]));body.append(el('h3','Materias primas / Recursos'),raw);
+ const refined=el('div',null,'gg-ore-row'),targets=el('div',null,'gg-ore-row gg-upgrade-targets'),selection=el('div',null,'gg-ore-selection');body.append(el('small','Arrastra un mineral sobre el equipo o selecciónalo y pulsa el equipo.'),refined,targets,selection);
+ function choose(code){selectedCode=code;for(const x of refined.children)x.dataset.selected=String(x.dataset.code===code);}
+ for(const code of ['prometid','duranium','promerium','seprom']){const tile=oreCard(code,cargo[code]),pick=button('Seleccionar',()=>choose(code));pick.disabled=!(cargo[code]>0);tile.dataset.code=code;tile.dataset.selected=String(code===selectedCode);tile.draggable=cargo[code]>0;tile.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',code);choose(code);});tile.append(pick);refined.append(tile);}
+ const names={laser:'Láseres',rocket:'Cohetes',speed:'Generadores',shield:'Escudos'},artCodes={laser:['lasers','LF-4'],rocket:['rockets','PLT-2021'],speed:['generators','G3N-7900'],shield:['shields','SG3N-B02']};
+ function configure(slot,code){selection.replaceChildren();if(!data.bonus[code]?.[slot]){selection.append(el('small','Mineral incompatible con este equipo.'));return;}const n=cargo[code]||0,active=data.upgrades[slot];if(active?.rounds>0&&active.code!==code){selection.append(el('small','Agota primero el mineral activo.'));return;}if(n<1){selection.append(el('small','No tienes mineral disponible.'));return;}const q=el('input');q.type='number';q.min='1';q.max=String(Math.min(n,1000000));q.step='1';q.value='1';q.setAttribute('aria-label','Cantidad de mineral');const b=button('CARGAR',async()=>{if(busy||!q.checkValidity())return;busy=true;b.disabled=true;try{data=await window.gg18Charge({slot,code,quantity:Number(q.value),requestId:crypto.randomUUID()});cargo=(await api('minerals')).cargo;status.textContent='Mineral cargado';draw();}catch(e){status.textContent=e.message;}finally{busy=false;b.disabled=false;}});selection.append(el('strong',code+' → '+names[slot]),el('small','+'+Math.round((data.bonus[code][slot]-1)*100)+' % · 10 rondas por mineral'),q,b);}
+ for(const slot of data.slots){const active=data.upgrades[slot],tile=el('section',null,'gg-ore-card gg-upgrade-target'),[category,id]=artCodes[slot]||['cpus',slot],item=cat[category]?.find?.(x=>x.id===id)||{id};const b=button('',()=>{if(selectedCode)configure(slot,selectedCode);else selection.replaceChildren(el('small','Selecciona primero un mineral.'));});b.append(window.ggShopVisual.art(category,item),el('strong',names[slot]));tile.append(b,el('b',active?.rounds>0?fmt(active.rounds)+' rondas':'Sin mejora'),el('small',active?.rounds>0?active.code:'—'));tile.title=active?.rounds>0?active.code+' · '+fmt(active.rounds)+' rondas restantes':'Sin mineral activo';tile.addEventListener('dragover',e=>e.preventDefault());tile.addEventListener('drop',e=>{e.preventDefault();const code=e.dataTransfer.getData('text/plain');if(Object.hasOwn(data.bonus,code)){choose(code);configure(slot,code);}});targets.append(tile);}body.append(button('ACTUALIZAR',()=>{if(!busy)upgradeMenu();}));
  }draw();
- }catch(e){body.append(el('p',e.message));}
+ }catch(e){if(modal?.open&&mode==='Potenciación')body.append(el('p',e.message));}
 }
 async function mineralMenu(tab){
  body.replaceChildren(el('h2',tab),el('p','Cargando recursos…'));
@@ -362,7 +363,7 @@ async function mineralMenu(tab){
  function draw(){
   if(!modal.open||!['Skylab','Refinación','Comercio'].includes(mode))return;
   body.replaceChildren(el('h2',tab));
-  const nav=el('div',null,'gg-mission-tabs');for(const name of ['Skylab','Refinación','Comercio']){const b=button(name,()=>{if(busy)return;tab=name;mode=name;draw();});b.setAttribute('aria-pressed',String(tab===name));nav.append(b);}body.append(nav,button('POTENCIACIÓN',()=>{if(!busy){mode='Potenciación';upgradeMenu();}}));
+  const nav=el('div',null,'gg-mission-tabs');for(const name of ['Skylab','Refinación','Comercio']){const b=button(name,()=>{if(busy)return;tab=name;mode=name;draw();});b.setAttribute('aria-pressed',String(tab===name));nav.append(b);}body.append(nav);if(tab==='Refinación')body.append(refineryTabs('Refinación'));
   const cargo=el('section',null,'gg-social-summary');const cargoMeter=el('progress');cargoMeter.max=Math.max(1,data.capacity);cargoMeter.value=data.cargoUsed;cargoMeter.setAttribute('aria-label','Ocupación de bodega');cargo.append(el('strong','Bodega '+fmt(data.cargoUsed)+' / '+fmt(data.capacity)),cargoMeter,el('small','Xenomit sin peso'));body.append(cargo);
   async function run(action,fields){if(busy)return;busy=true;try{data=action==='cbs-sell'?await window.gg120Sell({...fields,asteroidId:ownStation.id,requestId:crypto.randomUUID()}):await api('minerals',{action,...fields,requestId:crypto.randomUUID()});state.balance=data.balance;status.textContent=balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}}
   function quantity(max,step=1){const n=el('input');n.type='number';n.min=step;n.max=Math.max(0,max);n.step=step;n.value=step;n.style.width='95px';return n;}
@@ -378,11 +379,8 @@ async function mineralMenu(tab){
     }grid.append(tile);
    }
   }else if(tab==='Refinación'){
-   body.append(el('p','Convierte minerales de la bodega pagando la comisión indicada.'));
-   for(const [code,r] of Object.entries(data.recipes)){if(code==='xenomit'||r.premium)continue;const tile=mineralTile(code);tile.append(el('h3',code.toUpperCase()));for(const [k,n] of Object.entries(r.inputs))tile.append(el('p',k.toUpperCase()+' · '+fmt(data.cargo[k]||0)+' disponibles / '+fmt(n)+' requeridos por unidad'));tile.append(el('p','Comisión '+fmt(r.fee)+' créditos/u'));
-    const max=Math.min(Math.floor(Number(data.balance.credits)/r.fee),...Object.entries(r.inputs).map(([k,n])=>Math.floor((data.cargo[k]||0)/n)),1000000);
-    qtyButton(tile,'REFINAR','refine',code,max);grid.append(tile);
-   }
+   const tree=el('div',null,'gg-refine-tree');const graph=el('div',null,'gg-refine-lines');graph.setAttribute('aria-hidden','true');graph.innerHTML='<svg viewBox="0 0 600 420" preserveAspectRatio="none"><path d="M100 60 L220 190 M300 60 L220 190 M300 60 L380 190 M500 60 L380 190 M220 190 L300 350 M380 190 L300 350 M540 190 L300 350" fill="none" stroke="#8297a6" stroke-width="2"/></svg>';tree.append(graph);
+   for(const [code,col,row] of [['prometium',1,1],['endurium',3,1],['terbium',5,1],['prometid',2,2],['duranium',4,2],['xenomit',6,2],['promerium',3,3]]){const tile=oreCard(code,data.cargo[code]);tile.style.gridColumn=String(col);tile.style.gridRow=String(row);const r=data.recipes[code];if(r&&!r.premium&&code!=='xenomit'){tile.title=Object.entries(r.inputs).map(([k,n])=>k+' × '+n).join(' + ')+' · '+fmt(r.fee)+' créditos/u';const max=Math.min(r.fee?Math.floor(Number(data.balance.credits)/r.fee):1000000,...Object.entries(r.inputs).map(([k,n])=>Math.floor((data.cargo[k]||0)/n)),1000000);qtyButton(tile,'REFINAR','refine',code,max);}tree.append(tile);}body.append(tree);
   }else{
    body.append(el('p','Venta en mapas con base. Honor '+fmt(data.honor)+'. Paladio se cambia en 5-2.'));if(ownStation)body.append(el('p','Comercio de tu estación CBS: +10 % de créditos.'));
    for(const [code,price] of Object.entries(data.prices)){const tile=mineralTile(code),n=data.cargo[code]||0;tile.append(el('h3',code.toUpperCase()),el('p',fmt(n)+' disponibles'),el('p','Precio base '+fmt(price)+' créditos/u'));qtyButton(tile,'VENDER','sell',code,n);if(ownStation)qtyButton(tile,'VENDER CBS +10%','cbs-sell',code,n);grid.append(tile);}
