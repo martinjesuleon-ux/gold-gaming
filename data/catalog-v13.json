@@ -798,6 +798,36 @@
       "uses": 50,
       "price": 22500,
       "currency": "uridium"
+    },
+    {
+      "id": "AROL-X",
+      "price": 25000,
+      "currency": "uridium"
+    },
+    {
+      "id": "RL-LB1",
+      "price": 25000,
+      "currency": "uridium"
+    },
+    {
+      "id": "AIM-02",
+      "price": 200000,
+      "currency": "uridium"
+    },
+    {
+      "id": "NC-AWB",
+      "price": 10000,
+      "currency": "uridium"
+    },
+    {
+      "id": "AJP-01",
+      "price": 15000,
+      "currency": "uridium"
+    },
+    {
+      "id": "GEMINEX-XI",
+      "price": 10000,
+      "currency": "uridium"
     }
   ],
   "robots": [
