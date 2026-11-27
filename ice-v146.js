@@ -14,7 +14,7 @@ function advance(e,now=Date.now()){
  if(e.phase==='countdown'&&now>=e.startAt)e.phase='active';
  if(e.phase==='active'&&now>=e.endAt){e.phase='expired';e.icy.clear();return {notice:null,ping:null};}
  if(e.phase!=='active')return {notice:null,ping:null};
- if(now>=e.nextSpawn){const due=1+Math.floor((now-e.nextSpawn)/RULES.spawnMs);for(let i=0;i<Math.min(due,RULES.maxIcy-e.icy.size);i++)spawn(e);e.nextSpawn+=due*RULES.spawnMs;}
+ if(now>=e.nextSpawn){const due=1+Math.floor((now-e.nextSpawn)/RULES.spawnMs);const count=Math.min(due,RULES.maxIcy-e.icy.size);for(let i=0;i<count;i++)spawn(e);e.nextSpawn+=due*RULES.spawnMs;}
  const point={map:e.map,x:e.boss.x,y:e.boss.y};let notice=null,ping=null;
  if(now>=e.nextNotice){e.nextNotice=now+RULES.noticeMs;notice=point;}
  if(now>=e.nextPing){e.nextPing=now+RULES.pingMs;ping=point;}
