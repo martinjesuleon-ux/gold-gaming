@@ -240,7 +240,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  function hitGuardPet(n,p,now){
   if(!require('./pet-test-kit-v175').vitalsEnabled(p.accountId)||!accounts.petDamage||!npcRetaliatesAgainstPet(p,n,now)||immune(p))return false;
-  const amount=Math.max(0,Math.round(n.damage));
+  let amount=Math.max(0,Math.round(n.damage));
+  const combo=p.petComboRepair?.until>now?p.petComboRepair:null;
+  if(combo)amount=require('./pet-combos-v180').deflectedDamage(amount,'CSR-02',combo.level);
+  else if(p.petMode==='combo-guard'&&p.petComboGuardLevel)amount=require('./pet-combos-v180').deflectedDamage(amount,'CGM-02',p.petComboGuardLevel);
   if(!Number.isSafeInteger(amount)||!amount)return false;
   p.petDamagePending=true;
   laser(n,{x:p.petX,y:p.petY});
@@ -254,7 +257,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.writes=job;pending.add(job);return true;
  }
  function setPetMode(p,mode){
-  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;p.petLastHitNpc=null;p.petLastAttackAt=0;p.petGuardStatus=null;p.petNextShot=0;p.petRepairStarted=0;p.petRepairNext=0;p.petRepairUntil=0;p.petLocateNext=0;io.to(p.id).emit('v14:petLocator',null);io.to(p.id).emit('v14:petGuard',{target:null});
+  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;p.petLastHitNpc=null;p.petLastAttackAt=0;p.petGuardStatus=null;p.petNextShot=0;p.petRepairStarted=0;p.petRepairNext=0;p.petRepairUntil=0;p.petLocateNext=0;p.petComboRepair=null;p.petComboGuardLevel=null;io.to(p.id).emit('v14:petCombo',null);io.to(p.id).emit('v14:petLocator',null);io.to(p.id).emit('v14:petGuard',{target:null});
   io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel??null,pending:mode!=='off',vitals:p.petVitals||null});
  }
  // Section groups spawn in order. Protegit combat statistics remain provisional.
@@ -735,7 +738,21 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }).catch(e=>io.to(p.id).emit('notice',e.status?e.message:'Kamikaze no disponible')).finally(()=>{p.kamiPending=false;pending.delete(job);});
   pending.add(job);
  });
- socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource','locate-resource','locate-enemy'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
+ socket.on('v180:comboRepair',()=>{
+  const p=players.get(socket.id),now=Date.now();
+  if(!allowed()||!p||p.deadUntil||p.gatePending||p.gateWaiting||p.petMode==='off'||p.petMode==='repair'||p.petUntil<=now||p.petPending||p.petComboPending||p.petVitals?.destroyed||p.ubaReturn||p.invasionReturn||!accounts.petComboRepair)return;
+  const generation=p.petGeneration;
+  const valid=()=>!closing&&players.get(p.id)===p&&!p.deadUntil&&!p.gatePending&&p.petGeneration===generation&&p.petMode!=='off'&&!p.petVitals?.destroyed;
+  p.petComboPending=true;
+  const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petComboRepair(p.accountId):null).then(r=>{
+   if(!r||!valid())return;
+   p.petFuel=r.stock;p.petComboRepair=r;
+   io.to(p.id).emit('v14:petCombo',{until:r.until,readyAt:r.readyAt,repairPerSecond:r.repairPerSecond});
+   io.to(p.id).emit('v14:petState',{mode:p.petMode,fuel:p.petFuel,pending:false,vitals:p.petVitals||null});
+  }).catch(e=>{if(valid())io.to(p.id).emit('notice',e.status?e.message:'Combo reparación no disponible');}).finally(()=>{p.petComboPending=false;pending.delete(job);});
+  p.writes=job;pending.add(job);
+ });
+ socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource','locate-resource','locate-enemy','combo-guard'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
  function broadcastHades(room){if(room)for(const member of room.players)io.to(member.id).emit('v14:hadesLobby',room);}
  socket.on('v14:hadesLobby',async(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
@@ -879,7 +896,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
     if(players.get(p.id)===p&&p.petGeneration===generation)p.petVitals={...v,...(recovered||{})};
    }
    if(closing||players.get(p.id)!==p||p.deadUntil||p.petGeneration!==generation)return;
-   p.petFuel=result.fuel;p.petLootRange=result.lootRange||700;p.petUntil=Date.now()+10000;if(mode==='repair'&&!p.petRepairStarted){p.petRepairStarted=Date.now();p.petRepairNext=p.petRepairStarted+1000;}
+   p.petFuel=result.fuel;p.petLootRange=result.lootRange||700;p.petComboGuardLevel=result.guardLevel||null;p.petUntil=Date.now()+10000;if(mode==='repair'&&!p.petRepairStarted){p.petRepairStarted=Date.now();p.petRepairNext=p.petRepairStarted+1000;}
    if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
    io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false,vitals:p.petVitals||null});
   }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});p.writes=job;pending.add(job);
@@ -894,7 +911,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(len>deadzone){const desired=targetBox?Math.max(550,p.speed+100):Math.min(Math.max(550,p.speed+100),Math.max(85,len*3,p.dest?p.speed:0));const speed=p.petSpeed=Math.min(desired,(p.petSpeed||0)+900*dt);const step=Math.min(len,speed*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;p.petAngle=Math.atan2(dy,dx);}
   if(len<=deadzone)p.petSpeed=0;
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
-  if(p.petMode==='guard')shootPetGuard(p,now);if(p.petMode==='repair')tickPetRepair(p,now);
+  if(['guard','combo-guard'].includes(p.petMode))shootPetGuard(p,now);
+  if(p.petComboRepair){if(p.petComboRepair.until>now&&!p.deadUntil&&!p.petVitals?.destroyed){heal(p,'hp',p.petComboRepair.repairPerSecond*dt);}else{p.petComboRepair=null;io.to(p.id).emit('v14:petCombo',null);}}if(p.petMode==='repair')tickPetRepair(p,now);
   if(['locate-resource','locate-enemy'].includes(p.petMode)&&now>=(p.petLocateNext||0)){p.petLocateNext=now+1000;const mode=p.petMode;const marker=!p.gate?require('./pet-support-gears-v178').locatorMarker(p,mode==='locate-resource'?boxes.inZone(zoneOf(p)):npcs.values(),p.petLootRange,mode,now):null;io.to(p.id).emit('v14:petLocator',marker); }
  }
  if(!p.gate)for(const b of boxes.inZone(zoneOf(p)))if(distance(p,b)<52)collectBox(p,b);
