@@ -127,7 +127,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   queueHades(g,()=>accounts.hadesAdvance(g.accounts,wave,outcome)).then(result=>{
    if(g.closed)return;
    g.lives=result.lives;g.wave=result.wave;g.kills=result.kills;
-   if(result.complete){for(const member of groupPilots(g)){const pay=result.payouts[member.accountId];if(pay)Object.assign(member,{credits:Number(pay.balance.credits),experience:Number(pay.balance.experience),level:Number(pay.balance.level)});}for(const member of groupPilots(g)){member.gatePending=false;io.to(member.id).emit('notice','Hades completada · +20.000 uridium por piloto');}g.transition=false;gateIntermission(p,true);return;}
+   if(result.complete){for(const member of groupPilots(g)){const pay=result.payouts[member.accountId];if(pay){Object.assign(member,{credits:Number(pay.balance.credits),experience:Number(pay.balance.experience),level:Number(pay.balance.level),honor:Number(pay.balance.honor)});io.to(member.id).emit('v17:gateReward',{gate:'hades',payout:pay});}}for(const member of groupPilots(g)){member.gatePending=false;io.to(member.id).emit('notice','Hades completada · +20.000 uridium por piloto');}g.transition=false;gateIntermission(p,true);return;}
    if(result.failed){endHades(g,'Hades cerrada: el grupo agotó sus vidas');return;}
    if(outcome==='death'){const dead=players.get(deadId);if(dead?.gate===g){dead.hp=dead.maxHp;dead.shield=dead.maxShield;dead.lastHit=Date.now();dead.dest=null;dead.target=null;dead.attack=false;dead.protectedUntil=Date.now()+3000;setPetMode(dead,'off');}groupState(g,'combat');}
    else gateIntermission(p);
@@ -141,7 +141,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const wave=p.gate.wave,gate=p.gate.gate;
   const job=p.writes.catch(()=>{}).then(()=>accounts.gateAdvance(p.accountId,wave,outcome,gate)).then(async r=>{if(r.complete)await accounts.missionEvent(p.accountId,'gate',gate).catch(()=>{});
    if(players.get(p.id)!==p)return;
-   if(r.complete){if(r.payout?.balance)Object.assign(p,{credits:Number(r.payout.balance.credits),experience:Number(r.payout.balance.experience),level:Number(r.payout.balance.level)});io.to(p.id).emit('notice',DEFS[r.gate].name+' completada · +'+r.payout.uridium+' uridium');gateIntermission(p,true);}
+   if(r.complete){if(r.payout?.balance)Object.assign(p,{credits:Number(r.payout.balance.credits),experience:Number(r.payout.balance.experience),level:Number(r.payout.balance.level),honor:Number(r.payout.balance.honor)});io.to(p.id).emit('v17:gateReward',{gate:r.gate,completion:r.completions,payout:r.payout});gateIntermission(p,true);}
    else if(outcome==='death'||r.failed){if(r.payout?.balance)Object.assign(p,{credits:Number(r.payout.balance.credits),experience:Number(r.payout.balance.experience),level:Number(r.payout.balance.level)});returnFromGate(p,outcome==='death');refreshGalaxy(p).catch(()=>{});io.to(p.id).emit('v14:gateState',{inside:false,...r});io.to(p.id).emit('notice',r.complete?DEFS[r.gate].name+' completada · +'+r.payout.uridium+' uridium':r.failed?'Puerta perdida':'Vida perdida · vuelve a entrar desde Portales');}
    else{p.gate={gate:r.gate,wave:r.wave,lives:r.lives,kills:[]};gateIntermission(p);}
   }).catch(()=>{if(players.get(p.id)===p){returnFromGate(p,outcome==='death');io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice','No se pudo guardar la puerta. Vuelve a entrar.');}}).finally(()=>{p.gatePending=false;pending.delete(job);});
