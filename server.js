@@ -737,7 +737,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    ['event settlements',()=>accounts.eventDrain?.()],
    ['ranking',()=>accounts.rankingRefresh?.()],
    ['auctions',()=>accounts.auctionSettle()],
-   ['flight and achievements',async()=>{for(const p of players.values()){flushFlight(p);if(accounts.achievementRead){try{const a=await accounts.achievementRead(p.accountId);if(players.get(p.id)===p){p.pilotTitle=a.title;p.gateRings=a.rings;}}catch(e){log('pilot achievements',e);}}}}],
+   ['flight and achievements',async()=>{const pilots=[...players.values()];for(const p of pilots)flushFlight(p);
+    if(accounts.achievementReadMany&&pilots.length){try{const rows=await accounts.achievementReadMany(pilots.map(p=>p.accountId));for(const p of pilots){const a=rows.get(p.accountId);if(a&&players.get(p.id)===p){p.pilotTitle=a.title;p.gateRings=a.rings;}}return;}catch(e){log('batch pilot achievements',e);}}
+    if(accounts.achievementRead)for(const p of pilots){if(players.get(p.id)!==p)continue;try{const a=await accounts.achievementRead(p.accountId);if(players.get(p.id)===p){p.pilotTitle=a.title;p.gateRings=a.rings;}}catch(e){log('pilot achievements',e);}}
+   }],
    ['clan taxes',async()=>{const charges=await accounts.collectClanTaxes();for(const charge of charges){const p=active.get(charge.id);if(p)io.to(p.id).emit('notice','Impuesto del clan: '+charge.credits+' créditos / '+charge.uridium+' uridium');}}],
    ['progress sync',()=>Promise.allSettled([...players.values()].map(syncProgress))],
    ['clan tags',async()=>{const tags=await accounts.clanTags([...active.keys()]);const byId=new Map(tags.map(t=>[t.account_id,t.tag]));for(const p of players.values())p.clanTag=byId.get(p.accountId)||'';}]
