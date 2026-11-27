@@ -59,7 +59,7 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  app.get('/api/v13/minerals',routeV13(req=>minerals.status(req.pilotV13.id)));
  app.post('/api/v13/minerals',routeV13(req=>minerals.action(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/bank',routeV13(req=>bank.history(req.pilotV13.id)));
- app.post('/api/v13/bank/redeem',routeV13(req=>bank.redeem(req.pilotV13.id,req.body)));
+ app.post('/api/v13/bank/redeem',routeV13(req=>{if(req.body?.expectedAccountId!==req.pilotV13.id)throw Object.assign(Error('La cuenta cambió; vuelve a abrir el Banco'),{status:409});return bank.redeem(req.pilotV13.id,req.body);}));
  app.get('/api/v13/daily',routeV13(req=>daily.status(req.pilotV13.id)));
  app.post('/api/v13/daily',routeV13(req=>daily.claim(req.pilotV13.id)));
  app.get('/api/v13/missions',routeV13(req=>missions.view(req.pilotV13.id)));
