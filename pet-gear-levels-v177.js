@@ -3,6 +3,7 @@
 const {SUPPORT}=require('./pet-support-gears-v178');
 const GEARS=Object.freeze({
  'G-REP1':SUPPORT['G-REP1'],
+ 'G-AR1':SUPPORT['G-AR1'],
  'G-AL1':Object.freeze([{price:7500,range:700},{price:17500,range:1500},{price:50000,range:2500}]),
  'G-KK1':Object.freeze([{price:7500,damage:25000,radius:250,cooldown:120000},{price:17500,damage:45000,radius:350,cooldown:60000},{price:65000,damage:75000,radius:450,cooldown:30000}])
 });
