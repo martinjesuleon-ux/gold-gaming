@@ -2,6 +2,7 @@
 const crypto=require('node:crypto');
 const {bonusLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
+const {rewardFor}=require('./pvp-v15');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
@@ -26,6 +27,8 @@ function createInventory(pool){
    request_id uuid NOT NULL, response jsonb NOT NULL,
    PRIMARY KEY(account_id,request_id));
    CREATE TABLE IF NOT EXISTS gg_v14_location (account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE, company integer NOT NULL DEFAULT 1 CHECK(company BETWEEN 1 AND 3), map text NOT NULL DEFAULT '1-1');
+   ALTER TABLE gg_v14_location ADD COLUMN IF NOT EXISTS company_chosen boolean NOT NULL DEFAULT false;
+   CREATE TABLE IF NOT EXISTS gg_v15_honor_penalty(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE, ally_step integer NOT NULL DEFAULT 0, ally_last bigint NOT NULL DEFAULT 0);
    CREATE TABLE IF NOT EXISTS gg_v14_gates (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    gate text NOT NULL, pieces jsonb NOT NULL DEFAULT '[]',
@@ -139,7 +142,33 @@ function createInventory(pool){
    return {fuel:Number(r.quantity)};
   });
  }
- async function location(id){return transaction(id,async c=>{const r=(await c.query('SELECT company,map FROM gg_v14_location WHERE account_id=$1',[id])).rows[0];return r&&MAPS[r.map]?r:{company:1,map:'1-1'};});}
+ async function location(id){return transaction(id,async c=>{const r=(await c.query('SELECT company,map,company_chosen FROM gg_v14_location WHERE account_id=$1',[id])).rows[0];return r&&MAPS[r.map]?r:{company:1,map:'1-1',company_chosen:false};});}
+ async function chooseCompany(id,company){
+  if(![1,2,3].includes(company))throw fail('Compañía inválida');
+  return transaction(id,async(c,p)=>{
+   const old=(await c.query('SELECT company,company_chosen FROM gg_v14_location WHERE account_id=$1',[id])).rows[0];
+   if(old?.company_chosen&&old.company===company)throw fail('Ya perteneces a esta compañía');
+   const cost=old?.company_chosen?5000:0;
+   if(Number(p.uridium)<cost)throw fail('Uridium insuficiente');
+   const balance=(await c.query('UPDATE player_progress SET uridium=uridium-$2,honor=CASE WHEN $2>0 AND honor>0 THEN honor/2 ELSE honor END,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium,honor',[id,cost])).rows[0];
+   const map=company+'-1';await c.query('INSERT INTO gg_v14_location(account_id,company,map,company_chosen) VALUES($1,$2,$3,true) ON CONFLICT(account_id) DO UPDATE SET company=EXCLUDED.company,map=EXCLUDED.map,company_chosen=true',[id,company,map]);
+   return {company,map,company_chosen:true,cost,balance};
+  });
+ }
+ async function pvpReward(attacker,victim,ship){
+  if(attacker===victim)throw fail('Piloto inválido');
+  return transaction(attacker,async c=>{
+   const a=(await c.query('SELECT p.level,p.honor,COALESCE(l.company,1) AS company FROM player_progress p LEFT JOIN gg_v14_location l USING(account_id) WHERE p.account_id=$1',[attacker])).rows[0];
+   const b=(await c.query('SELECT p.honor,COALESCE(l.company,1) AS company FROM player_progress p LEFT JOIN gg_v14_location l USING(account_id) WHERE p.account_id=$1',[victim])).rows[0];
+   if(!a||!b)throw fail('Piloto inválido');
+   const prev=(await c.query('SELECT ally_step,ally_last FROM gg_v15_honor_penalty WHERE account_id=$1',[attacker])).rows[0];
+   const war=(await c.query("SELECT 1 FROM gg_v15_clan_members x JOIN gg_v15_clan_members y ON y.account_id=$2 JOIN gg_v15_clan_diplomacy d ON ((d.source=x.clan_id AND d.target=y.clan_id) OR (d.source=y.clan_id AND d.target=x.clan_id)) WHERE x.account_id=$1 AND d.state='war' LIMIT 1",[attacker,victim])).rowCount>0;
+   const reward=rewardFor({...a,company:war?0:a.company,honor:Number(a.honor)},{...b,ship,honor:Number(b.honor)},prev?.ally_step||0,Number(prev?.ally_last||0),Date.now());
+   if(reward.penalty)await c.query('INSERT INTO gg_v15_honor_penalty(account_id,ally_step,ally_last) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET ally_step=EXCLUDED.ally_step,ally_last=EXCLUDED.ally_last',[attacker,reward.penalty.next,reward.penalty.last]);
+   const balance=(await c.query('UPDATE player_progress SET credits=GREATEST(0,credits+$2),experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[attacker,reward.credits,reward.xp,reward.uridium,reward.honor])).rows[0];
+   return {reward,balance};
+  });
+ }
  async function saveLocation(id,company,map){if(![1,2,3].includes(company)||!Object.hasOwn(MAPS,map))throw fail('Mapa inválido');return transaction(id,async c=>{await c.query('INSERT INTO gg_v14_location(account_id,company,map) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET map=EXCLUDED.map',[id,company,map]);return {company,map};});}
  async function awardBox(id,map='1-1',level=1){
   const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
@@ -344,6 +373,6 @@ function createInventory(pool){
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,location,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
 }
 module.exports={createInventory};
