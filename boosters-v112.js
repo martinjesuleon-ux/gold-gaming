@@ -1,4 +1,5 @@
 'use strict';
+const {premiumAllowed}=require('./premium-pilot-v224');
 const stats=[['DMG','damage','Daño',.10,.05],['EP','xp','Experiencia',.10,.05],['HON','honor','Honor',.10,.05],['HP','hp','Vida',.10,.05],['REP','repair','Reparación',.10,.05],['RES','box','Recursos',.10,.05],['SHD','shield','Escudo',.25,.10]];
 const legacy={damage:'damage',xp:'experience',honor:'honor',hp:'hp',repair:'repair',box:'resources',shield:'shield'};
 const CATALOG=Object.fromEntries(stats.flatMap(([prefix,stat,name,own,shared])=>[1,2].map(n=>[prefix+'-B0'+n,{code:prefix+'-B0'+n,name:name+(n===2?' compartido':''),price:10000,seconds:36000,effects:{[stat]:own},shared:n===2?{[stat]:shared}:{},legacy:n===1?'booster-'+legacy[stat]+'-seconds':null}])));
@@ -49,11 +50,11 @@ async function ready(pool){await pool.query(`CREATE TABLE IF NOT EXISTS gg_boost
  CREATE TABLE IF NOT EXISTS gg_booster_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
 async function read(c,id){const rows=(await c.query('SELECT code,until_ms FROM gg_booster_active WHERE account_id=$1 AND until_ms>$2',[id,Date.now()])).rows;return Object.fromEntries(rows.filter(x=>CATALOG[x.code]).map(x=>[x.code,Number(x.until_ms)]));}
 async function extend(c,id,code,seconds){if(!CATALOG[code]||!Number.isSafeInteger(seconds)||seconds<1)throw fail('Booster inválido');const now=Date.now();await c.query('INSERT INTO gg_booster_active(account_id,code,until_ms) VALUES($1,$2,$3::bigint+$4::bigint) ON CONFLICT(account_id,code) DO UPDATE SET until_ms=GREATEST(gg_booster_active.until_ms,$3::bigint)+$4::bigint',[id,code,now,seconds*1000]);}
-function createBoosters(pool){
- async function view(c,id){const rows=(await c.query('SELECT code,seconds FROM gg_v16_entitlements WHERE account_id=$1',[id])).rows;const stock=Object.fromEntries(rows.map(x=>[x.code,Number(x.seconds)]));return {catalog:Object.values(CATALOG),active:await read(c,id),stock,balance:(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1',[id])).rows[0],clock:'wall',now:Date.now()};}
+function createBoosters(pool,{allowPremium=premiumAllowed}={}){
+ async function view(c,id){const rows=(await c.query('SELECT code,seconds FROM gg_v16_entitlements WHERE account_id=$1',[id])).rows;const stock=Object.fromEntries(rows.map(x=>[x.code,Number(x.seconds)]));return {premiumActivationEnabled:allowPremium(id),catalog:Object.values(CATALOG),active:await read(c,id),stock,balance:(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1',[id])).rows[0],clock:'wall',now:Date.now()};}
  async function action(id,{action,code,requestId}={}){
   if(!uuid(requestId)||!Object.hasOwn(CATALOG,code)||!['buy','activate'].includes(action))throw fail('Solicitud inválida');
-  const def=CATALOG[code];if(def.premium)throw fail('Activación Premium pendiente de beneficios',409);const c=await pool.connect();
+  const def=CATALOG[code];if(def.premium&&(action!=='activate'||!allowPremium(id)))throw fail('Activación Premium no habilitada para esta cuenta',409);const c=await pool.connect();
   try{await c.query('BEGIN');await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id]);
    const old=(await c.query('SELECT response FROM gg_booster_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){await c.query('COMMIT');return old.response;}
    if(action==='buy'){
@@ -65,7 +66,7 @@ function createBoosters(pool){
     for(const key of keys){const r=(await c.query('SELECT seconds FROM gg_v16_entitlements WHERE account_id=$1 AND code=$2 FOR UPDATE',[id,key])).rows[0];const n=Number(r?.seconds||0);if(n>0){total+=n;await c.query('UPDATE gg_v16_entitlements SET seconds=0 WHERE account_id=$1 AND code=$2',[id,key]);}}
     // Old Kappa rewards used a stack rather than seconds.
     if(code==='MUL-B03'){const r=(await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='MUL-B03' FOR UPDATE",[id])).rows[0];const n=Number(r?.quantity||0);if(n>0){total+=n*def.seconds;await c.query("UPDATE gg_v13_ammo SET quantity=0 WHERE account_id=$1 AND code='MUL-B03'",[id]);}}
-    if(!total)throw fail('Sin tiempo disponible');
+    if(!Number.isSafeInteger(total)||total>Math.floor(Number.MAX_SAFE_INTEGER/1000)-Math.ceil(Date.now()/1000))throw fail('Tiempo fuera de rango');if(!total)throw fail('Sin tiempo disponible');
     await extend(c,id,code,total);
    }
    const result=await view(c,id);await c.query('INSERT INTO gg_booster_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);await c.query('COMMIT');return result;
