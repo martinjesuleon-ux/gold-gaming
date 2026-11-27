@@ -11,10 +11,9 @@ test('physical laser, shield, engine and same-configuration duplicate restrictio
  for(const c of [[['cpu','cpu'],[]],[['lf'],['lf']],[['shield'],['shield']],[['engine'],['engine']],[['missing'],[]]])assert.throws(()=>configurations('goliath',c,owned));
 });
 test('PET holds in passive mode and catches up at a wider distance without moving when idle',()=>{
- const s=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8'),a=s.indexOf(' function petFollowGoal'),b=s.indexOf(' function setPetMode',a);
- const goal=vm.runInNewContext('const WORLD={w:12000,h:8000},clamp=(n,a,b)=>Math.max(a,Math.min(b,n));'+s.slice(a,b)+';petTravelGoal');
+ const {travelGoal}=require('../pet-navigation-v187');const goal=(p,target)=>travelGoal(p,target,1000,{w:12000,h:8000});
  const p={x:5000,y:5000,petX:4400,petY:5000,angle:0,petMode:'passive'};
  assert.equal(goal(p,null).x,4400);p.x=5500;assert.notEqual(goal(p,null).x,4400);
  p.petMode='guard';p.petFollowing=false;p.x=5000;assert.notEqual(goal(p,null).x,4400);
- const box={x:6000,y:6000};assert.equal(goal(p,box),box);
+ const box={x:6000,y:6000};assert.deepEqual(goal(p,box),{...box,kind:'pickup'});p.x=6500;assert.equal(goal(p,box).kind,'follow');
 });
