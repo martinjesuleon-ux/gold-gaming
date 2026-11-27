@@ -323,8 +323,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function groupState(g,phase,extra={}){for(const p of groupPilots(g))io.to(p.id).emit('v14:gateState',{inside:true,gate:'hades',wave:g.wave+1,total:3,lives:g.lives,phase,leader:p.id===g.leader,...extra});}
  function endHades(g,message){if(g.closed)return;g.closed=true;for(const p of groupPilots(g)){returnFromGate(p,p.hp<=0);refreshGalaxy(p).catch(()=>{});p.gatePending=false;io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice',message);}}
  function queueHades(g,fn){
-  const job=g.writes.then(fn);g.writes=job;
-  for(const p of groupPilots(g))p.writes=job;
+  const members=groupPilots(g),prior=[g.writes,...members.map(p=>p.writes)];
+  const job=Promise.all(prior).then(fn);g.writes=job;
+  for(const p of members)p.writes=job;
   pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);endHades(g,'No se pudo guardar Hades. El progreso confirmado se conserva.');});return job;
  }
  function saveHades(p,outcome){
@@ -337,7 +338,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    g.lives=result.lives;g.wave=result.wave;g.kills=result.kills;
    if(result.complete){for(const member of groupPilots(g)){const pay=result.payouts[member.accountId];if(pay){Object.assign(member,{credits:Number(pay.balance.credits),experience:Number(pay.balance.experience),level:Number(pay.balance.level),honor:Number(pay.balance.honor)});io.to(member.id).emit('v17:gateReward',{gate:'hades',payout:pay});}}for(const member of groupPilots(g)){member.gatePending=false;io.to(member.id).emit('notice','Hades completada · +20.000 uridium por piloto');}g.transition=false;gateIntermission(p,true);return;}
    if(result.failed){endHades(g,'Hades cerrada: el grupo agotó sus vidas');return;}
-   if(outcome==='death'){const dead=players.get(deadId);if(dead?.gate===g){dead.hp=dead.maxHp;dead.shield=dead.maxShield;dead.lastHit=Date.now();dead.dest=null;dead.target=null;dead.attack=false;dead.protectedUntil=Date.now()+3000;setPetMode(dead,'off');}groupState(g,'combat');}
+   if(outcome==='death'){const dead=players.get(deadId);if(dead?.gate===g){dead.hp=dead.maxHp;dead.shield=dead.maxShield;dead.deathRecorded=false;dead.deathRequestId=crypto.randomUUID();dead.lastHit=Date.now();dead.dest=null;dead.target=null;dead.attack=false;dead.protectedUntil=Date.now()+3000;setPetMode(dead,'off');}groupState(g,'combat');}
    else gateIntermission(p);
    g.transition=false;for(const member of groupPilots(g))member.gatePending=false;
   }).catch(()=>{});
@@ -789,7 +790,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    else if(action==='create'||action==='join'){
     const eligible=await accounts.hadesEligibility(p.accountId);
     if(players.get(p.id)!==p||p.gate||p.deadUntil||p.gatePending)return ack({ok:false,error:'Piloto no disponible'});
-    const member={id:p.id,name:p.name,wave:eligible.wave};
+    const member={id:p.id,name:p.name,wave:eligible.wave,checkpoint:eligible.checkpoint};
     room=action==='create'?hadesLobbies.create(member):hadesLobbies.join(data.code,member);
    }else throw Error('Acción inválida');
    broadcastHades(room);ack({ok:true,room});
