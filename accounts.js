@@ -75,6 +75,7 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  app.get('/api/v13/pet/equipment',routeV13(req=>petProgression.equipmentRead(req.pilotV13.id)));
  app.get('/api/v13/pet/vitals',routeV13(req=>petProgression.vitalsRead(req.pilotV13.id)));
  app.post('/api/v13/pet/repair',routeV13(req=>petProgression.repairPet(req.pilotV13.id,req.body)));
+ app.post('/api/v13/pet/hull',routeV13(req=>petProgression.upgradeHull(req.pilotV13.id,req.body)));
  app.post('/api/v13/pet/equipment',routeV13(req=>petProgression.equipmentSave(req.pilotV13.id,req.body)));
  app.post('/api/v13/pet/slots',routeV13(req=>{if(process.env.GG_PET_PROGRESSION_ENABLED!=='1')throw Object.assign(Error('Progresión P.E.T. en pruebas'),{status:403});return petProgression.buySlot(req.pilotV13.id,req.body||{});}));
  app.post('/api/v13/purchase',routeV13(req=>inventory.purchase(req.pilotV13.id,req.body||{})));
