@@ -40,6 +40,7 @@ socket.on('v17:gateReward',r=>{if(joined&&r?.payout)rewardNotice('Portal '+Strin
 function notice(msg){recordActivity(msg);const n=$('notice');n.textContent=msg;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.textContent='',3600);}
 const rewardLabels={xp:'Experiencia',honor:'Honor',credits:'Créditos',uridium:'Uridium',ammo:'Munición UCB-100',disks:'Ficheros',xenomit:'Xenomit',vouchers:'Vales de reparación',keys:'Llaves de botín'};
 const rewardNumber=new Intl.NumberFormat('es-CL',{maximumFractionDigits:0});
+let rewardRemovalTimer=null;
 function rewardNotice(title,amounts){
  const host=$('gg171-rewards');if(!host)return;
  const card=document.createElement('section');card.className='gg171-reward';
@@ -54,8 +55,9 @@ function rewardNotice(title,amounts){
  if(typeof amounts?.item==='string'&&amounts.item){const line=document.createElement('span');line.textContent='Objeto: '+amounts.item+(amounts.itemQuantity>1?' ×'+amounts.itemQuantity:'');card.append(line);entries.push(line.textContent);}
  if(!entries.length)return;
  recordActivity(heading.textContent+' · '+entries.join(' · '));
- host.prepend(card);while(host.children.length>5)host.lastElementChild.remove();
- setTimeout(()=>card.classList.add('leaving'),5200);setTimeout(()=>card.remove(),5700);
+ clearTimeout(rewardRemovalTimer);
+ host.replaceChildren(card);
+ rewardRemovalTimer=setTimeout(()=>{card.remove();rewardRemovalTimer=null;},4200);
 }
 socket.on('v171:reward',r=>{if(joined&&r&&typeof r.title==='string')rewardNotice(r.title,r.amounts);});
 
