@@ -3,7 +3,7 @@ const catalog=require('./data/catalog-v13.json');
 const {profile}=require('./pet-progression-v173');
 const fail=(msg,status=400)=>Object.assign(Error(msg),{status});
 const EMPTY=()=>({laser:[],generator:[]});
-const GEAR_CODES=Object.freeze(['G-AL1','G-KK1','G-REP1','G-AR1']);
+const GEAR_CODES=Object.freeze(['G-AL1','G-KK1','G-REP1','G-AR1','G-RL1','G-EL1']);
 function shipReservations(configs=[]){
  const ids=new Set();
  if(!Array.isArray(configs))throw fail('Configuraciones de nave inválidas');

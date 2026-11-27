@@ -27,4 +27,6 @@ function locateNearest(origin,entities,range,accept=()=>true){
 }
 function repairEnabled(id){const rules=require('./pet-test-kit-v175');return rules.gearEnabled(id)&&rules.vitalsEnabled(id)&&(rules.testKitEnabled(id)||process.env.GG_PET_SUPPORT_REPAIR_ENABLED==='1');}
 function resourceEnabled(id){const rules=require('./pet-test-kit-v175');return rules.gearEnabled(id)&&(rules.testKitEnabled(id)||process.env.GG_PET_RESOURCE_GEAR_ENABLED==='1');}
-module.exports={SUPPORT,supportSpec,repairHull,locateNearest,repairEnabled,resourceEnabled};
+function locatorEnabled(id){const rules=require('./pet-test-kit-v175');return rules.gearEnabled(id)&&(rules.testKitEnabled(id)||process.env.GG_PET_LOCATORS_ENABLED==='1');}
+function locatorMarker(origin,entities,range,mode,now){const n=locateNearest(origin,entities,range,e=>mode==='locate-resource'?['cargo','paladio'].includes(e.kind)&&!e.pending&&(!e.expires||e.expires>now)&&(e.kind!=='cargo'||e.owner===origin.accountId)&&Object.values(e.contents||{}).some(n=>Number(n)>0):mode==='locate-enemy'&&!e.accountId&&e.hp>0&&!e.gateShielded);return n?{x:n.x,y:n.y,map:origin.zone,name:mode==='locate-resource'?(n.kind==='paladio'?'Paladio':'Carga propia'):String(n.name||'Alienígena'),distance:Math.round(Math.hypot(n.x-origin.x,n.y-origin.y)),range,mode}:null;}
+module.exports={SUPPORT,supportSpec,repairHull,locateNearest,repairEnabled,resourceEnabled,locatorEnabled,locatorMarker};
