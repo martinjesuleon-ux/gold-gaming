@@ -35,6 +35,7 @@ function createPetProgression(pool){
  CREATE TABLE IF NOT EXISTS gg_pet_vitals_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,hp bigint NOT NULL CHECK(hp>=0),shield bigint NOT NULL CHECK(shield>=0));
  ALTER TABLE gg_pet_vitals_v173 ADD COLUMN IF NOT EXISTS last_damage_at timestamptz NOT NULL DEFAULT now();
  ALTER TABLE gg_pet_vitals_v173 ADD COLUMN IF NOT EXISTS last_regen_at timestamptz NOT NULL DEFAULT now();
+ CREATE TABLE IF NOT EXISTS gg_pet_combo_cooldown_v180(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,ready_at bigint NOT NULL CHECK(ready_at>=0));
  CREATE TABLE IF NOT EXISTS gg_pet_slot_receipts_v173(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,kind text NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
  async function transaction(id,fn){
   const c=await pool.connect();
@@ -136,6 +137,23 @@ function createPetProgression(pool){
  }
  async function vitalsRead(id){return transaction(id,async(c,p)=>{const {vitals,stats}=await readVitals(c,id,p);return {...vitals,lasers:stats.lasers,damage:stats.damage,repairPrice:p.repair,enabled:require('./pet-test-kit-v175').vitalsEnabled(id)};});}
  // Internal server-only repair tick. No client-supplied amount or duration.
+ async function authorizeComboRepair(id){
+  const combos=require('./pet-combos-v180');if(!combos.comboEnabled(id))throw fail('Combo reparación en pruebas',403);
+  return transaction(id,async(c,p)=>{
+   const {equipment,available,stats}=await equipmentState(c,id,p);
+   const gear=available.find(i=>i.category==='petGear'&&i.code==='CSR-02'&&equipment.gear?.includes(i.instanceId));
+   if(!gear)throw fail('Equipa CSR-02');
+   const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
+   if(v&&Number(v.hp)===0)throw fail('P.E.T. destruido');
+   const row=(await c.query('SELECT ready_at FROM gg_pet_combo_cooldown_v180 WHERE account_id=$1',[id])).rows[0];
+   const stock=(await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='pet-fuel'",[id])).rows[0];
+   const q=combos.repairQuote(gear.level,Date.now(),Number(row?.ready_at||0),Number(stock?.quantity||0));
+   const paid=await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=$2 RETURNING quantity",[id,q.fuel]);
+   if(!paid.rowCount)throw fail('Combustible insuficiente');
+   await c.query('INSERT INTO gg_pet_combo_cooldown_v180(account_id,ready_at) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET ready_at=EXCLUDED.ready_at',[id,q.readyAt]);
+   return {...q,stock:Number(paid.rows[0].quantity),level:gear.level};
+  });
+ }
  async function repairPetHullTick(id){
   const rules=require('./pet-support-gears-v178');if(!rules.repairEnabled(id))throw fail('Reparación en pruebas',403);
   return transaction(id,async(c,p)=>{
@@ -209,6 +227,6 @@ function createPetProgression(pool){
    return response;
   });
  }
- return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet,repairPetHullTick,regeneratePetShield,upgradeHull};
+ return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet,repairPetHullTick,authorizeComboRepair,regeneratePetShield,upgradeHull};
 }
 module.exports={levelForExperience,profile,quoteSlot,createPetProgression,TYPES,INITIAL};
