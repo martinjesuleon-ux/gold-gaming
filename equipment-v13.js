@@ -55,7 +55,7 @@ function salvo(attacker,target,ammoId,stock,roll){
  requireRule(ammo&&Number.isSafeInteger(stock)&&Number.isFinite(roll)&&roll>=0&&roll<1&&Number.isFinite(attacker.damage)&&attacker.damage>=0,'Ataque inválido');
  const cost=attacker.lasers;
  requireRule(Number.isSafeInteger(cost)&&cost>0&&stock>=cost,'Munición insuficiente');
- const amount=roll<Math.min(1,1-(1-ammo.miss)*(attacker.accuracyFactor??1))?0:Math.round(attacker.damage*ammo.multiplier);
+ const amount=roll<Math.min(1,1-(1-ammo.miss*(attacker.aimBoost?.5:1))*(attacker.accuracyFactor??1))?0:Math.round(attacker.damage*ammo.multiplier);
  if(ammo.shieldOnly){
   const drained=Math.min(target.shield,amount);
   return {stock:stock-cost,intervalMs:ammo.intervalMs,damage:0,drained,target:{hp:target.hp,shield:target.shield-drained},attackerShield:Math.min(attacker.maxShield,attacker.shield+drained)};
