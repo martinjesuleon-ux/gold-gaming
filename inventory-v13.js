@@ -59,7 +59,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- async function purchase(id,{category,code,quantity,requestId}){
+ async function purchase(id,{category,code,quantity,requestId,targetLevel}){
   if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Identificador de compra inválido');
   let q=category==='resources'?require('./resource-shop-v176').quoteResource(code,quantity):category==='drones'||category==='pet'||category==='fuel'||category==='petGear'?null:quote(category,code,quantity);
   return transaction(id,async(c,p)=>{
@@ -74,10 +74,15 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    }
    if(category==='petGear'){
     if(!['G-AL1','G-KK1'].includes(code)||quantity!==1)throw fail('Engranaje inválido');
-    const rows=(await c.query("SELECT instance_id AS \"instanceId\",category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+    const rows=(await c.query("SELECT instance_id AS \"instanceId\",category,code,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
     if(!rows.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
-    if(rows.some(x=>x.code===code))throw fail('Engranaje ya adquirido');
-    q={id:code,category,quantity,currency:'uridium',total:7500};
+    const existing=rows.find(x=>x.category==='petGear'&&x.code===code),rules=require('./pet-gear-levels-v177');
+    if(existing&&!rules.levelRulesEnabled(id))throw fail('Engranaje ya adquirido');
+    if(existing&&targetLevel===undefined)throw fail('Selecciona el nivel de mejora');
+    const progress=(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0];
+    const petLevel=require('./pet-progression-v173').levelForExperience(Number(progress?.experience||0)).level;
+    q=rules.quoteGear(code,existing?.level||0,targetLevel??1,petLevel);
+    if(existing)q.upgradeId=existing.instanceId;
    }
    if(category==='pet'){
     if(code!=='pet-10'||quantity!==1)throw fail('P.E.T. inválido');
@@ -91,7 +96,9 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(Number(p[q.currency])<q.total)throw fail('Saldo insuficiente',409);
    const column=q.currency==='credits'?'credits':'uridium';
    const balance=(await c.query('UPDATE player_progress SET '+column+'='+column+'-$2 WHERE account_id=$1 RETURNING credits,uridium',[id,q.total])).rows[0];
-   if(['ammo','fuel','rockets','specialRockets','launcherAmmo','mines','consumables','resources'].includes(category)){
+   if(category==='petGear'&&q.upgradeId){
+    await c.query("UPDATE gg_v13_inventory SET level=$3 WHERE account_id=$1 AND instance_id=$2 AND category='petGear'",[id,q.upgradeId,q.targetLevel]);
+   }else if(['ammo','fuel','rockets','specialRockets','launcherAmmo','mines','consumables','resources'].includes(category)){
     await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,code,q.quantity]);
    }else{
     for(let i=0;i<q.quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),code,category==='designs'?'ship-designs':category]);
@@ -110,7 +117,8 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
-   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id)};
+   const petProgress=items.some(i=>i.category==='pet')?(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0]:null;
+   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id),petGearLevelsEnabled:require('./pet-gear-levels-v177').levelRulesEnabled(id),petLevel:require('./pet-progression-v173').levelForExperience(Number(petProgress?.experience||0)).level};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
@@ -171,27 +179,31 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
  }
  // El combustible se cobra antes de activar cada intervalo de vuelo.
  async function requireMountedGear(c,id,owned,code){
-  if(!require('./pet-test-kit-v175').gearEnabled(id))return;
+  if(!require('./pet-test-kit-v175').gearEnabled(id))return owned.find(i=>i.category==='petGear'&&i.code===code);
   const equipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment;
   if(!hasMountedGear(equipment,owned,code))throw fail('Equipa el módulo '+code+' en el hangar del P.E.T.');
+  return owned.find(i=>i.category==='petGear'&&i.code===code&&equipment.gear.includes(i.instanceId));
  }
  async function petKamikaze(id){
   return transaction(id,async c=>{
-   const owned=(await c.query("SELECT instance_id AS \"instanceId\",code,category FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   const owned=(await c.query("SELECT instance_id AS \"instanceId\",code,category,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet')||!owned.some(x=>x.code==='G-KK1'))throw fail('Compra el módulo G-KK1 Kamikaze en la tienda');
-   await requireMountedGear(c,id,owned,'G-KK1');
+   const gear=await requireMountedGear(c,id,owned,'G-KK1'),rules=require('./pet-gear-levels-v177');
+   const spec=rules.levelRulesEnabled(id)?rules.spec('G-KK1',gear?.level):null;
+   if(require('./pet-test-kit-v175').vitalsEnabled(id)){const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido');}
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-10 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=10 RETURNING quantity",[id])).rows[0];
    if(!r)throw fail('Necesitas 10 unidades de combustible');
-   return {fuel:Number(r.quantity)};
+   return {fuel:Number(r.quantity),kamikaze:spec};
   });
  }
  async function petInterval(id,mode){
   if(!['passive','guard','loot'].includes(mode))throw fail('Modo inválido');
   return transaction(id,async c=>{
-   const owned=(await c.query("SELECT instance_id AS \"instanceId\",category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   const owned=(await c.query("SELECT instance_id AS \"instanceId\",category,code,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
    if(mode==='loot'&&!owned.some(x=>x.code==='G-AL1'))throw fail('Necesitas el engranaje G-AL1');
-   if(mode==='loot')await requireMountedGear(c,id,owned,'G-AL1');
+   const gear=mode==='loot'?await requireMountedGear(c,id,owned,'G-AL1'):null,rules=require('./pet-gear-levels-v177');
+   const lootRange=rules.levelRulesEnabled(id)?rules.spec('G-AL1',gear?.level)?.range||700:700;
    if(require('./pet-test-kit-v175').vitalsEnabled(id)){
     const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
     if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido. Repáralo primero');
@@ -204,7 +216,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    }
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=$2 RETURNING quantity",[id,cost])).rows[0];
    if(!r)throw fail('Combustible insuficiente');
-   return {fuel:Number(r.quantity)};
+   return {fuel:Number(r.quantity),lootRange};
   });
  }
  async function location(id){return transaction(id,async c=>{const r=(await c.query('SELECT company,map,company_chosen FROM gg_v14_location WHERE account_id=$1',[id])).rows[0];return r&&MAPS[r.map]?r:{company:1,map:'1-1',company_chosen:false};});}
