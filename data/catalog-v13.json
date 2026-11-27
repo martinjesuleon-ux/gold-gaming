@@ -397,5 +397,469 @@
     "maxUpgrade": 16,
     "laserUpgradePerStep": 0.004,
     "shieldUpgradePerStep": 0.01
-  }
+  },
+  "rockets": [
+    {
+      "id": "R-310",
+      "damage": 1000,
+      "miss": 0.1,
+      "price": 100,
+      "currency": "credits"
+    },
+    {
+      "id": "PLT-2026",
+      "damage": 2000,
+      "miss": 0.1,
+      "price": 500,
+      "currency": "credits"
+    },
+    {
+      "id": "PLT-2021",
+      "damage": 4000,
+      "miss": 0.1,
+      "price": 5,
+      "currency": "uridium"
+    },
+    {
+      "id": "PLT-3030",
+      "damage": 6000,
+      "miss": 0.5,
+      "price": 7,
+      "currency": "uridium"
+    }
+  ],
+  "specialRockets": [
+    {
+      "id": "PLD-8",
+      "effect": "accuracy",
+      "factor": 0.6,
+      "duration": 5000,
+      "cooldown": 30000,
+      "price": 100,
+      "currency": "uridium"
+    },
+    {
+      "id": "DCR-250",
+      "effect": "slow",
+      "factor": 0.7,
+      "duration": 5000,
+      "cooldown": 60000,
+      "price": 500,
+      "currency": "uridium"
+    },
+    {
+      "id": "R-IC3",
+      "effect": "freeze",
+      "factor": 0,
+      "duration": 2000,
+      "cooldown": 120000,
+      "price": 100,
+      "currency": "uridium"
+    }
+  ],
+  "launchers": [
+    {
+      "id": "HST-1",
+      "capacity": 3,
+      "price": 500000,
+      "currency": "credits"
+    },
+    {
+      "id": "HST-2",
+      "capacity": 5,
+      "price": 15000,
+      "currency": "uridium"
+    }
+  ],
+  "launcherAmmo": [
+    {
+      "id": "ECO-10",
+      "damage": 2000,
+      "price": 1500,
+      "currency": "credits"
+    },
+    {
+      "id": "SAR-01",
+      "drain": 1200,
+      "price": 2000,
+      "currency": "credits"
+    },
+    {
+      "id": "SAR-02",
+      "drain": 4000,
+      "price": 20,
+      "currency": "uridium"
+    },
+    {
+      "id": "HSTRM-01",
+      "damage": 4000,
+      "price": 25,
+      "currency": "uridium"
+    },
+    {
+      "id": "UBR-100",
+      "damage": 5000,
+      "price": 30,
+      "currency": "uridium"
+    },
+    {
+      "id": "CBR",
+      "damage": 3000,
+      "drain": 3000,
+      "price": null,
+      "currency": null
+    }
+  ],
+  "mines": [
+    {
+      "id": "ACM-01",
+      "price": 100,
+      "currency": "uridium"
+    },
+    {
+      "id": "DDM-01",
+      "price": 200,
+      "currency": "uridium"
+    },
+    {
+      "id": "SABM-01",
+      "price": 150,
+      "currency": "uridium"
+    },
+    {
+      "id": "SLM-01",
+      "price": 50,
+      "currency": "uridium"
+    },
+    {
+      "id": "EMPM-01",
+      "price": 150,
+      "currency": "uridium"
+    }
+  ],
+  "designs": [
+    {
+      "id": "Diminisher",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Sentinel",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Solace",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Spectrum",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Venom",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Lightning",
+      "ship": "vengeance",
+      "price": 250000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Bastion",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "shield": 1.1
+      }
+    },
+    {
+      "id": "Enforcer",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "Centaur",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "hp": 1.1
+      }
+    },
+    {
+      "id": "Exalted",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "honor": 1.1
+      }
+    },
+    {
+      "id": "Veteran",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.1
+      }
+    },
+    {
+      "id": "Goal",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.1
+      }
+    },
+    {
+      "id": "Referee",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "Kick",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "shield": 1.1
+      }
+    },
+    {
+      "id": "Revenge",
+      "ship": "vengeance",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "Avenger",
+      "ship": "vengeance",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "shield": 1.1
+      }
+    },
+    {
+      "id": "Saturn",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "hp": 1.2
+      }
+    },
+    {
+      "id": "aegis-veteran",
+      "name": "aegis Veteran",
+      "ship": "aegis",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.05,
+        "honor": 1.05
+      }
+    },
+    {
+      "id": "aegis-elite",
+      "name": "aegis Elite",
+      "ship": "aegis",
+      "price": 200000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "citadel-veteran",
+      "name": "citadel Veteran",
+      "ship": "citadel",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.05,
+        "honor": 1.05
+      }
+    },
+    {
+      "id": "citadel-elite",
+      "name": "citadel Elite",
+      "ship": "citadel",
+      "price": 200000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "spearhead-veteran",
+      "name": "spearhead Veteran",
+      "ship": "spearhead",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.05,
+        "honor": 1.05
+      }
+    },
+    {
+      "id": "spearhead-elite",
+      "name": "spearhead Elite",
+      "ship": "spearhead",
+      "price": 200000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    }
+  ],
+  "cpus": [
+    {
+      "id": "SL-01",
+      "slots": 2,
+      "price": 600000,
+      "currency": "credits"
+    },
+    {
+      "id": "SL-02",
+      "slots": 4,
+      "price": 75000,
+      "currency": "uridium"
+    },
+    {
+      "id": "SL-03",
+      "slots": 6,
+      "price": 150000,
+      "currency": "uridium"
+    },
+    {
+      "id": "SL-04",
+      "slots": 10,
+      "price": 250000,
+      "currency": "uridium"
+    },
+    {
+      "id": "R0K-T01",
+      "price": 10000,
+      "currency": "uridium"
+    },
+    {
+      "id": "MIN-T02",
+      "price": 25000,
+      "currency": "uridium"
+    },
+    {
+      "id": "ISH-01",
+      "price": 50000,
+      "currency": "uridium"
+    },
+    {
+      "id": "SMB-01",
+      "price": 50000,
+      "currency": "uridium"
+    },
+    {
+      "id": "NC-RRB",
+      "price": 10000,
+      "currency": "uridium"
+    },
+    {
+      "id": "CLO4K-CPU",
+      "uses": 10,
+      "price": 5000,
+      "currency": "uridium"
+    },
+    {
+      "id": "CLO4K-XL-CPU",
+      "uses": 50,
+      "price": 22500,
+      "currency": "uridium"
+    },
+    {
+      "id": "AROL-X",
+      "price": 25000,
+      "currency": "uridium"
+    },
+    {
+      "id": "RL-LB1",
+      "price": 25000,
+      "currency": "uridium"
+    },
+    {
+      "id": "AIM-02",
+      "price": 200000,
+      "currency": "uridium"
+    },
+    {
+      "id": "NC-AWB",
+      "price": 10000,
+      "currency": "uridium"
+    },
+    {
+      "id": "AJP-01",
+      "price": 15000,
+      "currency": "uridium"
+    },
+    {
+      "id": "GEMINEX-XI",
+      "price": 10000,
+      "currency": "uridium"
+    }
+  ],
+  "robots": [
+    {
+      "id": "REP-S",
+      "perMinute": 1000,
+      "price": 30000,
+      "currency": "credits"
+    },
+    {
+      "id": "REP-1",
+      "seconds": 165,
+      "price": 10000,
+      "currency": "credits"
+    },
+    {
+      "id": "REP-2",
+      "seconds": 120,
+      "price": 64000,
+      "currency": "credits"
+    },
+    {
+      "id": "REP-3",
+      "seconds": 105,
+      "price": 5000,
+      "currency": "uridium"
+    },
+    {
+      "id": "REP-4",
+      "seconds": 90,
+      "price": 20000,
+      "currency": "uridium"
+    }
+  ]
 }

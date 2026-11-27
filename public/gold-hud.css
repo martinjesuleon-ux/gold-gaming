@@ -26,3 +26,5 @@
 #hud .topbar .credits,#hud .topbar .pilot{min-width:0;overflow-wrap:anywhere}
 #hud .vitals{top:var(--gg-vitals-top,230px)!important}
 #hud .gg-window[data-key=module]{top:var(--gg-module-top,365px)!important}
+
+#hud .topbar{top:var(--gg-topbar-top,112px)!important}

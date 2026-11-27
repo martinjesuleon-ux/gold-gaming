@@ -1,19 +1,19 @@
 'use strict';
-const catalog=require('./data/catalog-v13.json');
+const catalog=require('./data/catalog-v13.json');const {extraStats}=require('./cpus-v18');
 const lookup=(list,id)=>list.find(x=>x.id===id);
 const requireRule=(ok,msg)=>{if(!ok)throw new Error(msg);};
 function quote(category,id,quantity=1){
- const allowed=['ships','lasers','ammo','shields','engines'];
+ const allowed=['ships','lasers','ammo','shields','engines','rockets','specialRockets','launchers','launcherAmmo','mines','designs','cpus','robots'];
  requireRule(allowed.includes(category),'Categoría inválida');
  const item=lookup(catalog[category],id);
  requireRule(item&&item.price!==null&&['credits','uridium'].includes(item.currency),'Objeto no disponible');
- requireRule(Number.isSafeInteger(quantity)&&quantity>0&&quantity<=(category==='ammo'?100000:category==='ships'?1:100),'Cantidad inválida');
+ requireRule(Number.isSafeInteger(quantity)&&quantity>0&&quantity<=(['ammo','rockets','specialRockets','launcherAmmo','mines'].includes(category)?100000:['ships','designs','cpus','robots'].includes(category)?1:100),'Cantidad inválida');
  return {id,category,quantity,currency:item.currency,total:item.price*quantity};
 }
 function stats(shipId,items,droneItems=[]){
  const ship=lookup(catalog.ships,shipId);
  requireRule(ship&&Array.isArray(items),'Nave o equipo inválido');
- const seen=new Set();let damage=0,shield=0,speed=ship.speed,absorption=0,lasers=0,generators=0;
+ const seen=new Set();let damage=0,shield=0,speed=ship.speed,absorption=0,lasers=0,generators=0,launcher=null;
  for(const item of items){
   requireRule(item&&typeof item.instanceId==='string'&&item.instanceId.length&&!seen.has(item.instanceId),'Objeto duplicado o inválido');
   seen.add(item.instanceId);
@@ -23,11 +23,13 @@ function stats(shipId,items,droneItems=[]){
   if(laser){requireRule(laser.id!=='LF-P01','Láser exclusivo P.E.T.');lasers++;damage+=laser.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep);}
   else if(gen){generators++;shield+=gen.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep);absorption=Math.max(absorption,gen.absorption);}
   else if(engine){generators++;speed+=engine.speed;}
+  else if(catalog.launchers.some(x=>x.id===item.code)||catalog.cpus.some(x=>x.id===item.code)||catalog.robots.some(x=>x.id===item.code)){}
   else throw Error('Equipo aún no admitido');
  }
+ const extras=extraStats(ship,items);launcher=extras.launcher;
  requireRule(lasers<=ship.lasers&&generators<=ship.generators,'Espacios de equipamiento excedidos');
  for(const item of droneItems){const l=lookup(catalog.lasers,item.code),g=lookup(catalog.shields,item.code);requireRule((l&&l.id!=='LF-P01')||g,'Equipo VANT inválido');const level=item.level??1;requireRule(Number.isInteger(level)&&level>=1&&level<=16,'Nivel inválido');if(l){lasers++;damage+=l.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep);}else{shield+=g.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep);absorption=Math.max(absorption,g.absorption);}}
- return {hp:ship.hp,shield:Math.round(shield),speed,damage:Math.round(damage),absorption:shield?absorption:.5,lasers,generators};
+ return {hp:ship.hp,shield:Math.round(shield),speed,damage:Math.round(damage),absorption:shield?absorption:.5,lasers,generators,...(launcher?{launcher}:{}),...(extras.used?{cpus:extras.cpus,robot:extras.robot,extrasUsed:extras.used,extraSlots:ship.extras+extras.slots}:{})};
 }
 function configurations(shipId,configs,owned){
  requireRule(Array.isArray(configs)&&configs.length===2&&owned instanceof Map,'Configuraciones inválidas');
@@ -53,7 +55,7 @@ function salvo(attacker,target,ammoId,stock,roll){
  requireRule(ammo&&Number.isSafeInteger(stock)&&Number.isFinite(roll)&&roll>=0&&roll<1&&Number.isFinite(attacker.damage)&&attacker.damage>=0,'Ataque inválido');
  const cost=attacker.lasers;
  requireRule(Number.isSafeInteger(cost)&&cost>0&&stock>=cost,'Munición insuficiente');
- const amount=roll<ammo.miss?0:Math.round(attacker.damage*ammo.multiplier);
+ const amount=roll<Math.min(1,1-(1-ammo.miss*(attacker.aimBoost?.5:1))*(attacker.accuracyFactor??1))?0:Math.round(attacker.damage*ammo.multiplier);
  if(ammo.shieldOnly){
   const drained=Math.min(target.shield,amount);
   return {stock:stock-cost,intervalMs:ammo.intervalMs,damage:0,drained,target:{hp:target.hp,shield:target.shield-drained},attackerShield:Math.min(attacker.maxShield,attacker.shield+drained)};
