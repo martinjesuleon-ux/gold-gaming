@@ -29,6 +29,23 @@ test('reward display shows signed, individually labeled committed amounts and re
  assert.match(read('accounts.js'),/r.payout=\{credits,xp,uridium:paidUridium,honor\}/);
  assert.match(read('inventory-v13.js'),/payout:\{credits,xp,uridium:paidUridium,honor\}/);
  assert.match(game,/xp:'Experiencia',honor:'Honor',credits:'Créditos',uridium:'Uridium'/);
- assert.match(game,/setTimeout\(\(\)=>card.remove\(\),5700\)/);
+ assert.match(game,/host.replaceChildren\(card\)/);
  assert.match(html,/id="gg171-rewards"/);
+});
+
+test('floating reward replaces the previous notice and cancels its timer',()=>{
+ const host={children:[],replaceChildren(node){this.children=[node];}};
+ const timers=new Map(),history=[];let seq=0;
+ function element(){return {children:[],className:'',classList:{add(){}},append(...nodes){this.children.push(...nodes);},remove(){host.children=host.children.filter(n=>n!==this);}};}
+ const c={$:()=>host,document:{createElement:element},recordActivity:s=>history.push(s),setTimeout(fn,ms){const id=++seq;timers.set(id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id)};
+ const start=game.indexOf('const rewardLabels='),end=game.indexOf("socket.on('v171:reward'",start);
+ vm.runInNewContext(game.slice(start,end)+';this.show=rewardNotice;',c);
+ c.show('Streuner',{xp:100,honor:4,credits:200,uridium:2});
+ const first=host.children[0];assert.equal(first.children.length,5);assert.equal(timers.size,1);
+ c.show('Lordakia',{xp:500,uridium:8});
+ assert.equal(host.children.length,1);assert.ok(host.children[0]!==first);assert.equal(host.children[0].children[0].textContent,'Lordakia');
+ assert.equal(history.length,2);assert.equal(timers.size,1);
+ const timer=[...timers.values()][0];assert.equal(timer.ms,4200);timer.fn();assert.equal(host.children.length,0);
+ const css=read('public/star-map-v171.css');assert.match(css,/background:transparent;border:0;box-shadow:none/);
+ assert.match(css,/100%\{opacity:0;transform:translateY\(-42px\)\}/);
 });

@@ -175,7 +175,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   });
  }
  async function petInterval(id,mode){
-  if(!['passive','loot'].includes(mode))throw fail('Modo inválido');
+  if(!['passive','guard','loot'].includes(mode))throw fail('Modo inválido');
   return transaction(id,async c=>{
    const owned=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');

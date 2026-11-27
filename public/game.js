@@ -40,6 +40,7 @@ socket.on('v17:gateReward',r=>{if(joined&&r?.payout)rewardNotice('Portal '+Strin
 function notice(msg){recordActivity(msg);const n=$('notice');n.textContent=msg;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.textContent='',3600);}
 const rewardLabels={xp:'Experiencia',honor:'Honor',credits:'Créditos',uridium:'Uridium',ammo:'Munición UCB-100',disks:'Ficheros',xenomit:'Xenomit',vouchers:'Vales de reparación',keys:'Llaves de botín'};
 const rewardNumber=new Intl.NumberFormat('es-CL',{maximumFractionDigits:0});
+let rewardRemovalTimer=null;
 function rewardNotice(title,amounts){
  const host=$('gg171-rewards');if(!host)return;
  const card=document.createElement('section');card.className='gg171-reward';
@@ -54,8 +55,9 @@ function rewardNotice(title,amounts){
  if(typeof amounts?.item==='string'&&amounts.item){const line=document.createElement('span');line.textContent='Objeto: '+amounts.item+(amounts.itemQuantity>1?' ×'+amounts.itemQuantity:'');card.append(line);entries.push(line.textContent);}
  if(!entries.length)return;
  recordActivity(heading.textContent+' · '+entries.join(' · '));
- host.prepend(card);while(host.children.length>5)host.lastElementChild.remove();
- setTimeout(()=>card.classList.add('leaving'),5200);setTimeout(()=>card.remove(),5700);
+ clearTimeout(rewardRemovalTimer);
+ host.replaceChildren(card);
+ rewardRemovalTimer=setTimeout(()=>{card.remove();rewardRemovalTimer=null;},4200);
 }
 socket.on('v171:reward',r=>{if(joined&&r&&typeof r.title==='string')rewardNotice(r.title,r.amounts);});
 
@@ -144,18 +146,18 @@ function renderPetPanel(){
   const actions=make('div','gg-pet-actions'),power=make('button','gg-pet-power','▶'),store=make('button','gg-pet-shop','+'),modes=make('select','gg-pet-mode-select');
   power.type='button';power.onclick=()=>{if(!joined||petPending)return;const mode=petMode==='off'?'passive':'off';socket.emit('v14:pet',mode);};
   store.type='button';store.title='Tienda de P.E.T. y combustible';store.setAttribute('aria-label',store.title);store.onclick=()=>window.gg13Open?.('Tienda');
-  modes.setAttribute('aria-label','Modo y módulos del P.E.T.');for(const [value,label] of [['passive','Modo pasivo'],['loot','Auto-botín'],['kami','Detonador kamikaze']]){const o=make('option',null,label);o.value=value;modes.append(o);}
-  modes.onchange=()=>{if(!joined||petPending)return;const mode=modes.value;if(mode==='kami'){socket.emit('v16:kamikaze');modes.value=petMode==='loot'?'loot':'passive';}else socket.emit('v14:pet',mode);};
+  modes.setAttribute('aria-label','Modo y módulos del P.E.T.');for(const [value,label] of [['passive','Modo pasivo'],['guard','Modo guardia'],['loot','Auto-botín'],['kami','Detonador kamikaze']]){const o=make('option',null,label);o.value=value;modes.append(o);}
+  modes.onchange=()=>{if(!joined||petPending)return;const mode=modes.value;if(mode==='kami'){socket.emit('v16:kamikaze');modes.value=petMode==='loot'?'loot':petMode==='guard'?'guard':'passive';}else socket.emit('v14:pet',mode);};
   const kami=make('button','gg-pet-kami','✹');kami.type='button';kami.title='Detonador kamikaze · módulo de prueba';kami.setAttribute('aria-label',kami.title);kami.onclick=()=>{if(joined)socket.emit('v16:kamikaze');};actions.append(power,store,modes,kami);controls.append(actions);
   const gear=make('small','gg-pet-gear');controls.append(gear);
  }
  const info=controls.querySelector('.gg-pet-status'),fuelLabel=controls.querySelector('.gg-pet-fuel'),meter=controls.querySelector('progress'),gear=controls.querySelector('.gg-pet-gear'),power=controls.querySelector('.gg-pet-power'),modes=controls.querySelector('.gg-pet-mode-select');
- setHudText(info,petOwned===false?'P.E.T. no adquirido':petPending?'Activando…':petMode==='off'?'P.E.T. apagado':petMode==='loot'?'Auto-botín':'Modo pasivo');
+ setHudText(info,petOwned===false?'P.E.T. no adquirido':petPending?'Activando…':petMode==='off'?'P.E.T. apagado':petMode==='loot'?'Auto-botín':petMode==='guard'?'Modo guardia':'Modo pasivo');
  info.dataset.phase=petPending?'pending':petMode==='off'?'off':'active';
  setHudText(fuelLabel,'Combustible '+(petFuel===null?'—':fmt(petFuel))+' / 50.000');
  if(petFuel===null)meter.removeAttribute('value');else setHudValue(meter,Math.max(0,Math.min(50000,petFuel)));
  const active=petMode!=='off';power.disabled=petPending||petOwned!==true;setHudText(power,active?'■':'▶');power.title=active?'Apagar P.E.T.':'Activar P.E.T.';power.setAttribute('aria-label',power.title);power.setAttribute('aria-pressed',String(active));
- modes.disabled=petPending||petOwned!==true||!active;modes.value=petMode==='loot'?'loot':'passive';modes.querySelector('[value="loot"]').disabled=petGear===null||!petGear.has('G-AL1');modes.querySelector('[value="kami"]').disabled=petGear===null||!petGear.has('G-KK1');
+ modes.disabled=petPending||petOwned!==true||!active;modes.value=petMode==='loot'?'loot':petMode==='guard'?'guard':'passive';modes.querySelector('[value="loot"]').disabled=petGear===null||!petGear.has('G-AL1');modes.querySelector('[value="kami"]').disabled=petGear===null||!petGear.has('G-KK1');
  controls.querySelector('.gg-pet-kami').disabled=petPending||!active||petOwned!==true||petGear===null||!petGear.has('G-KK1');
  setHudText(gear,petGear===null?'Módulos: —':(petGear.has('G-AL1')?'Auto-botín':'Sin auto-botín')+' · '+(petGear.has('G-KK1')?'Kamikaze':'Sin kamikaze'));
 }
