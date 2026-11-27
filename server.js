@@ -1,5 +1,5 @@
 'use strict';
-const {eligibleForNpcXp}=require('./pet-combat-rules-v173');
+const {eligibleForNpcXp,guardTarget}=require('./pet-combat-rules-v173');
 const {factors:boosterFactors}=require('./boosters-v112');const {clanStationEffects}=require('./stations-v113');const express=require('express');const http=require('node:http');const path=require('node:path');const crypto=require('node:crypto');const {Server}=require('socket.io');const {createAccounts}=require('./accounts');
 const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const {MAPS,homeBase,galaxyPortals,portals,requiredLevel,population}=require('./maps-v14');const {eligible,damageFactor}=require('./pvp-v15');const {createGroups}=require('./groups-v15');const {npcCargo}=require('./minerals-v17');const {factor}=require('./upgrades-v18');const {MINES,RULES:MR,mineImpact}=require('./mines-v18');const {repairRate}=require('./cpus-v18');const {TECH,isActive:techActive,leechAmount}=require('./assembly-v19');const {points:dronePoints}=require('./drones-v19');const {get:formationDef,bonuses:formationBonus,stats:formationStats,absorption:formationAbsorption,combatFactor,shieldDelta}=require('./formations-v19');const {ABILITIES,definitions:abilityDefinitions,active:abilityActive,activate:activateAbility,heal,speedFactor,incoming,breakCloak}=require('./abilities-v18');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo,hit}=require('./equipment-v13');
 const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,damage:110},tank:{hp:1800,shield:950,speed:255,damage:155}};
@@ -200,6 +200,27 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   // Guard patrols independently around the pilot; passive never patrols.
   const phase=(Date.now()/6500)+(p.petPatrolPhase||0);
   return {x:clamp(p.x+310*Math.cos(phase),25,WORLD.w-25),y:clamp(p.y+310*Math.sin(phase),25,WORLD.h-25)};
+ }
+ function shootPetGuard(p,now){
+  if(process.env.GG_PET_GUARD_ENABLED!=='1'||!accounts.petGuardShot||p.petShotPending||now<(p.petNextShot||0))return;
+  const n=npcs.get(p.target),generation=p.petGeneration;
+  const valid=()=>!closing&&players.get(p.id)===p&&p.petGeneration===generation&&npcs.get(n?.id)===n&&guardTarget(p,n,Date.now(),600)&&!safeZone(p)&&!immune(n)&&!abilityActive(p,'ultimate-cloak',Date.now());
+  if(!valid())return;
+  p.petShotPending=true;p.petNextShot=now+1000;
+  const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petGuardShot(p.accountId):null).then(shot=>{
+   if(!shot){p.petNextShot=Date.now()+5000;return;}
+   if(players.get(p.id)!==p)return;
+   io.to(p.id).emit('v13:ammoStock',{code:shot.code,quantity:shot.stock});
+   if(!valid())return;
+   p.petAngle=Math.atan2(n.y-p.petY,n.x-p.petX);
+   laser({x:p.petX,y:p.petY,zone:p.zone,type:'player'},n,shot.code);
+   const result=salvo({damage:shot.damage,lasers:shot.count},n,shot.code,shot.stock+shot.count,Math.random());
+   if(result.damage<=0)return;
+   Object.assign(n,result.target);n.lastHit=Date.now();
+   laserDamage(p,n,result.damage,n.type==='boss'?100:64);
+   finishNPC(p,n);
+  }).catch(()=>{p.petNextShot=Date.now()+5000;}).finally(()=>{p.petShotPending=false;pending.delete(job);});
+  p.writes=job;pending.add(job);
  }
  function setPetMode(p,mode){
   const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;
@@ -833,6 +854,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(len>deadzone){const desired=targetBox?Math.max(550,p.speed+100):Math.min(Math.max(550,p.speed+100),Math.max(85,len*3,p.dest?p.speed:0));const speed=p.petSpeed=Math.min(desired,(p.petSpeed||0)+900*dt);const step=Math.min(len,speed*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;p.petAngle=Math.atan2(dy,dx);}
   if(len<=deadzone)p.petSpeed=0;
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
+  if(p.petMode==='guard')shootPetGuard(p,now);
  }
  if(!p.gate)for(const b of boxes.inZone(zoneOf(p)))if(distance(p,b)<52)collectBox(p,b);
  collectSpaceball(p,now);collectIce(p,now);
