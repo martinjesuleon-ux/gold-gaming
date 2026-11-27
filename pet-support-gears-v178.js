@@ -26,4 +26,5 @@ function locateNearest(origin,entities,range,accept=()=>true){
  return best;
 }
 function repairEnabled(id){const rules=require('./pet-test-kit-v175');return rules.gearEnabled(id)&&rules.vitalsEnabled(id)&&(rules.testKitEnabled(id)||process.env.GG_PET_SUPPORT_REPAIR_ENABLED==='1');}
-module.exports={SUPPORT,supportSpec,repairHull,locateNearest,repairEnabled};
+function resourceEnabled(id){const rules=require('./pet-test-kit-v175');return rules.gearEnabled(id)&&(rules.testKitEnabled(id)||process.env.GG_PET_RESOURCE_GEAR_ENABLED==='1');}
+module.exports={SUPPORT,supportSpec,repairHull,locateNearest,repairEnabled,resourceEnabled};
