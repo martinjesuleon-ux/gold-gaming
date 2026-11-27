@@ -1,4 +1,5 @@
 'use strict';
+const {multiplier:bonusMultiplier,quantity:bonusQuantity}=require('./bonus-events-v157');
 const crypto=require('node:crypto');const {extend:extendBooster}=require('./boosters-v112');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
 const {bonusLoot,pirateLoot,pirateEventsForDay,pirateEventLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
@@ -200,6 +201,7 @@ function createInventory(pool){
    const war=(await c.query("SELECT 1 FROM gg_v15_clan_members x JOIN gg_v15_clan_members y ON y.account_id=$2 JOIN gg_v15_clan_diplomacy d ON ((d.source=x.clan_id AND d.target=y.clan_id) OR (d.source=y.clan_id AND d.target=x.clan_id)) WHERE x.account_id=$1 AND d.state='war' LIMIT 1",[attacker,victim])).rowCount>0;
    const reward=rewardFor({...a,company:war?0:a.company,honor:Number(a.honor)},{...b,ship,honor:Number(b.honor)},prev?.ally_step||0,Number(prev?.ally_last||0),Date.now());
    if(reward.honor>0)reward.honor=Math.round(reward.honor*Math.max(1,Math.min(1.5,Number(honorFactor)||1)));
+   if(reward.uridium>0)reward.uridium*=await bonusMultiplier(c,'uridium');
    if(reward.penalty)await c.query('INSERT INTO gg_v15_honor_penalty(account_id,ally_step,ally_last) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET ally_step=EXCLUDED.ally_step,ally_last=EXCLUDED.ally_last',[attacker,reward.penalty.next,reward.penalty.last]);
    const balance=(await c.query('UPDATE player_progress SET credits=GREATEST(0,credits+$2),experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[attacker,reward.credits,reward.xp,reward.uridium,reward.honor])).rows[0];
    await c.query('INSERT INTO gg_rank_kills(attacker,victim,ally) VALUES($1,$2,$3)',[attacker,victim,!!reward.penalty]);
@@ -238,6 +240,7 @@ function createInventory(pool){
   const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
   return transaction(id,async(c,p)=>{
    const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*Math.max(1,Math.min(2,Number(resourceFactor)||1))*(loot.code==='uridium'?b.luck:1));let balance=p;
+   if(loot.code==='uridium')loot.quantity*=await bonusMultiplier(c,'uridium');
    if(['credits','uridium'].includes(loot.code)){
     balance=(await c.query('UPDATE player_progress SET '+loot.code+'='+loot.code+'+$2 WHERE account_id=$1 RETURNING credits,uridium',[id,loot.quantity])).rows[0];
    }else{
@@ -345,12 +348,12 @@ function createInventory(pool){
   return hadesTransaction(ids,async(c,rows,state)=>{
    if(state.wave!==wave)throw fail('Sección inválida');
    if(state.kills.includes(key))return {duplicate:true};
-   const balances={};
+   const balances={},uriFactor=await bonusMultiplier(c,'uridium');
    // Provisional: split the alien reward equally, with rounding remainder to the killer.
    const share=(amount,id)=>Math.floor(amount/ids.length)+(id===killer?amount%ids.length:0);
    for(const {id,g} of rows){
     g.kills.push(key);await saveGateRow(c,id,g);
-    balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,share(payout.credits,id),share(payout.xp,id),share(payout.uridium,id),share(payout.honor,id)])).rows[0];
+    balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,share(payout.credits,id),share(payout.xp,id),share(payout.uridium*uriFactor,id),share(payout.honor,id)])).rows[0];
    }
    return {balances,rankChanged:await drones.award(c,killer,dronePoints)};
   });
@@ -361,13 +364,13 @@ function createInventory(pool){
    if(state.wave!==wave)throw fail('Sección inválida');
    if(outcome==='clear'&&state.kills.length!==WAVES.hades[wave].reduce((n,x)=>n+x[1],0))throw fail('Quedan enemigos');
    const complete=outcome==='clear'&&wave===2,failed=outcome==='death'&&state.lives===1;
-   const lives=complete||failed?0:state.lives-(outcome==='death'?1:0),nextWave=complete||failed?0:wave+(outcome==='clear'?1:0),payouts={};
+   const lives=complete||failed?0:state.lives-(outcome==='death'?1:0),nextWave=complete||failed?0:wave+(outcome==='clear'?1:0),payouts={};const uriFactor=complete?await bonusMultiplier(c,'uridium'):1,specialFactor=complete?await bonusMultiplier(c,'gate-special'):1;
    for(const {id,g} of rows){
     if(complete){
-     const [u,xp,honor,ammo,disks,,,keys]=REWARDS.hades;
+     const [baseU,xp,honor,ammo,baseDisks,,,baseKeys]=REWARDS.hades;const u=baseU*uriFactor,disks=baseDisks*specialFactor,keys=baseKeys*specialFactor;
      const balance=(await c.query('UPDATE player_progress SET uridium=uridium+$2,experience=experience+$3,honor=honor+$4,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium,experience,level,honor',[id,u,xp,honor])).rows[0];
      for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['green-key',keys]])await addStack(c,id,code,n);
-     const item=itemDraw('hades',g.completions===0,crypto.randomInt(1000)),quantity=item?(new Date().getUTCDay()===0?2:1):0;
+     const item=itemDraw('hades',g.completions===0,crypto.randomInt(1000)),quantity=item?bonusQuantity(item,1,specialFactor===2):0;
      for(let i=0;i<quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,'lasers']);
      g.completions++;payouts[id]={balance,uridium:u,xp,honor,ammo,disks,xenomit:0,vouchers:0,keys,item,itemQuantity:quantity};await logGateReward(c,id,'hades',g.completions,payouts[id]);
     }
@@ -399,7 +402,7 @@ function createInventory(pool){
    if(!g.built||g.wave!==wave||g.lives<1)throw fail('Progreso de puerta inválido');
    if(g.kills.includes(key))return {duplicate:true};
    g.kills.push(key);await saveGateRow(c,id,g);
-   const {credits,xp,uridium,honor}=payout;
+   const {credits,xp,honor}=payout,uridium=payout.uridium*await bonusMultiplier(c,'uridium');
    const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,uridium,honor])).rows[0];
    return {balance,rankChanged:await drones.award(c,id,dronePoints)};
   });
@@ -419,15 +422,14 @@ function createInventory(pool){
    const complete=outcome==='clear'&&g.wave+1===DEFS[gate].waves,failed=outcome==='death'&&g.lives===1;
    let payout=null;
    if(complete){
-    const [uridium,xp,honor,ammo,disks,xenomit,vouchers,keys]=REWARDS[gate];
+    const [baseU,xp,honor,ammo,baseDisks,xenomit,vouchers,baseKeys]=REWARDS[gate];const uridium=baseU*await bonusMultiplier(c,'uridium'),specialFactor=await bonusMultiplier(c,'gate-special'),disks=baseDisks*specialFactor,keys=baseKeys*specialFactor;
     const balance=(await c.query('UPDATE player_progress SET uridium=uridium+$2,experience=experience+$3,honor=honor+$4,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium,experience,level,honor',[id,uridium,xp,honor])).rows[0];
     for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['xenomit',xenomit],['repair-voucher',vouchers],['green-key',keys]])await addStack(c,id,code,n);
     if(gate==='kronos'){await addStack(c,id,'UBR-100',500);await addStack(c,id,'RSB-75',5000);await addStack(c,id,'gate-energy',250);}
     const k=rows.kronos;if(!k.built&&KRONOS[gate]){const offset=Object.keys(KRONOS).slice(0,Object.keys(KRONOS).indexOf(gate)).reduce((sum,key)=>sum+KRONOS[key],0);for(let n=offset+1;n<=offset+KRONOS[gate];n++){if(!k.pieces.includes(n)){k.pieces.push(n);await saveGateRow(c,id,k);break;}}}
-    // Draw once per completed gate; Sunday doubles the item, never the base payout.
+    // Draw once; only allowlisted special items are doubled by the configured event.
     const item=itemDraw(gate,g.completions===0,crypto.randomInt(1000));
-    const day=new Intl.DateTimeFormat('en-US',{weekday:'short',timeZone:'UTC'}).format(new Date());
-    const itemQuantity=item?(day==='Sun'?2:1):0;
+    const itemQuantity=item?bonusQuantity(item,1,specialFactor===2):0;
     if(item==='MUL-B03'){
      await extendBooster(c,id,item,18000*itemQuantity);
     }else if(item){
