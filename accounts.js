@@ -28,7 +28,7 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
   try{const a=await authenticate(req.headers);if(!a)return res.status(401).json({error:'Inicia sesión'});req.pilotV13=a;next();}catch{return res.status(503).json({error:'Servicio no disponible'});}
  });
  const routeV13=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){res.status(e.status||(/^[0-9A-Z]{5}$/.test(e.code||'')?503:400)).json({error:e.status?e.message:'No se pudo completar la operación'});}};
- app.get('/api/v13/auction-cbs',routeV13(req=>auctions.status(req.pilotV13.id)));
+ app.get('/api/v13/auction-cbs',routeV13(req=>auctions.status(req.pilotV13.id,req.query.board||'weekly-cbs')));
  app.get('/api/v13/stations',routeV13(req=>stations.status(req.pilotV13.id)));
  app.get('/api/v13/boosters',routeV13(req=>boosters.status(req.pilotV13.id)));
  app.get('/api/v13/pilot',routeV13(req=>pilot.status(req.pilotV13.id)));
