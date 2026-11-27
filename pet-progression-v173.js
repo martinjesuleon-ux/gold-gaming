@@ -115,13 +115,13 @@ function createPetProgression(pool){
   if(!require('./pet-test-kit-v175').guardEnabled(id))return null;
   return transaction(id,async(c,p)=>{
    const {stats}=await equipmentState(c,id,p);
-   if(!stats.lasers||!stats.damage)return null;
+   if(!stats.lasers||!stats.damage)return {blocked:'Equipa láseres en el hangar del P.E.T.'};
    if(require('./pet-test-kit-v175').vitalsEnabled(id)){
     const row=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
-    if(row&&Number(row.hp)===0)return null;
+    if(row&&Number(row.hp)===0)return {blocked:'P.E.T. destruido'};
    }
    const row=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='LCB-10' AND quantity>=$2 RETURNING quantity",[id,stats.lasers])).rows[0];
-   return row?{code:'LCB-10',count:stats.lasers,damage:stats.damage,stock:Number(row.quantity)}:null;
+   return row?{code:'LCB-10',count:stats.lasers,damage:stats.damage,stock:Number(row.quantity)}:{blocked:'Munición LCB-10 insuficiente'};
   });
  }
  async function readVitals(c,id,p){
@@ -134,7 +134,7 @@ function createPetProgression(pool){
  async function writeVitals(c,id,v){
   await c.query('INSERT INTO gg_pet_vitals_v173(account_id,hp,shield) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET hp=EXCLUDED.hp,shield=EXCLUDED.shield',[id,v.hp,v.shield]);
  }
- async function vitalsRead(id){return transaction(id,async(c,p)=>({...((await readVitals(c,id,p)).vitals),repairPrice:p.repair,enabled:require('./pet-test-kit-v175').vitalsEnabled(id)}));}
+ async function vitalsRead(id){return transaction(id,async(c,p)=>{const {vitals,stats}=await readVitals(c,id,p);return {...vitals,lasers:stats.lasers,damage:stats.damage,repairPrice:p.repair,enabled:require('./pet-test-kit-v175').vitalsEnabled(id)};});}
  async function applyPetDamage(id,amount){
   if(!require('./pet-test-kit-v175').vitalsEnabled(id))return null;
   return transaction(id,async(c,p)=>{

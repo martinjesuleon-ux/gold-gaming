@@ -22,9 +22,9 @@ test('guard authorizes actual equipped laser count and never debits insufficient
   process.env.GG_PET_GUARD_ENABLED='1';
   assert.deepEqual(await service.authorizeGuardShot(id),{code:'LCB-10',count:1,damage:200,stock:1});
   assert.equal((await service.authorizeGuardShot(id)).stock,0);
-  assert.equal(await service.authorizeGuardShot(id),null);assert.equal(debits,2);
+  assert.deepEqual(await service.authorizeGuardShot(id),{blocked:'Munición LCB-10 insuficiente'});assert.equal(debits,2);
   equipment={laser:[],generator:[]};ammo=10;
-  assert.equal(await service.authorizeGuardShot(id),null);assert.equal(ammo,10);
+  assert.deepEqual(await service.authorizeGuardShot(id),{blocked:'Equipa láseres en el hangar del P.E.T.'});assert.equal(ammo,10);
  }finally{
   if(oldGuard===undefined)delete process.env.GG_PET_GUARD_ENABLED;else process.env.GG_PET_GUARD_ENABLED=oldGuard;
   if(oldEquipment===undefined)delete process.env.GG_PET_EQUIPMENT_ENABLED;else process.env.GG_PET_EQUIPMENT_ENABLED=oldEquipment;
