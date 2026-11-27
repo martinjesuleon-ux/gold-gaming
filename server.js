@@ -770,7 +770,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo confirmar la venta'})).finally(()=>{p.petTradePending=false;pending.delete(job);});
   p.writes=job;pending.add(job);
  });
- socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource','locate-resource','locate-enemy','combo-guard'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petTradePending||p.petMode===mode)return;if(p.petTradeUntil>Date.now()){io.to(p.id).emit('notice','El P.E.T. sigue comerciando');return;}setPetMode(p,mode);});
+ socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource','locate-resource','locate-enemy','combo-guard'].includes(mode))return;if(p.petTradePending)return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;if(p.petTradeUntil>Date.now()){io.to(p.id).emit('notice','El P.E.T. sigue comerciando');return;}setPetMode(p,mode);});
  function broadcastHades(room){if(room)for(const member of room.players)io.to(member.id).emit('v14:hadesLobby',room);}
  socket.on('v14:hadesLobby',async(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
@@ -920,7 +920,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false,vitals:p.petVitals||null});
   }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});p.writes=job;pending.add(job);
  }
- if(p.petUntil>now&&p.petMode!=='off'){
+ if(p.petUntil>now&&p.petMode!=='off'&&!p.petTradePending){
   let targetBox=null;
   if(p.petMode==='loot'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),p.petLootRange||700,b=>petEligible(p,b));
   if(p.petMode==='resource'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),p.petLootRange||700,b=>petResourceEligible(p,b,now));
