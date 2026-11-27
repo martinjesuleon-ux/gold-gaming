@@ -82,6 +82,7 @@ function mineMenu(){
  const grid=el('div',null,'gg13-grid');
  for(const m of cat.mines||[]){const tile=el('section',null,'gg13-tile'),n=Number(state.ammo.find(a=>a.code===m.id)?.quantity||0);tile.append(el('h3',m.id),el('p',details[m.id]),el('p',fmt(n)+' disponibles'));
  const b=button('COLOCAR',async()=>{if(busy)return;busy=true;try{await window.gg18Mine(m.id);modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;}});b.disabled=n===0;tile.append(b);grid.append(tile);}
+ const emp=el('section',null,'gg13-tile'),stock=Number(state.ammo.find(a=>a.code==='EMP')?.quantity||0);emp.append(el('h3','EMP-01'),el('p','Limpia efectos negativos y desorienta aliens durante 3 s · recarga 35 s'),el('p',fmt(stock)+' disponibles · tecla E'));const fire=button('ACTIVAR EMP',async()=>{if(busy)return;busy=true;try{await window.gg110Emp();modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;}});fire.disabled=stock===0;emp.append(fire);grid.append(emp);
  body.append(grid);
 }
 let abilityRefresh=null;
