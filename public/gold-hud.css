@@ -77,3 +77,18 @@
 #hud .gg-slots #fire{height:54px}
 @media(max-width:900px){#hud .gg-ammo-code,#hud .gg-ammo-count{font-size:8px}#hud .gg-slots .gg-ammo-slot,#hud .gg-slots #fire{height:48px}#hud .gg-ammo-slot canvas{height:20px}}
 @media(max-width:650px){#hud .radar{bottom:132px!important}}
+
+/* Persistent P.E.T. controls, real fuel stock and ownership status. */
+#hud .gg-window[data-key=pet]{width:190px;max-height:calc(100vh - 130px);overflow:auto}
+#hud .pet-controls{display:grid;gap:5px;padding-top:5px}
+#hud .pet-controls .gg-item-art{display:block;width:100%;height:52px;object-fit:contain;background:#09131d;border:1px solid #365569}
+#hud .pet-controls p{margin:0;line-height:1.3;font-size:10px}
+#hud .gg-pet-status{font-size:12px!important;font-weight:bold;color:#aabcc9}
+#hud .gg-pet-status[data-phase=active]{color:#76f5bd}
+#hud .gg-pet-status[data-phase=pending]{color:#edc77e}
+#hud .pet-controls progress{width:100%;height:8px;accent-color:#69cce2}
+#hud .gg-pet-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+#hud .pet-controls button{font-size:10px;letter-spacing:0;padding:5px 2px;color:#cfdeeb;background:#172b3a;border:1px solid #46677d;white-space:normal}
+#hud .gg-pet-modes button[aria-pressed=true]{border-color:#75e6bb;color:#a9ffda;background:#244739}
+#hud .pet-controls .gg-pet-kami{color:#f9c98d;border-color:#a77848}
+#hud .pet-controls .gg-pet-shop{color:#8fd6ff}
