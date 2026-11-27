@@ -147,7 +147,7 @@ async function repairPet(){
  try{const r=await fetch('/api/v13/pet/repair',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:petRepairRequest})});const d=await r.json();if(!r.ok){if(r.status<500)petRepairRequest=null;throw Error(d.error||'No se pudo reparar');}petRepairRequest=null;petVitals={...petVitals,...d.vitals};notice('P.E.T. reparado');await refreshPetVitals();}
  catch(e){notice(e.message||'Reparación no disponible');}finally{petRepairPending=false;renderPetPanel();}
 }
-let petGuardView=null;
+let petGuardView=null,petLocatorView=null;
 function renderPetPanel(){
  const panel=document.querySelector('.gg-window[data-key="pet"]');if(!panel)return;
  let controls=panel.querySelector('.pet-controls');
@@ -163,13 +163,13 @@ function renderPetPanel(){
   const actions=make('div','gg-pet-actions'),power=make('button','gg-pet-power','▶'),store=make('button','gg-pet-shop','+'),modes=make('select','gg-pet-mode-select');
   power.type='button';power.onclick=()=>{if(!joined||petPending)return;const mode=petMode==='off'?'passive':'off';socket.emit('v14:pet',mode);};
   store.type='button';store.title='Tienda de P.E.T. y combustible';store.setAttribute('aria-label',store.title);store.onclick=()=>window.gg13Open?.('Tienda');
-  modes.setAttribute('aria-label','Modo y módulos del P.E.T.');for(const [value,label] of [['passive','Modo pasivo'],['guard','Modo guardia'],['loot','Auto-botín'],['repair','Reparación del P.E.T.'],['resource','Auto-recurso'],['kami','Detonador kamikaze']]){const o=make('option',null,label);o.value=value;modes.append(o);}
-  modes.onchange=()=>{if(!joined||petPending)return;const mode=modes.value;if(mode==='kami'){socket.emit('v16:kamikaze');modes.value=petMode==='loot'?'loot':petMode==='guard'?'guard':petMode==='repair'?'repair':petMode==='resource'?'resource':'passive';}else socket.emit('v14:pet',mode);};
+  modes.setAttribute('aria-label','Modo y módulos del P.E.T.');for(const [value,label] of [['passive','Modo pasivo'],['guard','Modo guardia'],['loot','Auto-botín'],['repair','Reparación del P.E.T.'],['resource','Auto-recurso'],['locate-resource','Localizador de recursos'],['locate-enemy','Localizador de enemigos'],['kami','Detonador kamikaze']]){const o=make('option',null,label);o.value=value;modes.append(o);}
+  modes.onchange=()=>{if(!joined||petPending)return;const mode=modes.value;if(mode==='kami'){socket.emit('v16:kamikaze');modes.value=petMode==='loot'?'loot':petMode==='guard'?'guard':petMode==='repair'?'repair':petMode==='resource'?'resource':petMode==='locate-resource'?'locate-resource':petMode==='locate-enemy'?'locate-enemy':'passive';}else socket.emit('v14:pet',mode);};
   const kami=make('button','gg-pet-kami','✹');kami.type='button';kami.title='Detonador kamikaze · módulo de prueba';kami.setAttribute('aria-label',kami.title);kami.onclick=()=>{if(joined)socket.emit('v16:kamikaze');};actions.append(power,store,modes,kami);controls.append(actions);
   const gear=make('small','gg-pet-gear'),combat=make('small','gg-pet-combat'),target=make('small','gg-pet-target');controls.append(gear,combat,target);
  }
  const info=controls.querySelector('.gg-pet-status'),fuelLabel=controls.querySelector('.gg-pet-fuel'),meter=controls.querySelector('progress'),gear=controls.querySelector('.gg-pet-gear'),power=controls.querySelector('.gg-pet-power'),modes=controls.querySelector('.gg-pet-mode-select');
- setHudText(info,petOwned===false?'P.E.T. no adquirido':petPending?(petMode==='guard'?'Activando guardia…':'Activando…'):petMode==='off'?'P.E.T. apagado':petMode==='loot'?'Auto-botín':petMode==='guard'?'Modo guardia':petMode==='repair'?'Reparando casco':petMode==='resource'?'Auto-recurso':'Modo pasivo');
+ setHudText(info,petOwned===false?'P.E.T. no adquirido':petPending?(petMode==='guard'?'Activando guardia…':'Activando…'):petMode==='off'?'P.E.T. apagado':petMode==='loot'?'Auto-botín':petMode==='guard'?'Modo guardia':petMode==='repair'?'Reparando casco':petMode==='resource'?'Auto-recurso':petMode==='locate-resource'?'Localizador de recursos':petMode==='locate-enemy'?'Localizador de enemigos':'Modo pasivo');
  info.dataset.phase=petPending?'pending':petMode==='off'?'off':'active';
  setHudText(fuelLabel,'Combustible '+(petFuel===null?'—':fmt(petFuel))+' / 50.000');
  if(petFuel===null)meter.removeAttribute('value');else setHudValue(meter,Math.max(0,Math.min(50000,petFuel)));
@@ -183,16 +183,17 @@ function renderPetPanel(){
  }
  const repair=controls.querySelector('.gg-pet-repair');repair.hidden=!vitalsAvailable||!petVitals.destroyed;repair.disabled=petRepairPending||!joined;setHudText(repair,petRepairPending?'Reparando…':'Reparar · '+fmt(petVitals?.repairPrice||0)+' U');
  if(petVitals?.destroyed)setHudText(info,'P.E.T. destruido');setHudText(power,active?'■':'▶');power.title=active?'Apagar P.E.T.':'Activar P.E.T.';power.setAttribute('aria-label',power.title);power.setAttribute('aria-pressed',String(active));
- modes.disabled=petPending||petOwned!==true||!!petVitals?.destroyed;modes.value=petMode==='loot'?'loot':petMode==='guard'?'guard':petMode==='repair'?'repair':petMode==='resource'?'resource':'passive';modes.querySelector('[value="resource"]').disabled=!petGear?.has('G-AR1');modes.querySelector('[value="repair"]').disabled=!petGear?.has('G-REP1');modes.querySelector('[value="loot"]').disabled=petGear===null||!petGear.has('G-AL1');modes.querySelector('[value="kami"]').disabled=petGear===null||!petGear.has('G-KK1');
+ modes.disabled=petPending||petOwned!==true||!!petVitals?.destroyed;modes.value=petMode==='loot'?'loot':petMode==='guard'?'guard':petMode==='repair'?'repair':petMode==='resource'?'resource':petMode==='locate-resource'?'locate-resource':petMode==='locate-enemy'?'locate-enemy':'passive';modes.querySelector('[value="locate-resource"]').disabled=!petGear?.has('G-RL1');modes.querySelector('[value="locate-enemy"]').disabled=!petGear?.has('G-EL1');modes.querySelector('[value="resource"]').disabled=!petGear?.has('G-AR1');modes.querySelector('[value="repair"]').disabled=!petGear?.has('G-REP1');modes.querySelector('[value="loot"]').disabled=petGear===null||!petGear.has('G-AL1');modes.querySelector('[value="kami"]').disabled=petGear===null||!petGear.has('G-KK1');
  controls.querySelector('.gg-pet-kami').disabled=petPending||!active||petOwned!==true||petGear===null||!petGear.has('G-KK1');
  setHudText(controls.querySelector('.gg-pet-combat'),petVitals?.enabled?'Láseres: '+fmt(petVitals.lasers||0)+' · Daño base: '+fmt(petVitals.damage||0):'Equipamiento: —');
- setHudText(controls.querySelector('.gg-pet-target'),petMode!=='guard'?'':petGuardView?.blocked?petGuardView.blocked:petGuardView?.target?'Defendiendo: '+petGuardView.target+' · '+fmt(petGuardView.damage||0)+' daño':'Guardia: buscando agresores');
+ setHudText(controls.querySelector('.gg-pet-target'),['locate-resource','locate-enemy'].includes(petMode)?(petLocatorView&&petLocatorView.until>Date.now()?petLocatorView.name+' · '+fmt(petLocatorView.distance)+' u · alcance '+fmt(petLocatorView.range):'Buscando dentro del alcance…'):petMode!=='guard'?'':petGuardView?.blocked?petGuardView.blocked:petGuardView?.target?'Defendiendo: '+petGuardView.target+' · '+fmt(petGuardView.damage||0)+' daño':'Guardia: buscando agresores');
  setHudText(gear,petGear===null?'Módulos: —':(petGear.has('G-AL1')?'Auto-botín':'Sin auto-botín')+' · '+(petGear.has('G-KK1')?'Kamikaze':'Sin kamikaze')+(petGear.has('G-REP1')?' · Reparación':'')+(petGear.has('G-AR1')?' · Recursos':''));
 }
+socket.on('v14:petLocator',s=>{petLocatorView=s?{...s,until:Date.now()+2500}:null;renderPetPanel();});
 socket.on('v14:petGuard',s=>{petGuardView=s;renderPetPanel();});
-socket.on('v14:petState',s=>{petMode=s.mode;if(petMode!=='guard')petGuardView=null;petFuel=s.fuel;petPending=!!s.pending;if(s.vitals?.enabled){petVitalsEpoch++;petVitals=s.vitals;}renderPetPanel();if(petOwned===true&&!petVitals)refreshPetVitals();});
-window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);petOwned=e.detail.items.some(i=>i.category==='pet');petGear=new Set(e.detail.items.filter(i=>!e.detail.petGearEquipEnabled||e.detail.petEquipment?.gear?.includes(i.instanceId)).map(i=>i.code).filter(code=>['G-AL1','G-KK1','G-REP1','G-AR1'].includes(code)));if(!petOwned){petVitals=null;petVitalsEpoch++;}renderPetPanel();if(petOwned)refreshPetVitals();});
-socket.on('disconnect',()=>{petMode='off';petGuardView=null;petFuel=null;petPending=false;petOwned=null;petGear=null;petVitals=null;petVitalsEpoch++;petRepairRequest=null;renderPetPanel();});
+socket.on('v14:petState',s=>{petMode=s.mode;if(petMode!=='guard')petGuardView=null;if(!['locate-resource','locate-enemy'].includes(petMode))petLocatorView=null;petFuel=s.fuel;petPending=!!s.pending;if(s.vitals?.enabled){petVitalsEpoch++;petVitals=s.vitals;}renderPetPanel();if(petOwned===true&&!petVitals)refreshPetVitals();});
+window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);petOwned=e.detail.items.some(i=>i.category==='pet');petGear=new Set(e.detail.items.filter(i=>!e.detail.petGearEquipEnabled||e.detail.petEquipment?.gear?.includes(i.instanceId)).map(i=>i.code).filter(code=>['G-AL1','G-KK1','G-REP1','G-AR1','G-RL1','G-EL1'].includes(code)));if(!petOwned){petVitals=null;petVitalsEpoch++;}renderPetPanel();if(petOwned)refreshPetVitals();});
+socket.on('disconnect',()=>{petMode='off';petGuardView=null;petLocatorView=null;petFuel=null;petPending=false;petOwned=null;petGear=null;petVitals=null;petVitalsEpoch++;petRepairRequest=null;renderPetPanel();});
 document.addEventListener('DOMContentLoaded',()=>queueMicrotask(renderPetPanel));
 const ammoCodes=['LCB-10','MCB-25','MCB-50','UCB-100','SAB-50','RSB-75'];let selectedAmmo='LCB-10';const ammoStock={};
 const rocketCodes=['R-310','PLT-2026','PLT-2021','PLT-3030'];let rocketBusy=false,rocketUntil=0;
@@ -445,6 +446,7 @@ function radar(){
  function dot(x,y,c,radius){const px=left+x*sx,py=top+y*sy;if(theme==='classic'&&window.ggClassicHud){window.ggClassicHud.marker(m,px,py,c,radius);return;}m.fillStyle=c;m.beginPath();m.arc(px,py,radius,0,Math.PI*2);m.fill();}
  for(const mine of state.mines||[])dot(mine.x,mine.y,'#ff654b',1.5);
  for(const b of state.boxes)dot(b.x,b.y,b.kind==='pirate'?'#49f79a':b.kind==='paladio'?'#50dfdb':b.kind==='cargo'?'#9ecbff':'#bc9551',b.kind==='pirate'||b.kind==='paladio'?2:1.2);
+ if(petLocatorView?.map===state.map&&petLocatorView.until>wallNow&&petLocatorView.mode===petMode){const x=left+petLocatorView.x*sx,y=top+petLocatorView.y*sy;m.save();m.strokeStyle=petMode==='locate-resource'?'#62ffdc':'#ffb657';m.lineWidth=2;m.beginPath();m.arc(x,y,6,0,Math.PI*2);m.stroke();m.beginPath();m.moveTo(x-9,y);m.lineTo(x+9,y);m.moveTo(x,y-9);m.lineTo(x,y+9);m.stroke();m.restore();}
  if(icePing?.map===state.map&&icePing.until>wallNow)dot(icePing.x,icePing.y,'#4fff89',4);
  if(hitacPing?.map===state.map&&hitacPing.until>wallNow)dot(hitacPing.x,hitacPing.y,'#bc86ff',4);
  if(state.base)dot(state.base.x,state.base.y,state.base.color,6);
