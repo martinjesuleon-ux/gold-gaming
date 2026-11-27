@@ -55,6 +55,20 @@ async function gates(){
     const life=button('COMPRAR VIDA',()=>action('life'));life.disabled=busy||a.lives>=10;body.append(life);
     if(window.gg14GateState?.().inside){const current=window.gg14GateState();if(current.phase==='between'){body.append(button('SIGUIENTE OLEADA',()=>{window.gg14GateNext();modal.close();}),button('VOLVER AL SECTOR',()=>{window.gg14GateLeave();modal.close();}));}else body.append(el('p',current.phase==='countdown'?'La oleada comenzará tras la cuenta atrás.':'Los portales se abren al eliminar la oleada.'));}
     else if(a.combatAvailable){const enter=button('ENTRAR',async()=>{if(busy)return;busy=true;enter.disabled=true;try{await window.gg14GateEnter(selected);modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;enter.disabled=false;}});body.append(enter);}
+    else if(selected==='hades'&&window.gg14HadesAction){
+     const room=window.gg14HadesState?.();const box=el('section');box.append(el('h3','Grupo Hades'),el('p','Se requieren de 4 a 8 pilotos con la puerta construida y la misma sección. Combate compartido aún en desarrollo.'));
+     async function lobbyAction(action,data={}){if(busy)return;busy=true;try{await window.gg14HadesAction(action,data);status.textContent='Grupo actualizado';}catch(e){status.textContent=e.message;}finally{busy=false;if(modal.open&&mode==='Portales')draw();}}
+     if(room){
+      box.append(el('p','Código del grupo: '+room.code),el('p','Pilotos: '+room.players.length+'/8 · Sección '+(room.wave+1)));
+      for(const member of room.players)box.append(el('p',member.name+(member.id===room.leader?' · líder':'')+(member.ready?' · listo':' · esperando')));
+      box.append(button('LISTO',()=>lobbyAction('ready',{ready:true})),button('NO LISTO',()=>lobbyAction('ready',{ready:false})),button('SALIR DEL GRUPO',()=>lobbyAction('leave')));
+      if(room.canStart)box.append(el('p','Grupo listo. El inicio de combate sigue deshabilitado.'));
+     }else{
+      const code=el('input');code.placeholder='Código del grupo';code.maxLength=10;
+      box.append(button('CREAR GRUPO',()=>lobbyAction('create')),code,button('UNIRSE',()=>lobbyAction('join',{code:code.value})));
+     }
+     box.append(button('ACTUALIZAR GRUPO',()=>lobbyAction('status')));body.append(box);
+    }
     else body.append(el('p','Combate de esta puerta aún en desarrollo.'));
    }
   }
