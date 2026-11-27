@@ -3,9 +3,9 @@ const {factors:boosterFactors}=require('./boosters-v112');const {clanStationEffe
 const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const {MAPS,homeBase,galaxyPortals,portals,requiredLevel,population}=require('./maps-v14');const {eligible,damageFactor}=require('./pvp-v15');const {createGroups}=require('./groups-v15');const {npcCargo}=require('./minerals-v17');const {factor}=require('./upgrades-v18');const {MINES,RULES:MR,mineImpact}=require('./mines-v18');const {repairRate}=require('./cpus-v18');const {TECH,isActive:techActive,leechAmount}=require('./assembly-v19');const {points:dronePoints}=require('./drones-v19');const {get:formationDef,bonuses:formationBonus,stats:formationStats,absorption:formationAbsorption,combatFactor,shieldDelta}=require('./formations-v19');const {ABILITIES,definitions:abilityDefinitions,active:abilityActive,activate:activateAbility,heal,speedFactor,incoming,breakCloak}=require('./abilities-v18');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo,hit}=require('./equipment-v13');
 const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,damage:110},tank:{hp:1800,shield:950,speed:255,damage:155}};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n)),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),random=(a,b)=>a+Math.random()*(b-a),point=()=>({x:random(150,WORLD.w-150),y:random(150,WORLD.h-150)}),validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
-const {buildZoneSnapshots,snapshotFor}=require('./zone-snapshot-v163');const {groupByZone,nearestEligible}=require('./npc-targeting-v163');const {runDue}=require('./event-calendar-v158');const {runMaintenance,onceAsync}=require('./stability-v160');const {upcomingEvents,createSnapshotCache}=require('./event-feed-v159');
+const {buildZoneSnapshots,snapshotFor}=require('./zone-snapshot-v163');const {groupByZone,nearestEligible}=require('./npc-targeting-v163');const {BoxIndex,petEligible}=require('./box-index-v163');const {runDue}=require('./event-calendar-v158');const {runMaintenance,onceAsync}=require('./stability-v160');const {upcomingEvents,createSnapshotCache}=require('./event-feed-v159');
 function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCount=75,accounts=createAccounts(process.env.DATABASE_URL)}={}){
- const app=express(),server=http.createServer(app),io=new Server(server,{maxHttpBufferSize:8192});const hadesLobbies=createHadesLobbies(),groups=createGroups();const players=new Map(),npcs=new Map(),boxes=new Map(),mines=new Map(),active=new Map(),pending=new Set();let seq=0,tick=0,closing=false;const timers=new Set(),attempts=new Map();
+ const app=express(),server=http.createServer(app),io=new Server(server,{maxHttpBufferSize:8192});const hadesLobbies=createHadesLobbies(),groups=createGroups();const players=new Map(),npcs=new Map(),boxes=new BoxIndex(),mines=new Map(),active=new Map(),pending=new Set();let seq=0,tick=0,closing=false;const timers=new Set(),attempts=new Map();
  const {createLobby:makeUBALobby,accept:acceptUBA,advance:advanceUBA,forfeit:forfeitUBA,expireOffer}=require('./uba-v126');const {createArena,command:arenaCommand,tickArenaPaid,viewArena}=require('./uba-arena-v128');
  const ubaEligible=p=>!!p&&players.get(p.id)===p&&p.level>=14&&!p.invasionReturn&&!ubaSettling.has(p.accountId)&&!p.deadUntil&&!p.gate&&!p.gatePending&&!p.hadesPending&&!p.godMode&&!p.shotPending&&!p.reloadPending&&!p.upgradePending&&!p.cbsBusy&&!p.petPending;
  const ubaLobby=makeUBALobby({eligible:ubaEligible}),arenas=new Map(),ubaSettling=new Set();
@@ -773,15 +773,15 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});pending.add(job);
  }
  if(p.petUntil>now&&p.petMode!=='off'){
-  let targetBox=null,best=700;
-  if(p.petMode==='loot'&&!p.gate)for(const b of boxes.values()){if(!sameZone(p,b)||b.pending||b.kind==='pirate'||(b.kind==='cargo'&&b.owner!==p.accountId))continue;const d=distance(p,b);if(d<best){best=d;targetBox=b;}}
+  let targetBox=null;
+  if(p.petMode==='loot'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),700,b=>petEligible(p,b));
   const goal=targetBox||{x:p.x-70*Math.cos(p.angle),y:p.y-70*Math.sin(p.angle)};
   if(Math.hypot(p.petX-p.x,p.petY-p.y)>850){p.petX=p.x;p.petY=p.y;}
   const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy);
   if(len>1){const step=Math.min(len,Math.max(550,p.speed+100)*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;}
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
  }
- if(!p.gate)for(const b of boxes.values())if(sameZone(p,b)&&distance(p,b)<52)collectBox(p,b);
+ if(!p.gate)for(const b of boxes.inZone(zoneOf(p)))if(distance(p,b)<52)collectBox(p,b);
  collectSpaceball(p,now);collectIce(p,now);
  if(iceTarget(p.target)){if(!icePilot(p)||!iceUnit(p.target)){p.target=null;p.attack=false;}else shootIce(p,now);continue;}
  if(hitacTarget(p.target)){if(!hitacPilot(p)||!hitacUnit(p.target)){p.target=null;p.attack=false;}else shootHitac(p,now);continue;}
