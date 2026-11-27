@@ -49,3 +49,22 @@ test('repair tick validates mounted gear and persists hull only',async()=>{
  mounted=false;await assert.rejects(service.repairPetHullTick(TEST_ACCOUNT),/Equipa/);assert.equal(updates,1);
  mounted=true;hp=0;await assert.rejects(service.repairPetHullTick(TEST_ACCOUNT),/destruido/);assert.equal(updates,1);
 });
+
+test('auto-resource collects only own cargo or palladium with valid contents',()=>{
+ const {petResourceEligible}=require('../box-index-v163');
+ const {quoteGear}=require('../pet-gear-levels-v177');
+ const p={accountId:'pilot'},b={kind:'cargo',owner:'pilot',contents:{promerium:5},expires:2000};
+ assert.equal(petResourceEligible(p,b,1000),true);
+ assert.equal(petResourceEligible(p,{...b,owner:'other'},1000),false);
+ assert.equal(petResourceEligible(p,{...b,kind:'pirate'},1000),false);
+ assert.equal(petResourceEligible(p,{...b,kind:undefined},1000),false);
+ assert.equal(petResourceEligible(p,{kind:'paladio',contents:{paladio:1}},1000),true);
+ assert.equal(petResourceEligible(p,{...b,pending:true},1000),false);
+ assert.equal(petResourceEligible(p,{...b,contents:{}},1000),false);
+ assert.equal(petResourceEligible(p,b,2000),false);
+ assert.equal(petResourceEligible({...p,cargoRetry:1500},b,1000),false);
+ assert.equal(quoteGear('G-AR1',0,1,0).total,2500);
+ assert.equal(quoteGear('G-AR1',1,2,4).total,6000);
+ assert.equal(quoteGear('G-AR1',2,3,8).total,25000);
+ assert.equal(supportSpec('G-AR1',3).range,3000);
+});
