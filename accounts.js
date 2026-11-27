@@ -38,6 +38,7 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  app.post('/api/v13/missions',routeV13(req=>missions.action(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/clan',routeV13(req=>clans.view(req.pilotV13.id)));
  app.post('/api/v13/clan',routeV13(req=>clans.action(req.pilotV13.id,req.body||{})));
+ app.get('/api/v13/gate-log',routeV13(req=>inventory.gateRewardLog(req.pilotV13.id)));
  app.get('/api/v13/gates',routeV13(req=>inventory.gateStatus(req.pilotV13.id)));
  app.post('/api/v13/gates/spin',routeV13(req=>inventory.gateSpin(req.pilotV13.id,req.body||{})));
  app.post('/api/v13/gates/build',routeV13(req=>inventory.gateBuild(req.pilotV13.id,req.body||{})));
