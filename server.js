@@ -251,6 +251,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  // Section groups spawn in order. Protegit combat statistics remain provisional.
  function clearGateNPCs(p){for(const [id,n] of npcs)if(n.zone===p.zone&&p.zone!=='world')npcs.delete(id);for(const [id,m] of mines)if(m.zone===p.zone&&p.zone!=='world')mines.delete(id);}
+ const gateWaveRules=require('./gate-wave-v194');
  function spawnGateGroup(p,group,groupIndex){
   const [name,count,scale=1,shielded=false]=group;
   const key=p.gate.gate==='kappa'&&['Boss Kucurbium','Century-Falcon'].includes(name)?name+' (Kappa)':name;
@@ -262,8 +263,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    base={hp:hull.hp,shield:hull.generators*10000,damage:hull.lasers*200,speed:hull.speed,credits:0,uridium:0,xp:0,honor:0};
   }
   let spawned=0;
-  for(let i=0;i<count;i++){
-   const killKey=groupIndex+':'+i;if(p.gate.kills.includes(killKey))continue;
+  const existing=[...npcs.values()].filter(n=>sameZone(p,n)&&n.gateNPC).map(n=>n.gateKillKey);
+  for(const {i,key:killKey} of gateWaveRules.missingKillKeys(groupIndex,count,p.gate.kills,existing)){
    const a=i*Math.PI*2/count,n=spawnNPC(false,{x:WORLD.w/2+Math.cos(a)*850,y:WORLD.h/2+Math.sin(a)*850});
    n.zone=p.zone;n.name=name;n.target=p.id;n.gateNPC=true;n.hp=n.maxHp=base.hp*scale;n.shield=n.maxShield=base.shield*scale;n.damage=base.damage*scale;n.speed=base.speed;
    n.reward=base.credits*scale;n.xpReward=base.xp*scale;n.uridiumReward=base.uridium*scale;n.honorReward=base.honor*scale;n.gateShielded=shielded;n.gateKillKey=killKey;spawned++;
@@ -271,26 +272,25 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   return spawned;
  }
  function nextGateGroup(p){
-  if(!p.gate||p.gatePending||p.gateWaiting||p.gate.closed)return;
+  if(!p.gate||p.gatePending||p.gateWaiting||p.gate.closed||p.gate.countdownPending||p.gate.completed||p.gate.transition)return;
   const g=p.gate,queue=g.groups||[];
-  while(queue.length){const [group,index]=queue.shift();if(spawnGateGroup(p,group,index))return;}
-  const remaining=[...npcs.values()].filter(n=>sameZone(p,n));
-  if(remaining.length){for(const n of remaining)n.gateShielded=false;return;}
-  saveGate(p,'clear');
+  const step=gateWaveRules.waveStep([...npcs.values()].filter(n=>sameZone(p,n)&&n.gateNPC),queue,(group,index)=>spawnGateGroup(p,group,index));
+  if(step==='clear')saveGate(p,'clear');
  }
  function gateWave(p,withCountdown=true){
   if(!p.gate)return;
-  const g=p.gate,def=DEFS[g.gate];if(g.countdownPending||g.completed)return;g.countdownPending=true;
+  const g=p.gate,def=DEFS[g.gate];if(g.countdownPending||g.completed||g.closed||g.launchedWave===g.wave)return;g.countdownPending=true;
   if(g.gate==='hades')for(const member of groupPilots(g))member.gateWaiting=false;
   else p.gateWaiting=false;
   const launch=()=>{
    if(players.get(p.id)!==p||p.gate!==g||p.gateWaiting)return;
-   g.countdownPending=false;
+   g.countdownPending=false;g.launchedWave=g.wave;
    const groups=WAVES[g.gate][g.wave];
    if(!Array.isArray(groups)||!groups.length){returnFromGate(p);io.to(p.id).emit('notice','Esta sección aún no está disponible');return;}
    g.groups=groups.map((group,i)=>[group,i]).filter(([group])=>!group[3]);
    for(const [group,index] of groups.map((group,i)=>[group,i]).filter(([group])=>group[3]))spawnGateGroup(p,group,index);
    nextGateGroup(p);
+   if(p.gatePending||g.transition||p.gate!==g)return;
    if(g.gate==='hades')groupState(g,'combat');else io.to(p.id).emit('v14:gateState',{inside:true,gate:g.gate,wave:g.wave+1,total:def.waves,lives:g.lives,phase:'combat'});
   };
   if(withCountdown){if(g.gate==='hades')groupState(g,'countdown',{seconds:def.countdown});else io.to(p.id).emit('v14:gateState',{inside:true,gate:g.gate,wave:g.wave+1,total:def.waves,lives:g.lives,phase:'countdown',seconds:def.countdown});later(launch,def.countdown*1000);}
