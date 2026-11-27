@@ -2,7 +2,7 @@
 const labels={ships:'Naves',designs:'Diseños',lasers:'Armas',ammo:'Munición',rockets:'Cohetes',specialRockets:'Cohetes especiales',launchers:'Hellstorm',launcherAmmo:'Munición Hellstorm',mines:'Minas',consumables:'Consumibles',cpus:'CPU',robots:'Robots de reparación',shields:'Escudos',engines:'Motores',drones:'VANT',pet:'P.E.T.',fuel:'Combustible P.E.T.',petGear:'Módulos P.E.T.',resources:'Recursos'};
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;};
 const fmt=n=>Number(n).toLocaleString('es-CL');
-async function api(path,body){const res=await fetch('/api/v13/'+path,{credentials:'same-origin',...(body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});const data=await res.json();if(!res.ok)throw Error(data.error||'Operación no disponible');return data;}
+async function api(path,body){const res=await fetch('/api/v13/'+path,{credentials:'same-origin',...(body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});const data=await res.json();if(!res.ok)throw Object.assign(Error(data.error||'Operación no disponible'),{status:res.status});return data;}
 let modal,body,status,cat,state,busy=false,mode,hangarFleet;
 function button(text,fn){const b=el('button',text);b.type='button';b.onclick=fn;return b;}
 function balance(){return 'Créditos: '+fmt(state.balance.credits)+'   |   Uridium: '+fmt(state.balance.uridium);}
@@ -701,36 +701,37 @@ function faction(){
  }
  body.append(grid,el('p','Disponible en una base segura, fuera de combate.'));
 }
-let pendingGate=null;
+let pendingGate=null,gateRequest=null;
 async function gates(){
  body.replaceChildren(el('h2','Puertas galácticas'),el('p','Cargando generador…'));
  try{
   let data=await api('gates'),selected=pendingGate||'alpha',multiplier=false,paid=false;
   pendingGate=null;if(!modal.open||mode!=='Portales')return;if(!data.gates.includes(selected))selected=data.gates[0];
   async function action(kind,count=1){
-   if(busy)return;busy=true;draw();
+   if(busy)return;const request=gateRequest||{kind,gate:selected,count,useMultiplier:multiplier,allowUridium:paid,requestId:crypto.randomUUID()};if(gateRequest&&(kind!==request.kind||count!==request.count||selected!==request.gate)){status.textContent='Confirma primero la operación pendiente';return;}gateRequest=request;busy=true;draw();
    try{
-    data=await api('gates/'+kind,{gate:selected,requestId:crypto.randomUUID(),useMultiplier:multiplier,allowUridium:paid,count});
+    data=await api('gates/'+kind,request);gateRequest=null;
     if(kind==='build')window.gg16RefreshGalaxy?.();state.balance=data.balance;if(data.batch&&kind==='spin'){const b=data.batch;status.textContent=fmt(b.spins)+' / '+fmt(b.requested)+' tiradas · '+fmt(b.uridiumUsed)+' uridium · '+fmt(b.energyUsed)+' energía · '+b.rewards.map(r=>(r.gate?r.gate.toUpperCase()+' ': '')+r.code+' ×'+fmt(r.quantity)).join(' | ')+' · '+balance();}else status.textContent=(data.reward?'Resultado: '+data.reward.code+' ×'+data.reward.quantity+(data.reward.gate?' · '+data.reward.gate.toUpperCase():''):'Operación realizada')+' · '+balance();
-   }catch(e){status.textContent=e.message;}finally{busy=false;if(modal.open&&mode==='Portales')draw();}
+   }catch(e){if(e.status>=400&&e.status<500)gateRequest=null;status.textContent=e.message+(gateRequest?' · Reintenta para confirmar la operación pendiente.':'');}finally{busy=false;if(modal.open&&mode==='Portales')draw();}
   }
   function draw(){
    body.replaceChildren(el('h2','Generador de puertas galácticas'));
    const nav=el('div',null,'gg13-grid gg-gate-nav');
    for(const id of data.gates){const g=data.states[id];const b=button('',()=>{selected=id;draw();});b.className='gg-gate-card';b.disabled=busy;b.setAttribute('aria-pressed',String(id===selected));const ring=el('span',null,'gg-gate-ring');ring.style.setProperty('--gate-progress',String(Math.min(100,Math.max(0,g.required?100*g.pieces.length/g.required:0)))+'%');ring.append(el('strong',id.slice(0,2).toUpperCase()));const meter=el('progress');meter.max=Math.max(1,g.required);meter.value=g.pieces.length;meter.setAttribute('aria-label','Piezas '+id);b.append(ring,el('strong',id.toUpperCase()),el('small',g.built?'Construida':g.canBuild?'Lista para construir':g.pieces.length+' / '+g.required+' piezas'),meter);nav.append(b);}
    const a=data.states[selected];
+   if(gateRequest){const retry=button('CONFIRMAR OPERACIÓN PENDIENTE',()=>{selected=gateRequest.gate;action(gateRequest.kind,gateRequest.count);});retry.disabled=busy;body.append(el('p','Hay una operación pendiente de confirmar; no se enviarán nuevas solicitudes hasta resolverla.'),retry);}
    const summary=el('section',null,'gg-gate-summary');for(const [label,value] of [['Piezas',a.pieces.length+' / '+a.required],['Secciones',a.wave+' / '+a.waves],['Energía extra',fmt(data.energy)],['Multiplicador','×'+a.multiplier]]){const item=el('div');item.append(el('small',label),el('strong',value));summary.append(item);}body.append(nav,el('h3',selected.toUpperCase()),summary);
    if(a.provisional)body.append(el('p','Configuración provisional: '+a.provisional));
    const progress=el('progress');progress.max=a.required;progress.value=a.pieces.length;body.append(progress,el('p',a.pieces.length+' / '+a.required+' piezas'));
    const pieces=new Set(a.pieces),grid=el('div',null,'gg-gate-pieces');for(let i=1;i<=a.required;i++){const collected=pieces.has(i),piece=el('span',String(i));piece.dataset.collected=String(collected);piece.title='Pieza '+i+' · '+(collected?'Obtenida':'Pendiente');grid.append(piece);}const details=el('details',null,'gg-gate-detail');details.append(el('summary','Ver piezas individuales'),grid);body.append(details);
    const mult=el('input');mult.type='checkbox';mult.checked=multiplier;mult.onchange=()=>{multiplier=mult.checked;};const label=el('label',' Activar multiplicador','gg-gate-option');label.prepend(mult);
-   const pay=el('input');pay.type='checkbox';pay.checked=paid;pay.onchange=()=>{paid=pay.checked;};const pl=el('label',' Autorizar uridium (100 por tirada / 25.000 por vida)','gg-gate-option');pl.prepend(pay);body.append(label,pl);
+   const pay=el('input');pay.type='checkbox';pay.checked=paid;pay.onchange=()=>{paid=pay.checked;draw();};const pl=el('label',' Autorizar uridium (100 por tirada / 25.000 por vida)','gg-gate-option');pl.prepend(pay);body.append(label,pl);
    if(selected==='kronos')body.append(el('p','Se obtiene completando las otras puertas.'));
-   else{const row=el('div',null,'gg13-grid');for(const n of [1,10,100,1000]){const spin=button(fmt(n)+' TIRADA'+(n===1?'':'S')+' · '+fmt(n*100)+' U máx.',()=>action('spin',n));spin.disabled=busy;row.append(spin);}body.append(row,el('p','Se utiliza primero la energía extra. Autoriza uridium para completar las tiradas. El lote se detiene cuando ya no hay piezas disponibles o falta saldo.'));}
-   if(a.canBuild){const b=button('CONSTRUIR PUERTA',()=>action('build'));b.disabled=busy;body.append(b);}
+   else{const row=el('div',null,'gg13-grid');for(const n of [1,10,100,1000]){const energy=Math.min(n,Math.max(0,Number(data.energy)||0)),possible=energy+(paid?Math.min(n-energy,Math.floor(Number(data.balance.uridium)/100)):0),cost=Math.max(0,possible-energy)*100;const spin=button(fmt(n)+' TIRADA'+(n===1?'':'S')+' · '+fmt(energy)+' E / '+fmt(cost)+' U máx.',()=>action('spin',n));spin.disabled=busy||!!gateRequest||possible===0;spin.title=possible<n?'Hasta '+fmt(possible)+' tiradas con saldo actual':'Se detiene si ya no hay piezas disponibles';row.append(spin);}body.append(row,el('p','Se utiliza primero la energía extra. Autoriza uridium para completar las tiradas. El lote se detiene cuando ya no hay piezas disponibles o falta saldo.'));}
+   if(a.canBuild){const b=button('CONSTRUIR PUERTA',()=>action('build'));b.disabled=busy||!!gateRequest;body.append(b);}
    if(a.built){
     body.append(el('p','Secciones completadas: '+a.wave+'/'+a.waves+' · Vidas: '+a.lives+'/10 · Completadas: '+a.completions));
-    const life=button('COMPRAR VIDA',()=>action('life'));life.disabled=busy||a.lives>=10;body.append(life);
+    const life=button('COMPRAR VIDA',()=>action('life'));life.disabled=busy||!!gateRequest||a.lives>=10||!paid||Number(data.balance.uridium)<25000;body.append(life);
     if(window.gg14GateState?.().inside){const current=window.gg14GateState();if(current.phase==='between'){body.append(el('p',current.completed?'Puerta completada. Regreso automático a la base.':'Siguiente ronda automática en 10 segundos. Usa el portal de salida para regresar.'),button('VOLVER A LA PARTIDA',()=>modal.close()));if(current.gate==='hades'&&!current.leader)body.append(el('p','En Hades, el líder puede sacar al grupo.'));}else body.append(el('p',current.phase==='countdown'?'La oleada comenzará tras la cuenta atrás.':'Los portales se abren al eliminar la oleada.'));}
     else if(a.combatAvailable){const enter=button('IR AL PORTAL',async()=>{if(busy)return;busy=true;enter.disabled=true;try{window.gg16TravelGate(selected);modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;enter.disabled=false;}});body.append(enter);}
     else if(selected==='hades'&&window.gg14HadesAction){
