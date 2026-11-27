@@ -13,6 +13,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function iceUnit(id){const e=iceRun;if(!e||!iceTarget(id))return null;const key=id.slice(4);return key===e.boss.id?e.boss:e.icy.get(key);}
  function icePilot(p,e=iceRun){return !!p&&!!e&&iceEnabled()&&e.phase==='active'&&p.zone===e.map&&p.hp>0&&!p.deadUntil&&!p.gate&&!p.gatePending&&!p.godMode;}
  function iceView(zone){return iceEnabled()&&iceRun?.map===zone?ice.view(iceRun):null;}
+ function settleIce(e){if(e.settling||e.settled||!accounts.iceSettle||process.env.GG_ICE_REWARDS_ENABLED!=='1')return;e.settling=true;const rows=[...e.contributors].map(([accountId,damage])=>({accountId,damage}));const pay=()=>accounts.iceSettle(e.id,rows);const job=Promise.resolve().then(pay).catch(pay).then(r=>{e.settled=true;for(const x of r.rewards){const p=[...players.values()].find(p=>p.accountId===x.accountId);if(!p)continue;if(!r.duplicate){p.credits+=x.credits;p.experience+=x.xp;p.honor+=x.honor;p.level=p.experience<10000?1:2+Math.floor(Math.log2(p.experience/10000));}io.to(p.id).emit('notice','Meteorito: +'+x.credits+' créditos · +'+x.uridium+' uridium · +'+x.xp+' EXP · +'+x.honor+' honor');}}).catch(()=>{io.to(e.map).emit('notice','No se pudo guardar el reparto del meteorito');}).finally(()=>{e.settling=false;pending.delete(job);});pending.add(job);}
+ function collectIce(p,now){const e=iceRun;if(!e||!iceEnabled()||process.env.GG_ICE_REWARDS_ENABLED!=='1'||!accounts.iceBoxClaim||p.iceBoxPending)return;
+ for(const b of e.boxes.values()){if(!ice.reserveBox(e,p,b.id,now))continue;p.iceBoxPending=true;const pay=()=>accounts.iceBoxClaim(p.accountId,e.id,b.id);const job=p.writes.catch(()=>{}).then(()=>Promise.resolve().then(pay).catch(pay)).then(r=>{ice.releaseBox(e,b,true);io.to(p.id).emit('notice','Caja de hielo: +'+r.uridium+' uridium');}).catch(err=>{ice.releaseBox(e,b,err.status===409);}).finally(()=>{p.iceBoxPending=false;pending.delete(job);});p.writes=job;pending.add(job);break;}
+ }
  function tickIce(now,dt){const e=iceRun;if(!e||!iceEnabled())return;const prev=e.phase,signals=ice.advance(e,now);
  if(prev!==e.phase)io.to(e.map).emit('notice',e.phase==='active'?'Meteorito de Hielo activo':e.phase==='expired'?'Meteorito de Hielo finalizado':'Evento de Hielo actualizado');
  if(e.phase==='expired'||(e.phase==='defeated'&&!e.boxes.size)){iceRun=null;return;}if(e.phase!=='active')return;
@@ -25,7 +29,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  function shootIce(p,now){const e=iceRun,u=iceUnit(p.target),code=p.ammo,count=p.lasers,a=catalogV13.ammo.find(a=>a.id===code);if(!icePilot(p,e)||!u||!p.attack||!a||a.shieldOnly||p.shotPending||p.reloadPending||p.reloadRequested||p.upgradePending||!Number.isInteger(count)||count<1||count>100||now-p.lastShot<a.intervalMs)return;
  try{ice.validateShot(e,p,u.id,now);}catch{return;}p.lastShot=now;p.shotPending=true;breakCloak(p);const key=crypto.randomUUID(),pay=()=>accounts.ubaAuthorizeAmmo(key,[{accountId:p.accountId,code,count}]);const job=Promise.resolve().then(pay).catch(pay).then(r=>{const stock=r[p.accountId];if(stock==null){p.attack=false;return io.to(p.id).emit('notice','Munición insuficiente');}io.to(p.id).emit('v13:ammoStock',{code,quantity:stock});if(closing||iceRun!==e||players.get(p.id)!==p||!icePilot(p,e)||p.target!=='ice:'+u.id||!p.attack)return;
- try{ice.validateShot(e,p,u.id);laser(p,u);if(Math.random()<a.miss)return;const result=ice.hit(e,p,u.id,Math.max(1,Math.round(p.damage*a.multiplier*(p.boost?.damage||1))));if(result.killed){p.attack=false;p.target=null;if(result.boss){e.settlement=result.shares;io.to(e.map).emit('notice','Meteorito destruido · premios de prueba deshabilitados');}else io.to(p.id).emit('notice','Icy eliminado · el jefe recupera vida');}}catch{}}).catch(()=>{p.attack=false;io.to(p.id).emit('notice','Disparo de Hielo no disponible');}).finally(()=>{p.shotPending=false;pending.delete(job);});pending.add(job);}
+ try{ice.validateShot(e,p,u.id);laser(p,u);if(Math.random()<a.miss)return;const result=ice.hit(e,p,u.id,Math.max(1,Math.round(p.damage*a.multiplier*(p.boost?.damage||1))));if(result.killed){p.attack=false;p.target=null;if(result.boss){e.settlement=result.shares;settleIce(e);io.to(e.map).emit('notice','Meteorito destruido');}else io.to(p.id).emit('notice','Icy eliminado · el jefe recupera vida');}}catch{}}).catch(()=>{p.attack=false;io.to(p.id).emit('notice','Disparo de Hielo no disponible');}).finally(()=>{p.shotPending=false;pending.delete(job);});pending.add(job);}
  const hitac=require('./hitac-v141'),hitacEnabled=()=>process.env.GG_HITAC_ENABLED==='1';let hitacRun=null;
  const hitacTarget=id=>typeof id==='string'&&id.startsWith('hitac:');
  function hitacUnit(id){return hitacTarget(id)?hitacRun?.units.get(id.slice(6)):null;}
@@ -733,7 +737,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
  }
  if(!p.gate)for(const b of boxes.values())if(sameZone(p,b)&&distance(p,b)<52)collectBox(p,b);
- collectSpaceball(p,now);
+ collectSpaceball(p,now);collectIce(p,now);
  if(iceTarget(p.target)){if(!icePilot(p)||!iceUnit(p.target)){p.target=null;p.attack=false;}else shootIce(p,now);continue;}
  if(hitacTarget(p.target)){if(!hitacPilot(p)||!hitacUnit(p.target)){p.target=null;p.attack=false;}else shootHitac(p,now);continue;}
  if(p.target===ballTarget){if(!spaceballGame||p.zone!=='4-4'){p.target=null;p.attack=false;}else shootBall(p,now);continue;}

@@ -10,7 +10,7 @@ function createEvent(map,now=Date.now(),w=12000,h=8000){
 }
 function spawn(e){const spec=NPCS.Icy,a=e.icy.size*2.399963229728653,id=crypto.randomUUID();e.icy.set(id,{id,name:'Icy',x:Math.max(25,Math.min(e.w-25,e.boss.x+350*Math.cos(a))),y:Math.max(25,Math.min(e.h-25,e.boss.y+350*Math.sin(a))),hp:spec.hp,maxHp:spec.hp,shield:spec.shield,maxShield:spec.shield,damage:spec.damage,speed:spec.speed});}
 function advance(e,now=Date.now()){
- for(const [id,b] of e.boxes)if(now>=b.expires)e.boxes.delete(id);
+ for(const [id,b] of e.boxes)if(now>=b.expires&&!b.pending)e.boxes.delete(id);
  if(e.phase==='countdown'&&now>=e.startAt)e.phase='active';
  if(e.phase==='active'&&now>=e.endAt){e.phase='expired';e.icy.clear();return {notice:null,ping:null};}
  if(e.phase!=='active')return {notice:null,ping:null};
@@ -39,5 +39,7 @@ function hit(e,p,id,amount,now=Date.now()){
  return {killed:true,boss:true,dealt,shares:shares(e.contributors)};
 }
 function view(e){return {id:e.id,map:e.map,phase:e.phase,startAt:e.startAt,endAt:e.endAt,boss:e.phase==='countdown'||e.phase==='active'?e.boss:null,icy:[...e.icy.values()],boxes:[...e.boxes.values()].map(({id,x,y,expires})=>({id,x,y,expires}))};}
-function preview(){return {rules:RULES,reward:REWARD,boss:NPCS['Super Ice Meteoroid'],icy:NPCS.Icy,enabled:process.env.GG_ICE_ENABLED==='1',rewardsEnabled:false};}
-module.exports={RULES,REWARD,createEvent,advance,hit,shares,view,preview,validateShot};
+function reserveBox(e,p,id,now=Date.now()){const b=e?.boxes.get(id);if(e?.phase!=='defeated'||!e.settled||!b||b.pending||now>=b.expires||!p?.accountId||p.zone!==e.map||p.deadUntil||p.godMode||!Number.isFinite(p.x)||!Number.isFinite(p.y)||dist(p,b)>52)return null;b.pending=p.accountId;return b;}
+function releaseBox(e,b,ok){if(e.boxes.get(b.id)!==b)return;if(ok)e.boxes.delete(b.id);else delete b.pending;}
+function preview(){return {rules:RULES,reward:REWARD,boss:NPCS['Super Ice Meteoroid'],icy:NPCS.Icy,enabled:process.env.GG_ICE_ENABLED==='1',rewardsEnabled:process.env.GG_ICE_ENABLED==='1'&&process.env.GG_ICE_REWARDS_ENABLED==='1'};}
+module.exports={RULES,REWARD,createEvent,advance,hit,shares,view,preview,validateShot,reserveBox,releaseBox};
