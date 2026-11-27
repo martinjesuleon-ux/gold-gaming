@@ -21,6 +21,14 @@ window.gg14GateEnter=(gate='alpha')=>new Promise((resolve,reject)=>{
 window.gg14GateNext=()=>{if(joined)socket.emit('v14:gateNext');};
 window.gg14GateLeave=()=>{if(joined)socket.emit('v14:gateLeave');};
 window.gg14GateState=()=>gateState;
+let hadesLobby=null;
+window.gg14HadesState=()=>hadesLobby;
+window.gg14HadesAction=(action,data={})=>new Promise((resolve,reject)=>{
+ if(!joined||!socket.connected){reject(Error('Conéctate primero'));return;}
+ socket.timeout(10000).emit('v14:hadesLobby',{...data,action},(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'No se pudo actualizar el grupo'));else{hadesLobby=r.room;resolve(r.room);}});
+});
+socket.on('v14:hadesLobby',room=>{hadesLobby=room;window.dispatchEvent(new CustomEvent('gg14:hadesLobby',{detail:room}));});
+socket.on('disconnect',()=>{hadesLobby=null;});
 socket.on('v14:gateState',s=>{gateState=s;entities.clear();selected=null;attacking=false;dest=null;notice(s.inside?(s.gate||'Puerta').toUpperCase()+' · Oleada '+s.wave+'/'+s.total+' · Vidas '+s.lives+(s.phase==='countdown'?' · Inicio en '+s.seconds+' s':s.phase==='between'?' · Abre Portales para continuar o salir':''):'De vuelta al sector');window.dispatchEvent(new CustomEvent('gg14:gateState',{detail:s}));});
 socket.on('disconnect',()=>{gateState={inside:false};});
 let petMode='off',petFuel=null,petPending=false;
