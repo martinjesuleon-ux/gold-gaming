@@ -36,6 +36,11 @@ test('CBS construction consumes owned modules once and rejects occupied asteroid
   // Emergency repair charges only once; use a damaged module in the isolated fixture.
   await pool.query('UPDATE player_progress SET uridium=1000 WHERE account_id=$1',[ids[0]]);
   await service.hit(ids[1],{...shot,damage:100000,requestId:randomUUID()},position);
+  const snapshot=await service.defenseSnapshot(),defending=snapshot.stations.find(s=>s.asteroid_id===asteroid.id);
+  assert.deepEqual(defending.attackers,[ids[1]]);
+  await pool.query("INSERT INTO gg_v15_clan_diplomacy(source,target,state) VALUES($1,$2,'alliance')",[clans[0],clans[1]]);
+  assert.deepEqual((await service.defenseSnapshot()).stations.find(s=>s.asteroid_id===asteroid.id).attackers,[]);
+  await pool.query('DELETE FROM gg_v15_clan_diplomacy WHERE source=$1 AND target=$2',[clans[0],clans[1]]);
   const emergency={asteroidId:asteroid.id,slot:2,requestId:randomUUID()};
   await assert.rejects(service.emergency(ids[1],emergency),/Estación no disponible/);
   const repair=await service.emergency(ids[0],emergency);
@@ -90,4 +95,19 @@ test('CBS passive and emergency repair use elapsed time once, never revive destr
  assert.equal(after.modules[2].hp,moduleLimits(modules[2]).hp);
  const pending=repairState({...station,ready_at:now+10000},now);
  assert.equal(pending.modules[2].hp,modules[2].hp);
+});
+
+test('CBS turret damage, range, chance and cooldown use wiki stats',()=>{
+ const {defenseShots}=require('../stations-v113'),a=ASTEROIDS[0],now=100000,accountId=randomUUID(),friendly=randomUUID();
+ const modules=validateModules(items(),300000),s={asteroid_id:a.id,ready_at:now-1,modules,attackers:[accountId]};
+ const p={id:'enemy',accountId,zone:a.map,x:a.x+500,y:a.y},ally={...p,id:'ally',accountId:friendly,x:a.x+10};
+ const cd=new Map(),shots=defenseShots(s,[p,ally],cd,now,()=>0);
+ assert.equal(shots.length,4);assert.ok(shots.every(x=>x.targetId==='enemy'));
+ assert.deepEqual(shots.map(x=>x.damage),[59850,59850,85500,71250]);
+ assert.equal(defenseShots(s,[p],cd,now+999,()=>0).length,0);
+ assert.equal(defenseShots(s,[p],cd,now+1000,()=>0).length,2);
+ assert.equal(defenseShots(s,[{...p,x:a.x+950}],new Map(),now,()=>0).length,0);
+ assert.equal(defenseShots(s,[{...p,safe:true}],new Map(),now,()=>0).length,0);
+ assert.ok(defenseShots(s,[p],new Map(),now,()=>.99).every(x=>x.damage===0));
+ assert.equal(defenseShots({...s,modules:modules.map(m=>({...m,hp:0}))},[p],new Map(),now,()=>0).length,0);
 });

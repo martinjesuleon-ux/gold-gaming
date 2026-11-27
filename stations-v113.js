@@ -109,6 +109,22 @@ function destructionShares(contributions,now=Date.now()){
  const ids=[...new Set(contributions.filter(x=>uuid(x.accountId)&&Number.isFinite(x.at)&&x.at>=now-600000&&x.at<=now&&x.damage>0).map(x=>x.accountId))].sort();
  return ids.map((accountId,i)=>({accountId,...Object.fromEntries(Object.entries(DESTRUCTION_REWARD).map(([k,n])=>[k,Math.floor(n/ids.length)+(i<n%ids.length?1:0)]))}));
 }
+// Defense uses live modules and only recent hostile attackers until full diplomacy is implemented.
+function defenseShots(station,players,cooldowns,now=Date.now(),random=Math.random){
+ if(now<Number(station.ready_at))return [];
+ const a=ASTEROIDS.find(x=>x.id===station.asteroid_id);if(!a)return [];
+ const hostile=new Set(station.attackers||[]),shots=[];
+ for(const m of station.modules){
+  const d=MODULES[m.code];if(!d?.range||m.hp<=0)continue;
+  const key=station.asteroid_id+':'+m.instanceId;
+  if(now<(cooldowns.get(key)||0))continue;
+  const targets=players.filter(p=>hostile.has(p.accountId)&&p.zone===a.map&&!p.deadUntil&&!p.gatePending&&!p.cloaked&&!p.safe&&!p.godMode&&!p.protected&&Math.hypot(p.x-a.x,p.y-a.y)<=d.range).sort((x,y)=>Math.hypot(x.x-a.x,x.y-a.y)-Math.hypot(y.x-a.x,y.y-a.y)||x.id.localeCompare(y.id));
+  const target=targets[0];if(!target)continue;
+  cooldowns.set(key,now+d.cooldown);
+  shots.push({key,asteroidId:a.id,slot:m.slot,zone:a.map,x:a.x,y:a.y,targetId:target.id,kind:m.code.startsWith('RAM')?'rocket':'station',damage:random()<d.accuracy?Math.round(d.damage*(1+(m.level-1)*.02)):0});
+ }
+ return shots;
+}
 function createStations(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_cbs_stations(asteroid_id text PRIMARY KEY,clan_id uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,builder uuid NOT NULL REFERENCES accounts(id),ready_at bigint NOT NULL,down_until bigint NOT NULL,modules jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS gg_cbs_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));
@@ -212,6 +228,15 @@ function createStations(pool){
    await c.query('INSERT INTO gg_cbs_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- return {ready,status,build,lower,hit,emergency};
+ async function defenseSnapshot(){
+  const now=Date.now();
+  const rows=(await pool.query(`SELECT s.asteroid_id,s.ready_at,s.modules,
+   ARRAY(SELECT h.account_id FROM gg_cbs_hits h LEFT JOIN gg_v15_clan_members m ON m.account_id=h.account_id
+    WHERE h.asteroid_id=s.asteroid_id AND h.at_ms>=$1 AND h.account_id<>s.builder
+    AND (m.clan_id IS NULL OR (m.clan_id<>s.clan_id AND NOT EXISTS(SELECT 1 FROM gg_v15_clan_diplomacy d WHERE d.state='alliance' AND ((d.source=m.clan_id AND d.target=s.clan_id) OR (d.source=s.clan_id AND d.target=m.clan_id)))))) AS attackers
+   FROM gg_cbs_stations s WHERE s.ready_at<=$2`,[now-600000,now])).rows;
+  return {at:now,stations:rows};
+ }
+ return {ready,status,build,lower,hit,emergency,defenseSnapshot};
 }
-module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,MODULE_REWARDS,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,repairState,destructionShares,createStations};
+module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,MODULE_REWARDS,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,repairState,destructionShares,defenseShots,createStations};
