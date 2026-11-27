@@ -43,7 +43,9 @@ function createMinerals(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_v17_skylab(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,data jsonb NOT NULL);
  ALTER TABLE gg_v15_honor_penalty ADD COLUMN IF NOT EXISTS theft_step integer NOT NULL DEFAULT 0;
  ALTER TABLE gg_v15_honor_penalty ADD COLUMN IF NOT EXISTS theft_last bigint NOT NULL DEFAULT 0;
- CREATE TABLE IF NOT EXISTS gg_v17_mineral_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
+ CREATE TABLE IF NOT EXISTS gg_v17_mineral_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));
+ CREATE TABLE IF NOT EXISTS gg_pet_trade_v181(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,away_until bigint NOT NULL);
+ CREATE TABLE IF NOT EXISTS gg_pet_trade_receipts_v181(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
  async function tx(id,fn,cbs=false){const c=await pool.connect();try{await c.query('BEGIN');if(cbs)await c.query('SELECT pg_advisory_xact_lock(71413003)');const p=(await c.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rows[0];if(!p)throw fail('Piloto no disponible');const result=await fn(c,p);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
  async function labRow(c,id){const row=(await c.query('SELECT data FROM gg_v17_skylab WHERE account_id=$1',[id])).rows[0];return row?.data||initial(Date.now());}
  async function save(c,id,lab){await c.query('INSERT INTO gg_v17_skylab(account_id,data) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET data=EXCLUDED.data',[id,JSON.stringify(lab)]);}
@@ -61,6 +63,34 @@ function createMinerals(pool){
   const skills=(await c.query('SELECT skills FROM gg_v19_pilot WHERE account_id=$1',[id])).rows[0]?.skills||{},extra=pilotBonus(skills).cargo-1;const bonusCargo=fitCargo(Object.fromEntries(Object.entries(taken).map(([k,n])=>[k,Math.floor(n*extra)])),Math.max(0,limit-cargoUsed(b)-cargoUsed(taken)));for(const [k,n] of Object.entries(taken))await add(c,id,k,n+(bonusCargo[k]||0));
   return {taken,balance:p,penalty:fine};
  });}
+ // Server-side trader transaction: no prices, amounts, account or timer supplied by the client.
+ async function petTrade(id,requestId){
+  const {traderEnabled,tradeQuote}=require('./pet-trader-v181');
+  if(!traderEnabled(id))throw fail('Comerciante P.E.T. en pruebas');
+  if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Solicitud inválida');
+  return tx(id,async(c,p)=>{
+   const prior=(await c.query('SELECT response FROM gg_pet_trade_receipts_v181 WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
+   if(prior)return prior.response;
+   const now=Date.now(),away=(await c.query('SELECT away_until FROM gg_pet_trade_v181 WHERE account_id=$1',[id])).rows[0];
+   if(Number(away?.away_until||0)>now)throw fail('El P.E.T. sigue comerciando');
+   const owned=(await c.query("SELECT instance_id AS \"instanceId\",category,code,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   if(!owned.some(i=>i.category==='pet'))throw fail('Necesitas un P.E.T.');
+   const equipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment;
+   const gear=owned.find(i=>i.category==='petGear'&&i.code==='G-TRA1'&&Array.isArray(equipment?.gear)&&equipment.gear.includes(i.instanceId));
+   if(!gear)throw fail('Equipa el módulo G-TRA1');
+   const vitals=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
+   if(!vitals||Number(vitals.hp)<=0)throw fail('El P.E.T. no está disponible');
+   const quote=tradeQuote(Number(gear.level),await cargo(c,id),Number(p.honor),saleValue,now);
+   if(!Object.keys(quote.sold).length)throw fail('No hay minerales vendibles en la bodega');
+   for(const [code,quantity] of Object.entries(quote.sold))await take(c,id,code,quantity);
+   const balance=(await c.query('UPDATE player_progress SET credits=credits+$2 WHERE account_id=$1 RETURNING credits',[id,quote.credits])).rows[0];
+   await c.query('INSERT INTO gg_pet_trade_v181(account_id,away_until) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET away_until=EXCLUDED.away_until',[id,quote.until]);
+   const result={...quote,balance:{credits:balance.credits},cargo:await cargo(c,id)};
+   await c.query('INSERT INTO gg_pet_trade_receipts_v181(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);
+   return result;
+  });
+ }
+ async function petTradeStatus(id){const row=(await pool.query('SELECT away_until FROM gg_pet_trade_v181 WHERE account_id=$1',[id])).rows[0];return {until:Number(row?.away_until||0)};}
  async function status(id){return tx(id,async(c,p)=>view(c,id,p,await labRow(c,id)));}
  async function action(id,d,position=null){if(!d||typeof d.requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(d.requestId))throw fail('Solicitud inválida');
  if(d.action==='cbs-sell'&&(!position||typeof position.zone!=='string'||!Number.isFinite(position.x)||!Number.isFinite(position.y)))throw fail('Acércate a tu estación CBS');
@@ -97,6 +127,6 @@ function createMinerals(pool){
  }
  const result=await view(c,id,p,lab);await c.query('INSERT INTO gg_v17_mineral_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,d.requestId,JSON.stringify(result)]);return result;
  },d.action==='cbs-sell');}
- return {ready,status,action,collect};
+ return {ready,status,action,collect,petTrade,petTradeStatus};
 }
 module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,supply,demand,capacity,cargoUsed,saleValue,npcCargo,fitCargo,createMinerals};
