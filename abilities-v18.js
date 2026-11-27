@@ -30,5 +30,5 @@ function activate(p,id,now,extra={}){
 function heal(v,kind,amount){const max=kind==='hp'?v.maxHp:v.maxShield;v[kind]=Math.min(max,v[kind]+amount);}
 function speedFactor(p,now){return active(p,'fortify',now)?0:active(p,'travel',now)||active(p,'afterburner',now)?1.5:1;}
 function incoming(p,now){return active(p,'fortify',now)?.5:1;}
-function breakCloak(p){if(p.abilities?.['ultimate-cloak'])p.abilities['ultimate-cloak'].until=0;}
+function breakCloak(p){p.cloaked=false;if(p.abilities?.['ultimate-cloak'])p.abilities['ultimate-cloak'].until=0;}
 module.exports={ABILITIES,DESIGN_ABILITIES,definitions,active,activate,heal,speedFactor,incoming,breakCloak};
