@@ -25,3 +25,9 @@ test('Hitac guard slows do not stack, target range and minimap ping',()=>{
  assert.equal(effects(c,[p],5001).slows.length,0);assert.equal(effects(c,[p],29999).ping,null);
  assert.equal(effects(c,[p],30000).ping.map,'3-4');assert.equal(view(c).units.length,7);
 });
+
+test('Hitac pre-debit validation does not change hull or shield and rejects distant pilots',()=>{
+ const {validateShot}=require('../hitac-v141'),c=createConvoy(0),u=[...c.units.values()][0],p={id:'p',zone:c.map,hp:100000,x:u.x,y:u.y};
+ assert.equal(validateShot(c,p,u.id,0),u);assert.equal(u.hp,u.maxHp);assert.equal(u.shield,u.maxShield);
+ assert.throws(()=>validateShot(c,{...p,x:p.x+671},u.id,0));assert.throws(()=>validateShot(c,{...p,godMode:true},u.id,0));assert.throws(()=>validateShot(c,{...p,zone:'1-1'},u.id,0));
+});
