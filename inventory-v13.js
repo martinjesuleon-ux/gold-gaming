@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const {bonusLoot}=require('./loot-v14');
+const {MAPS,boxFactor}=require('./maps-v14');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
@@ -24,6 +25,7 @@ function createInventory(pool){
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    request_id uuid NOT NULL, response jsonb NOT NULL,
    PRIMARY KEY(account_id,request_id));
+   CREATE TABLE IF NOT EXISTS gg_v14_location (account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE, company integer NOT NULL DEFAULT 1 CHECK(company BETWEEN 1 AND 3), map text NOT NULL DEFAULT '1-1');
    CREATE TABLE IF NOT EXISTS gg_v14_gates (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    gate text NOT NULL, pieces jsonb NOT NULL DEFAULT '[]',
@@ -137,8 +139,10 @@ function createInventory(pool){
    return {fuel:Number(r.quantity)};
   });
  }
- async function awardBox(id){
-  const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);
+ async function location(id){return transaction(id,async c=>{const r=(await c.query('SELECT company,map FROM gg_v14_location WHERE account_id=$1',[id])).rows[0];return r&&MAPS[r.map]?r:{company:1,map:'1-1'};});}
+ async function saveLocation(id,company,map){if(![1,2,3].includes(company)||!Object.hasOwn(MAPS,map))throw fail('Mapa inválido');return transaction(id,async c=>{await c.query('INSERT INTO gg_v14_location(account_id,company,map) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET map=EXCLUDED.map',[id,company,map]);return {company,map};});}
+ async function awardBox(id,map='1-1',level=1){
+  const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
   return transaction(id,async(c,p)=>{
    let balance=p;
    if(['credits','uridium'].includes(loot.code)){
@@ -325,6 +329,6 @@ function createInventory(pool){
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,location,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
 }
 module.exports={createInventory};
