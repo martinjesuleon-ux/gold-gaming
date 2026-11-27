@@ -42,6 +42,7 @@ async function gates(){
    for(const id of data.gates){const g=data.states[id];const b=button(id.toUpperCase()+' '+g.pieces.length+'/'+g.required+(g.built?' ✓':''),()=>{selected=id;draw();});b.disabled=busy||id===selected;nav.append(b);}
    const a=data.states[selected];
    body.append(nav,el('h3',selected.toUpperCase()),el('p','Secciones: '+a.waves+' · Energía extra: '+fmt(data.energy)+' · Multiplicador ×'+a.multiplier));
+   if(a.provisional)body.append(el('p','Configuración provisional: '+a.provisional));
    const progress=el('progress');progress.max=a.required;progress.value=a.pieces.length;body.append(progress,el('p',a.pieces.length+' / '+a.required+' piezas'));
    const grid=el('div',null,'gg13-grid');for(let i=1;i<=a.required;i++)grid.append(el('span',(a.pieces.includes(i)?'✓ ':'○ ')+i,'gg13-tile'));body.append(grid);
    const mult=el('input');mult.type='checkbox';mult.checked=multiplier;mult.onchange=()=>{multiplier=mult.checked;};const label=el('label',' Activar multiplicador');label.prepend(mult);
