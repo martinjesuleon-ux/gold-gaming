@@ -13,11 +13,19 @@ function createLottery(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_hitac_bags(id uuid PRIMARY KEY,open boolean NOT NULL,stock jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
  CREATE UNIQUE INDEX IF NOT EXISTS gg_hitac_one_open ON gg_hitac_bags(open) WHERE open;
  CREATE TABLE IF NOT EXISTS gg_hitac_draws(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,bag_id uuid NOT NULL REFERENCES gg_hitac_bags(id),result jsonb NOT NULL,PRIMARY KEY(account_id,request_id));
+ CREATE TABLE IF NOT EXISTS gg_hitac_capsule_grants(unit_id text PRIMARY KEY,account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,bag_id uuid NOT NULL REFERENCES gg_hitac_bags(id),created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS gg_hitac_premium(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,seconds bigint NOT NULL CHECK(seconds>=0));`);}
  async function tx(fn){const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413007)');const r=await fn(c);await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
  async function open(){return tx(async c=>{if((await c.query('SELECT 1 FROM gg_hitac_bags WHERE open')).rowCount)throw fail('Bolsa ya abierta',409);const id=crypto.randomUUID(),stock=Object.fromEntries(LIMITED.map(p=>[p.id,p.stock]));await c.query('INSERT INTO gg_hitac_bags(id,open,stock) VALUES($1,true,$2)',[id,JSON.stringify(stock)]);return {id,stock};});}
  async function close(){return tx(async c=>({closed:(await c.query('UPDATE gg_hitac_bags SET open=false WHERE open')).rowCount>0}));}
- async function status(id){const bag=(await pool.query('SELECT id,stock FROM gg_hitac_bags WHERE open')).rows[0]||null;const capsules=Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='hitac-capsule'",[id])).rows[0]?.quantity||0);return {bag,capsules,unlimited:UNLIMITED,limited:LIMITED,enabled:false,provisionalOdds:true};}
+ async function status(id){const bag=(await pool.query('SELECT id,stock FROM gg_hitac_bags WHERE open')).rows[0]||null;const capsules=Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='hitac-capsule'",[id])).rows[0]?.quantity||0);return {bag,capsules,unlimited:UNLIMITED,limited:LIMITED,enabled:process.env.GG_HITAC_ENABLED==='1'&&process.env.GG_HITAC_LOTTERY_ENABLED==='1',provisionalOdds:true};}
+ async function grant(id,unitId){if(!uuid(id)||typeof unitId!=='string'||!uuid(unitId.split(':')[0])||!/^([0-6])$/.test(unitId.split(':')[1]||'')||unitId.split(':').length!==2)throw fail('Unidad inválida');return tx(async c=>{
+ const prior=(await c.query('SELECT account_id FROM gg_hitac_capsule_grants WHERE unit_id=$1',[unitId])).rows[0];if(prior){if(prior.account_id!==id)throw fail('Cápsula ya acreditada',409);return {granted:true,duplicate:true};}
+ const bag=(await c.query('SELECT id FROM gg_hitac_bags WHERE open FOR UPDATE')).rows[0];if(!bag)return {granted:false};
+ if(!(await c.query('SELECT 1 FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rowCount)throw fail('Piloto no disponible');
+ await c.query('INSERT INTO gg_hitac_capsule_grants(unit_id,account_id,bag_id) VALUES($1,$2,$3)',[unitId,id,bag.id]);
+ await c.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'hitac-capsule',1) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+1",[id]);return {granted:true,duplicate:false};
+ });}
  // Server-only lottery engine. No purchased tokens, currency, or client-selected prize.
  async function draw(id,requestId){if(!uuid(id)||!uuid(requestId))throw fail('Solicitud inválida');return tx(async c=>{
  const prior=(await c.query('SELECT result FROM gg_hitac_draws WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(prior)return prior.result;
@@ -32,6 +40,6 @@ function createLottery(pool){
  const result={bagId:bag.id,prize:{id:p.id,code:p.code,quantity:p.quantity,level:p.level||null,premiumPending:!!p.entitlement}};
  await c.query('INSERT INTO gg_hitac_draws(account_id,request_id,bag_id,result) VALUES($1,$2,$3,$4)',[id,requestId,bag.id,JSON.stringify(result)]);return result;
  });}
- return {ready,open,close,status,draw};
+ return {ready,open,close,status,draw,grant};
 }
 module.exports={UNLIMITED,LIMITED,available,choose,createLottery};

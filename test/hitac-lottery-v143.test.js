@@ -14,6 +14,8 @@ test('Hitac capsule is consumed once per request; bag reopens with original stoc
  try{const svc=createLottery(pool),name='H'+randomUUID().replaceAll('-','').slice(0,12);id=(await pool.query('INSERT INTO accounts(username,email,password_hash) VALUES($1,$2,$3) RETURNING id',[name,name+'@example.test','fixture'])).rows[0].id;await pool.query("INSERT INTO player_progress(account_id,ship,credits,uridium,honor) VALUES($1,'scout',1000,100,200)",[id]);
  const b=await svc.open();bags.push(b.id);await assert.rejects(svc.open(),/ya abierta/);
  await pool.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'hitac-capsule',1)",[id]);
+ const unit=randomUUID()+':1',grant=await svc.grant(id,unit);assert.equal(grant.granted,true);assert.equal((await svc.grant(id,unit)).duplicate,true);assert.equal((await svc.status(id)).capsules,2);
+ await pool.query("UPDATE gg_v13_ammo SET quantity=1 WHERE account_id=$1 AND code='hitac-capsule'",[id]);
  const key=randomUUID(),[r,s]=await Promise.all([svc.draw(id,key),svc.draw(id,key)]);assert.deepEqual(r,s);assert.equal((await svc.status(id)).capsules,0);await assert.rejects(svc.draw(id,randomUUID()),/Sin cápsulas/);
  const selected=LIMITED.find(p=>p.id===r.prize.id);if(selected)assert.equal((await svc.status(id)).bag.stock[selected.id],selected.stock-1);
  assert.equal((await svc.close()).closed,true);assert.deepEqual(await svc.draw(id,key),r);const next=await svc.open();bags.push(next.id);assert.deepEqual(next.stock,b.stock);
