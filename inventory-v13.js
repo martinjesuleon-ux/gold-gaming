@@ -68,8 +68,8 @@ function createInventory(pool){
  }
  async function snapshot(id){
   return transaction(id,async(c,p)=>{
-   await c.query('INSERT INTO gg_v13_hangar(account_id) VALUES($1) ON CONFLICT DO NOTHING',[id]);
-   const hangar=(await c.query('SELECT ship,configs,active FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];
+   // Reading inventory must not activate an empty combat loadout.
+   const hangar=(await c.query('SELECT ship,configs,active FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0]||{ship:'phoenix',configs:[[],[]],active:0};
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    return {balance:p,hangar,items,ammo};
