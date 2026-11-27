@@ -19,22 +19,37 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.petMode=mode;p.petUntil=0;p.petX=null;p.petY=null;p.petGeneration=(p.petGeneration||0)+1;
   io.to(p.id).emit('v14:petState',{mode:'off',fuel:p.petFuel??null,pending:mode!=='off'});
  }
- // Classical gates. Protegit statistics are not specified in the supplied wiki.
+ // Section groups spawn in order. Protegit combat statistics remain provisional.
  function clearGateNPCs(p){for(const [id,n] of npcs)if(n.zone===p.zone&&p.zone!=='world')npcs.delete(id);}
+ function spawnGateGroup(p,group){
+  const [name,count,scale=1,shielded=false]=group;
+  const key=p.gate.gate==='kappa'&&['Boss Kucurbium','Century-Falcon'].includes(name)?name+' (Kappa)':name;
+  const base=alienStats[key]||{hp:650,shield:220,damage:55,speed:155,credits:0,uridium:0,xp:0,honor:0};
+  for(let i=0;i<count;i++){
+   const a=i*Math.PI*2/count,n=spawnNPC(false,{x:WORLD.w/2+Math.cos(a)*850,y:WORLD.h/2+Math.sin(a)*850});
+   n.zone=p.zone;n.name=name;n.target=p.id;n.hp=n.maxHp=base.hp*scale;n.shield=n.maxShield=base.shield*scale;n.damage=base.damage*scale;n.speed=base.speed;
+   n.reward=base.credits*scale;n.xpReward=base.xp*scale;n.uridiumReward=base.uridium*scale;n.honorReward=base.honor*scale;n.gateShielded=shielded;
+  }
+ }
+ function nextGateGroup(p){
+  if(!p.gate||p.gatePending||p.gateWaiting)return;
+  const g=p.gate,queue=g.groups||[];
+  if(queue.length){spawnGateGroup(p,queue.shift());return;}
+  const remaining=[...npcs.values()].filter(n=>sameZone(p,n));
+  if(remaining.length){for(const n of remaining)n.gateShielded=false;return;}
+  saveGate(p,'clear');
+ }
  function gateWave(p,withCountdown=false){
   if(!p.gate)return;
   const g=p.gate,def=DEFS[g.gate];
   p.gateWaiting=false;
   const launch=()=>{
    if(players.get(p.id)!==p||p.gate!==g||p.gateWaiting)return;
-   const [name,count,scale=1]=WAVES[g.gate][g.wave][0];
-   // The only unspecified alien is Protegit; no invented reward is granted.
-   const base=alienStats[name]||{hp:650,shield:220,damage:55,speed:155,credits:0,uridium:0,xp:0,honor:0};
-   for(let i=0;i<count;i++){
-    const a=i*Math.PI*2/count,n=spawnNPC(false,{x:WORLD.w/2+Math.cos(a)*850,y:WORLD.h/2+Math.sin(a)*850});
-    n.zone=p.zone;n.name=name;n.target=p.id;n.hp=n.maxHp=base.hp*scale;n.shield=n.maxShield=base.shield*scale;n.damage=base.damage*scale;n.speed=base.speed;
-    n.reward=base.credits*scale;n.xpReward=base.xp*scale;n.uridiumReward=base.uridium*scale;n.honorReward=base.honor*scale;
-   }
+   const groups=WAVES[g.gate][g.wave];
+   if(!Array.isArray(groups)||!groups.length){returnFromGate(p);io.to(p.id).emit('notice','Esta sección aún no está disponible');return;}
+   g.groups=groups.filter(x=>!x[3]).slice();
+   for(const group of groups.filter(x=>x[3]))spawnGateGroup(p,group);
+   nextGateGroup(p);
    io.to(p.id).emit('v14:gateState',{inside:true,gate:g.gate,wave:g.wave+1,total:def.waves,lives:g.lives,phase:'combat'});
   };
   if(withCountdown){io.to(p.id).emit('v14:gateState',{inside:true,gate:g.gate,wave:g.wave+1,total:def.waves,lives:g.lives,phase:'countdown',seconds:def.countdown});later(launch,def.countdown*1000);}
@@ -117,8 +132,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  if(!p.gate)for(const b of boxes.values())if(distance(p,b)<52)collectBox(p,b);
  const n=npcs.get(p.target);if(!n||!sameZone(p,n)){p.target=null;p.attack=false;}else if(p.attack&&!p.reloadPending&&!p.reloadRequested&&distance(p,n)<=(p.v13?600:650)&&now-p.lastShot>=(p.v13?(catalogV13.ammo.find(a=>a.id===p.ammo)?.intervalMs||1000):450)&&!p.shotPending){
  p.lastShot=now;
- const finish=()=>{n.target=p.id;if(n.hp<=0&&npcs.get(n.id)===n){npcs.delete(n.id);p.target=null;p.attack=false;if(p.gate){award(p,n.reward,n.xpReward,n.name+' eliminado · +'+n.uridiumReward+' uridium',n.uridiumReward,n.honorReward).catch(()=>{});if(![...npcs.values()].some(x=>sameZone(p,x)))saveGate(p,'clear');return;}award(p,n.reward,n.type==='boss'?500:50,n.name+' eliminado · +'+n.reward+' créditos').catch(()=>{});if(n.type!=='boss')later(()=>spawnNPC(),5000);}};
+ const finish=()=>{n.target=p.id;if(n.hp<=0&&npcs.get(n.id)===n){npcs.delete(n.id);p.target=null;p.attack=false;if(p.gate){award(p,n.reward,n.xpReward,n.name+' eliminado · +'+n.uridiumReward+' uridium',n.uridiumReward,n.honorReward).catch(()=>{});if(![...npcs.values()].some(x=>sameZone(p,x)&&!x.gateShielded))nextGateGroup(p);return;}award(p,n.reward,n.type==='boss'?500:50,n.name+' eliminado · +'+n.reward+' créditos').catch(()=>{});if(n.type!=='boss')later(()=>spawnNPC(),5000);}};
  if(!p.v13){p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);damage(n,p.damage);finish();}
+ else if(n.gateShielded){p.attack=false;io.to(p.id).emit('notice','El jefe está protegido: elimina los demás alienígenas');}
  else if(!p.lasers){p.attack=false;io.to(p.id).emit('notice','Equipa un láser en el hangar');}
  else{p.shotPending=true;const ammo=p.ammo,count=p.lasers;const job=accounts.consumeAmmo(p.accountId,ammo,count).then(stock=>{
  if(stock===null){p.attack=false;io.to(p.id).emit('notice','Munición insuficiente');return;}
