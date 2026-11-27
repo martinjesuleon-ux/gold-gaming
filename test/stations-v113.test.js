@@ -138,3 +138,15 @@ test('CBS clan boosts respect ownership, map, health and wiki caps',()=>{
  assert.equal(clanStationEffects([broken],clanId,a.map,p,now).damage,1);
  assert.equal(clanStationEffects([{...station,ready_at:now+1}],clanId,a.map,p,now).safe,false);
 });
+
+test('CBS deflector charges and drains in real minutes with 48-hour cap',()=>{
+ const {deflector,lowerDeflector}=require('../stations-v113'),now=Date.UTC(2026,10,27,12),minute=60000,cap=2880*minute;
+ const station={ready_at:now,clock_at:now,charge_units:0,down_until:now+30*minute};
+ const charged=deflector(station,now+30*minute);assert.equal(charged.charge,60*minute);assert.equal(charged.mode,'protected');
+ assert.equal(deflector(station,now+60*minute).charge,30*minute);assert.equal(deflector(station,now+90*minute).mode,'vulnerable');
+ const full=deflector({...station,charge_units:cap-1000},now+30*minute);assert.equal(full.charge,cap);
+ const peak=Date.UTC(2026,10,27,20),p={ready_at:peak,clock_at:peak,charge_units:0,down_until:peak+30*minute};
+ assert.equal(deflector(p,peak+30*minute).charge,300*minute);
+ const raised={...station,clock_at:now+30*minute,charge_units:charged.charge,down_until:now+30*minute};
+ assert.equal(lowerDeflector(raised,2880,now+30*minute).downUntil,now+2910*minute);
+});
