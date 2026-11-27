@@ -54,6 +54,8 @@
  function npcStyle(name,type){
   const raw=String(name||'').toLowerCase().trim(),tier=/^uber[- ]/.test(raw)?'uber':/^emperor[- ]/.test(raw)?'emperor':/^boss\b/.test(raw)||type==='boss'?'boss':'normal';
   const n=raw.replace(/^(boss|uber|emperor)[- ]+/,'');
+  // StreuneR (capital final R) is a separate NPC in the catalog; leave it and all elites unchanged.
+  if(String(name||'').trim()==='Streuner'&&tier==='normal')return {kind:'streuner-original',color:'#b94c3e',tier};
   let family='alien',color='#ff795f';
   if(n.startsWith('kristall')){family='crystal';color='#46a7ff';}
   else if(n.startsWith('streuner')||n.startsWith('interceptor')){family='scout-npc';color='#dbaa72';}
@@ -64,6 +66,40 @@
   else if(/^(vagrant|marauder|barracuda|saboteur|annihilator|deadly battleray)/.test(n)){family='pirate';color='#d88956';}
   if(tier==='uber')color='#b77bff';else if(tier==='emperor')color='#ffd077';else if(tier==='boss'&&family!=='crystal')color='#70a7ff';
   return {kind:family==='crystal'&&tier!=='normal'?'crystal-elite':family,color,tier};
+ }
+ // Original layered mechanical raider, drawn at the existing Streuner sprite scale.
+ function streunerHull(c,color){
+  const steel=gradient(c,25,[[0,'#c1c5ba'],[.18,'#777d78'],[.36,'#30383b'],[.53,'#141b20'],[.72,'#777a71'],[1,'#24282a']]);
+  const red=gradient(c,24,[[0,'#e99b80'],[.20,'#a94837'],[.43,'#67251e'],[.55,'#291718'],[.78,'#a63d32'],[1,'#481a1c']]);
+  const dark=gradient(c,21,[[0,'#68716d'],[.22,'#222b2f'],[.65,'#0a1116'],[1,'#3b4241']]);
+  // Rear engine assembly and asymmetric-looking tiered silhouette (nose points right).
+  for(const side of [-1,1]){
+   const y=side*14;
+   path(c,[[-28,y-5],[-20,y-7],[-7,y-6],[7,y-3],[11,y+2],[2,y+7],[-21,y+8],[-28,y+4]],dark,'#6b625e',.7);
+   for(let i=0;i<4;i++){const x=-26+i*5;path(c,[[x,y-4],[x+2.5,y-4],[x+3,y+4],[x,y+4]],steel,'#11191c',.4);}
+   path(c,[[-27,side*12],[-16,side*12],[-16,side*9],[-27,side*9]],'#151a1d','#87655b',.5);
+   path(c,[[-18,side*17],[-7,side*24],[3,side*23],[13,side*14],[2,side*10]],red,'#c16c56',.6);
+   path(c,[[-7,side*24],[-1,side*20],[6,side*16],[3,side*23]],'#bd7a60','#5c322c',.4);
+  }
+  path(c,[[-31,2],[-23,-7],[-11,-11],[5,-11],[14,-9],[23,-5],[33,-2],[28,3],[15,7],[7,12],[-17,12],[-27,7]],dark,'#756b61',.85);
+  // Upper armor decks and offset sensor bridge.
+  path(c,[[-24,-3],[-16,-12],[0,-15],[10,-13],[16,-8],[31,-5],[33,-1],[19,2],[8,-3],[-9,-3]],red,'#d17860',.8);
+  path(c,[[-17,-13],[-9,-18],[7,-18],[14,-15],[17,-10],[3,-10],[-8,-12]],steel,'#827f72',.7);
+  path(c,[[-5,-19],[5,-22],[15,-21],[17,-17],[13,-14],[-6,-14]],dark,'#89867b',.7);
+  path(c,[[1,-20],[10,-21],[13,-19],[13,-16],[2,-16]],steel,'#9e9c8f',.45);
+  path(c,[[15,-17],[22,-14],[31,-8],[24,-7],[16,-10]],red,'#c56550',.55);
+  path(c,[[10,-10],[20,-9],[32,-5],[28,-4],[19,-6]],'#642622','#d06d55',.5);
+  // Main layered armor, silver ribs and inset black intake.
+  path(c,[[-26,2],[-16,-5],[1,-6],[16,0],[10,6],[-2,8],[-20,8]],red,'#c1856b',.8);
+  path(c,[[-21,1],[-12,-2],[2,-2],[11,1],[4,4],[-13,4]],steel,'#1b2325',.6);
+  path(c,[[-21,6],[-11,4],[1,5],[8,9],[-7,13],[-20,12]],dark,'#a08b79',.55);
+  path(c,[[7,7],[17,7],[22,3],[29,3],[19,10],[9,12]],red,'#945347',.6);
+  for(const y of [-16,-12,6,10])for(let i=0;i<4;i++){const x=-8+i*4;path(c,[[x,y],[x+2.4,y-.3],[x+2.4,y+1.6],[x,y+2]],'#aeb3a6','#383f3d',.35);}
+  for(let i=0;i<5;i++){const x=-22+i*4;path(c,[[x,8],[x+1.8,8],[x+2,10],[x,10]],'#5a625f','#13191b',.35);}
+  path(c,[[10,-4],[20,-3],[25,-1],[17,0],[10,-1]],'#11181b','#93766a',.45);
+  path(c,[[12,-3],[20,-2.5],[23,-1.5],[16,-1]],'#e4b8a2');
+  path(c,[[-30,1],[-27,0],[-27,3],[-30,4]],'#b86b50');
+  for(const [x,y] of [[-15,-7],[-5,-10],[7,-13],[12,12],[-19,5]]){c.fillStyle='#e2c5a4';c.fillRect(x,y,1.5,1.1);}
  }
  function npcHull(c,kind,color){
   const armor=gradient(c,28,[[0,'#acb8c7'],[.26,'#344758'],[.5,'#0c1521'],[.7,'#536678'],[1,'#172233']]);
@@ -137,7 +173,7 @@
   path(c,[[nose*.4,0],[nose*.15,-body*.17],[nose*.02,0]],'#e7faff');
   if(style===3)for(const side of [-1,1])path(c,[[nose*.65,body*.4*side],[nose*.4,body*.78*side],[nose*.12,body*.64*side],[nose*.35,body*.3*side]],color);
  }
- function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind.startsWith('drone'))drone(c,color,kind);else if(kind==='pet')pet(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
+ function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind.startsWith('drone'))drone(c,color,kind);else if(kind==='pet')pet(c,color);else if(kind==='streuner-original')streunerHull(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
  function draw(c,kind,color){const s=sprite(kind,color);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
  function portal(c,color,t){
   const center=c.createRadialGradient(0,0,3,0,0,46);center.addColorStop(0,'#03060d');center.addColorStop(.45,'#0b1625');center.addColorStop(.78,color+'24');center.addColorStop(1,color+'00');c.fillStyle=center;c.beginPath();c.arc(0,0,46,0,Math.PI*2);c.fill();
