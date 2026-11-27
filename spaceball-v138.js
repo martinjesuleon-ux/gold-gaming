@@ -12,7 +12,7 @@ function createGame(now=Date.now(),w=12000,h=8000){
  return {id:crypto.randomUUID(),w,h,goals,ball:{x:w/2,y:h/2},scores:{1:0,2:0,3:0},boxes:new Map(),resetAt:0,active:true,startedAt:now};
 }
 function rewards(random=Math.random){return Object.fromEntries(Object.entries(REWARDS).map(([k,[a,b]])=>[k,a+Math.floor(clamp(random(),0,.999999999)*(b-a+1))]));}
-function advance(g,now=Date.now()){for(const [id,b] of g.boxes)if(now>=b.expires)g.boxes.delete(id);if(g.resetAt&&now>=g.resetAt){g.ball={x:g.w/2,y:g.h/2};g.resetAt=0;}}
+function advance(g,now=Date.now()){for(const [id,b] of g.boxes)if(now>=b.expires&&!b.pending)g.boxes.delete(id);if(g.resetAt&&now>=g.resetAt){g.ball={x:g.w/2,y:g.h/2};g.resetAt=0;}}
 function intersection(a,b,c,r){const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?clamp(((c.x-a.x)*dx+(c.y-a.y)*dy)/l,0,1):0;return Math.hypot(a.x+dx*t-c.x,a.y+dy*t-c.y)<=r;}
 function validateShot(g,p,code,now=Date.now()){
  advance(g,now);if(!g.active||g.resetAt||p?.zone!==RULES.map||![1,2,3].includes(p.company)||!Number.isFinite(p.x)||!Number.isFinite(p.y)||!Object.hasOwn(PUSH,code))throw fail('Disparo inválido');
@@ -28,5 +28,7 @@ function shot(g,p,code,now=Date.now(),random=Math.random){
  g.resetAt=now+RULES.resetMs;return {goal:goal.company,scorer:goal.company===p.company?null:p.company,ball:g.ball};
 }
 function view(g,now=Date.now()){advance(g,now);return {id:g.id,map:RULES.map,active:g.active,ball:g.resetAt?null:g.ball,goals:g.goals,scores:{...g.scores},resetAt:g.resetAt,boxes:[...g.boxes.values()].map(({id,x,y,expires})=>({id,x,y,expires}))};}
-function preview(){return {rules:RULES,push:PUSH,rewards:REWARDS,enabled:process.env.GG_SPACEBALL_ENABLED==='1',claimsEnabled:false};}
-module.exports={RULES,PUSH,REWARDS,createGame,advance,shot,validateShot,rewards,view,preview};
+function reserveBox(g,p,id,now=Date.now()){const b=g?.boxes.get(id);if(!g?.active||!b||b.pending||now>=b.expires||p?.zone!=='4-4'||p.deadUntil||p.godMode||dist(p,b)>52)return null;b.pending=p.accountId;return b;}
+function releaseBox(g,b,success){if(g.boxes.get(b.id)!==b)return;if(success)g.boxes.delete(b.id);else delete b.pending;}
+function preview(){return {rules:RULES,push:PUSH,rewards:REWARDS,enabled:process.env.GG_SPACEBALL_ENABLED==='1',claimsEnabled:process.env.GG_SPACEBALL_ENABLED==='1'&&process.env.GG_SPACEBALL_CLAIMS_ENABLED==='1'};}
+module.exports={RULES,PUSH,REWARDS,createGame,advance,shot,validateShot,rewards,view,preview,reserveBox,releaseBox};

@@ -23,3 +23,12 @@ test('Spaceball validates shot before ammunition is charged and rejects during r
  assert.throws(()=>validateShot(g,p,'SAB-50',0));g.resetAt=10000;assert.throws(()=>validateShot(g,p,'LCB-10',9999));assert.equal(validateShot(g,p,'LCB-10',10000),100);
  g.active=false;assert.throws(()=>validateShot(g,p,'LCB-10',10001));
 });
+
+test('Spaceball crate reservations enforce proximity, expiry and one active collector',()=>{
+ const {reserveBox,releaseBox}=require('../spaceball-v138'),g=createGame(0);
+ const b={id:'box',x:100,y:100,expires:300000,rewards:rewards(()=>0)};g.boxes.set(b.id,b);
+ const p={zone:'4-4',accountId:'a',x:100,y:100};
+ assert.equal(reserveBox(g,{...p,x:200},b.id,1),null);assert.equal(reserveBox(g,{...p,zone:'1-1'},b.id,1),null);assert.equal(reserveBox(g,{...p,godMode:true},b.id,1),null);
+ assert.equal(reserveBox(g,p,b.id,1),b);assert.equal(reserveBox(g,{...p,accountId:'b'},b.id,1),null);
+ releaseBox(g,b,false);assert.equal(reserveBox(g,p,b.id,300000),null);assert.equal(reserveBox(g,p,b.id,2),b);releaseBox(g,b,true);assert.equal(g.boxes.size,0);
+});
