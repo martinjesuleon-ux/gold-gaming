@@ -25,6 +25,19 @@
    }
   }
   if(crystal){for(let i=0;i<12;i++){const x=(rand()-.5)*size*.8,y=(rand()-.5)*size*.8;c.strokeStyle='#e0faff65';c.lineWidth=.55;c.beginPath();c.moveTo(x,y);c.lineTo(x+3+rand()*8,y-2-rand()*5);c.stroke();}}
+  // Tier identification is a material accent, not a change to NPC size or shape.
+  // Preserve the reference palette under a restrained edge highlight.
+  const tier=kind.match(/-(boss|uber|emperor)$/)?.[1];
+  if(tier&&/^classic-(?!ship-|drone|pet|portal|base|station)/.test(kind)){
+   const tint=tier==='boss'?'#e99b62':tier==='uber'?'#b79cea':'#f4d17b';
+   const sheen=c.createLinearGradient(-half,-half,half,half);
+   sheen.addColorStop(0,tint+'66');sheen.addColorStop(.22,tint+'28');sheen.addColorStop(.5,tint+'00');sheen.addColorStop(.82,tint+'08');sheen.addColorStop(1,tint+'38');
+   c.fillStyle=sheen;c.fillRect(-half,-half,size,size);
+   for(let i=0;i<(tier==='boss'?12:22);i++){
+    const x=(rand()-.5)*size*.86,y=(rand()-.5)*size*.86;
+    c.fillStyle=tint+'a0';c.fillRect(x,y,1.2,.75);
+   }
+  }
   c.restore();
  }
  // The supplied images are visual references, not imported or redistributed game assets.
@@ -78,27 +91,40 @@
   polygon(c,[[4,-5],[19,-4],[24,0],[19,4],[4,5],[10,0]],color,'#bdd3b9',.5);
   polygon(c,[[28,-3],[33,0],[28,3],[23,0]],'#a9b6a9','#293e31',.45);
   for(const y of [-6,6]){c.fillStyle='#a6b9a5';c.fillRect(-19,y-.5,7,1);}
+  const armor=linear(c,-24,-24,20,24,[[0,'#aabbb6'],[.23,'#536b63'],[.5,'#1d302c'],[.78,'#758980'],[1,'#263a32']]);
+  for(const s of [-1,1]){
+   polygon(c,[[-17,13*s],[-8,25*s],[4,28*s],[10,22*s],[-5,17*s]],armor,'#8da198',.55);
+   polygon(c,[[17,9*s],[29,9*s],[31,11*s],[23,13*s]],'#243a32','#98aca0',.5);
+   for(let i=0;i<3;i++){c.fillStyle='#101b1b';c.fillRect(-9+i*4,21*s-1,2,2);c.fillStyle=color;c.fillRect(-9+i*4,21*s-1,2,.65);}
+  }
+  polygon(c,[[19,0],[14,-2.8],[8,-2.8],[5,0],[8,2.8],[14,2.8]],linear(c,5,-3,19,3,[[0,'#0e252e'],[.45,'#76b5c2'],[1,'#203e47']]),'#b2c5c0',.5);
+ }
+ // Original organic radial hulls, based on the shape language of the reference set.
+ function radialAlien(c,large,elite,color){
+  const radius=large?39:27,arms=large?9:8,rand=seeded(large?1743:3985);
+  const light=large?'#fff0b9':'#a5e2ed',mid=large?'#c6a35c':'#447e8d',dark=large?'#60542f':'#153b47';
+  const shell=radial(c,-8,-10,radius,[[0,light],[.25,mid],[.6,dark],[.83,mid],[1,dark]]);
+  for(let i=0;i<arms;i++){
+   const a=i*Math.PI*2/arms+(rand()-.5)*.28,r=radius*(.86+rand()*.18);
+   c.save();c.rotate(a);c.beginPath();c.moveTo(radius*.42,-radius*.18);
+   c.bezierCurveTo(radius*.65,-radius*.18,r*.84,-radius*.07,r,0);
+   c.bezierCurveTo(r*1.08,radius*.15,r*.79,radius*.15,radius*.56,radius*.22);
+   c.closePath();c.fillStyle=shell;c.fill();c.strokeStyle=light;c.lineWidth=1;c.stroke();c.restore();
+  }
+  const body=radius*.64;c.beginPath();c.arc(0,0,body,0,Math.PI*2);c.fillStyle=shell;c.fill();c.strokeStyle=light;c.lineWidth=1.1;c.stroke();
+  for(let i=0;i<arms;i++){const a=i*Math.PI*2/arms;c.save();c.rotate(a);c.strokeStyle=light;c.lineWidth=.7;c.beginPath();c.ellipse(body*.54,0,body*.29,body*.11,0,0,Math.PI*2);c.stroke();c.restore();}
+  for(let i=0;i<18;i++){const a=rand()*Math.PI*2,r=rand()*body*.82;c.fillStyle=i%3?mid:light;c.fillRect(Math.cos(a)*r,Math.sin(a)*r,1.3,1);}
+  c.fillStyle=radial(c,-2,-2,body*.45,[[0,light],[.3,elite?color:mid],[1,dark+'00']]);c.fillRect(-body/2,-body/2,body,body);
  }
  function alien(c,kind,color){
-  const green=kind==='classic-lordakia',steel=linear(c,-25,-25,29,26,[[0,green?'#8ea991':'#9eacb9'],[.25,green?'#3b5b3b':'#35404d'],[.5,'#11191f'],[.75,green?'#25462a':'#25303e'],[1,'#0b1016']]);
-  if(green){
-   for(const s of [-1,1]){
-    polygon(c,[[-25,s*9],[-12,s*17],[1,s*14],[12,s*7],[27,s*12],[19,s*21],[8,s*23],[-9,s*12],[-20,s*23],[-30,s*19]],steel,'#5d8265',.75);
-    polygon(c,[[4,s*8],[18,s*7],[31,s*14],[23,s*15],[17,s*11]],'#254433','#6f9c77',.6);
-    for(let i=0;i<3;i++){const x=17+i*3;polygon(c,[[x,s*13],[x+6,s*19],[x+3,s*20],[x-2,s*14]],'#a1b3a8','#303e3a',.45);}
-   }
-   polygon(c,[[-23,0],[-12,-10],[2,-13],[14,-7],[22,0],[14,8],[2,13],[-12,10]],steel,'#527d55',.8);
-   polygon(c,[[-14,0],[-5,-9],[5,-5],[14,0],[5,5],[-5,9]],'#27893e','#a1d488',.8);
-   c.fillStyle=radial(c,0,0,8,[[0,'#fff8c4'],[.28,'#efb94a'],[.55,'#937530'],[1,'#443e1600']]);c.fillRect(-8,-8,16,16);
-  }else{
-   for(const s of [-1,1]){
-    polygon(c,[[-21,s*3],[-18,s*14],[-8,s*23],[7,s*20],[19,s*9],[34,s*6],[20,s*2],[5,s*8],[-5,s*10]],steel,'#596a7e',.65);
-    polygon(c,[[-9,s*10],[3,s*18],[29,s*10],[36,s*3],[8,s*8]],'#344451','#9faeba',.55);
-    for(let i=0;i<3;i++){const x=-17+i*6;polygon(c,[[x,s*13],[x+6,s*23],[x+10,s*25],[x+4,s*15]],'#18252e','#4b5c6e',.5);}
-   }
-   polygon(c,[[-29,0],[-20,-10],[-4,-13],[14,-6],[24,0],[14,5],[-4,11],[-20,9]],steel,'#697887',.75);
-   polygon(c,[[-16,-2],[-7,-6],[9,-3],[17,0],[1,2],[-9,3]],'#17212b','#b2c1cb',.55);
-  }
+  if(kind.includes('lordakia')){radialAlien(c,false,kind!=='classic-lordakia',color);return;}
+  // Saimon: thin forward prongs above a dark hooked, ribbed underside.
+  const steel=linear(c,-28,-22,35,21,[[0,'#afc0ce'],[.2,'#536575'],[.47,'#141e28'],[.69,'#536474'],[1,'#0c151d']]);
+  polygon(c,[[-30,0],[-22,-13],[-8,-19],[3,-13],[9,-9],[30,-10],[39,-14],[27,-3],[4,4],[-9,8],[-19,19],[-32,12]],steel,'#768b9e',.8);
+  polygon(c,[[-16,-13],[9,-23],[30,-32],[13,-15],[-2,-7],[-16,-5]],steel,'#a3b5c4',.7);
+  polygon(c,[[-23,-2],[-11,-10],[12,-7],[35,-9],[18,-2],[-3,4]],'#263747','#7f94a8',.65);
+  for(let i=0;i<4;i++){const x=-20+i*5;c.strokeStyle='#506371';c.lineWidth=2.4;c.beginPath();c.moveTo(x,5);c.quadraticCurveTo(x+9,13,x+2,24-i*3);c.stroke();}
+  polygon(c,[[-13,-14],[-5,-15],[5,-10],[-6,-6]],'#192631','#9bafbd',.55);
  }
  function mineArt(c,armed){
   const accent=armed?'#fa573c':'#e7b368',glow=radial(c,0,8,51,[[0,accent+'90'],[.55,accent+'32'],[1,accent+'00']]);c.fillStyle=glow;c.fillRect(-60,-55,120,110);
@@ -130,31 +156,84 @@
   const gem=linear(c,-24,-28,26,28,[[0,'#e6f8ff'],[.25,color],[.5,'#203c58'],[.75,color],[1,'#0e243c']]);
   const seam='#718b9b';
   if(species==='kristallin'||species==='kristallon'){
-   const big=species==='kristallon',reach=big?43:35;
-   for(const side of [-1,1]){
-    const tips=big?[[30,0],[19,17],[-2,reach],[-13,27],[-31,31],[-24,9],[-13,0]]:[[29,0],[9,13],[-7,reach],[-17,23],[-30,16],[-20,5],[-13,0]];
-    polygon(c,tips.map(([x,y])=>[x,y*side]),steel,seam,.8);
-    polygon(c,[[23,4*side],[9,18*side],[-7,(reach-3)*side],[-13,20*side],[-21,12*side],[-5,5*side]],gem,color,.8);
-    polygon(c,[[9,18*side],[-7,(reach-3)*side],[-2,12*side]],'#dbf4ffb0',color,.5);
-    polygon(c,[[-2,12*side],[-13,20*side],[-21,12*side]],'#122c47',seam,.5);
-    if(big){polygon(c,[[16,10*side],[30,19*side],[17,31*side],[5,23*side]],steel,color,.8);polygon(c,[[20,15*side],[26,19*side],[17,27*side]],gem,color,.6);}
-    if(elite){polygon(c,[[-24,12*side],[-36,24*side],[-24,32*side],[-15,21*side]],steel,color,1);polygon(c,[[-31,24*side],[-24,29*side],[-20,22*side]],gem);}
+   // References IMG_5849 and IMG_5850: compact, irregular crystal clusters,
+   // not winged craft. Independently drawn facets and deterministic silhouettes.
+   const big=species==='kristallon',reach=big?46:38;
+   const rand=seeded(big?19741:8429), count=big?15:10;
+   const pale=elite?'#cceeff':'#e4faff', deep=elite?'#5086b3':'#739db4';
+   const facets=[];
+   for(let i=0;i<count;i++){
+    const angle=i*Math.PI*2/count+(rand()-.5)*.38;
+    const dx=Math.cos(angle),dy=Math.sin(angle),px=-dy,py=dx;
+    const r=reach*(.68+rand()*.30), w=reach*(.12+rand()*.16), base=reach*(.11+rand()*.17);
+    const cx=dx*base+(rand()-.5)*5,cy=dy*base+(rand()-.5)*5;
+    const tip=[dx*r,dy*r],l=[cx+px*w,cy+py*w],right=[cx-px*w,cy-py*w];
+    const heel=[-dx*reach*.22,-dy*reach*.22],ridge=[dx*r*.53+px*w*.14,dy*r*.53+py*w*.14];
+    facets.push({tip,l,right,heel,ridge});
    }
-   polygon(c,[[36,0],[15,-12],[-4,-14],[-24,-8],[-31,0],[-24,8],[-4,14],[15,12]],steel,seam,1);
-   polygon(c,[[25,0],[9,-9],[-8,-9],[-16,0],[-8,9],[9,9]],gem,color,.8);
-   polygon(c,[[19,0],[5,-4],[-4,0],[5,4]],'#e9fbff',color,.5);
-  }else if(species==='mordon'||species==='devolarium'){
-   const heavy=species==='devolarium',w=heavy?34:27;
-   for(const side of [-1,1]){
-    const outline=heavy?[[32,8],[23,22],[7,w],[-15,w],[-35,20],[-29,8],[-8,5]]:[[26,8],[18,23],[-1,w],[-23,23],[-30,13],[-17,6],[-7,4]];
-    polygon(c,outline.map(([x,y])=>[x,y*side]),armor,color,.85);
-    for(let i=0;i<3;i++){const x=-20+i*13;polygon(c,[[x,11*side],[x+10,13*side],[x+8,(w-5)*side],[x-4,(w-7)*side]],steel,'#77807d',.65);polygon(c,[[x+1,15*side],[x+6,16*side],[x+4,20*side],[x-1,19*side]],'#1d2b30',color,.4);}
-    polygon(c,[[-31,9*side],[-35,17*side],[-26,22*side],[-21,14*side]],steel,seam,.65);
-    if(heavy||elite){polygon(c,[[18,9*side],[34,12*side],[39,19*side],[26,24*side],[14,17*side]],steel,color,.8);for(let i=0;i<3;i++){c.fillStyle=color;c.fillRect(26+i*3,side*17-1,1.6,2);}}
+   const aura=radial(c,0,0,reach*1.12,[[0,'#d9f4ff66'],[.66,'#a2cde321'],[1,'#a2cde300']]);
+   c.fillStyle=aura;c.fillRect(-reach*1.12,-reach*1.12,reach*2.24,reach*2.24);
+   for(const {tip,l,right,heel,ridge} of facets){
+    polygon(c,[tip,l,heel,right],linear(c,...tip,...heel,[[0,'#f5fdff'],[.42,pale],[1,deep]]),'#e0f7ff91',.7);
+    polygon(c,[tip,l,ridge],'#f7fdffe0');
+    polygon(c,[tip,ridge,right],'#85b6d2c0');
+    polygon(c,[l,heel,ridge],'#bce7f4a8');
+    polygon(c,[right,ridge,heel],'#3f668d90');
+    c.strokeStyle='#f7fdffb0';c.lineWidth=.5;c.beginPath();c.moveTo(...tip);c.lineTo(...ridge);c.lineTo(...heel);c.stroke();
    }
-   polygon(c,[[35,0],[21,-11],[2,-14],[-22,-10],[-34,-4],[-34,4],[-22,10],[2,14],[21,11]],steel,seam,1);
-   polygon(c,[[25,0],[12,-7],[-10,-7],[-18,0],[-10,7],[12,7]],'#101d25',color,.8);
-   for(let i=0;i<5;i++){c.fillStyle=i===2?color:'#62777d';c.fillRect(-11+i*5,-3,3,6);}
+   const core=Array.from({length:big?11:8},(_,i)=>{const a=i*Math.PI*2/(big?11:8),r=reach*(.27+rand()*.17);return [Math.cos(a)*r,Math.sin(a)*r];});
+   polygon(c,core,radial(c,-4,-6,reach*.45,[[0,'#ffffff'],[.4,'#e5faff'],[1,'#7eb1cc']]),'#eafaff',.65);
+   for(let i=0;i<core.length;i++){const p=core[i],q=core[(i+1)%core.length];polygon(c,[p,q,[(rand()-.5)*10,(rand()-.5)*10]],i%3===0?'#ffffffb0':i%3===1?'#a8d9eac0':'#d4f2f9a0','#e7fbff70',.4);}
+   for(let i=0;i<(big?22:12);i++){const a=rand()*Math.PI*2,r=reach*(.70+rand()*.31);c.fillStyle=i%3?'#c1e4f380':'#f1fcff';c.fillRect(Math.cos(a)*r,Math.sin(a)*r,.8+rand()*1.1,.8+rand()*1.1);}
+  }else if(species==='mordon'||species==='devolarium'||species==='sibelon'){
+   // Distinct original silhouettes: rust-colored tower with articulated legs,
+   // and broad blue-gray machinery with separated armored modules.
+   if(species==='mordon'){
+    const bronze=linear(c,-32,-35,32,32,[[0,'#f3b29a'],[.22,'#a55742'],[.48,'#382527'],[.72,'#b16e51'],[1,'#352124']]);
+    const tower=linear(c,-13,-39,14,13,[[0,'#b4a7a2'],[.28,'#53545b'],[.55,'#292a31'],[.82,'#a08276'],[1,'#392b2a']]);
+    c.fillStyle=radial(c,0,12,47,[[0,'#ef754c65'],[.55,'#af492b38'],[1,'#af492b00']]);c.fillRect(-48,-32,96,88);
+    for(const [x,y] of [[-37,22],[-15,38],[12,40],[37,21],[-34,5],[34,5]]){
+     const hx=x*.5,hy=8+y*.22;
+     polygon(c,[[-6,5],[hx-3,hy-3],[x,y],[hx+3,hy+4],[6,13]],bronze,'#bba094',.8);
+     polygon(c,[[hx-2,hy],[x,y],[x*.85,y+5],[hx+2,hy+3]],steel,'#a58a7c',.65);
+    }
+    polygon(c,[[-17,-20],[-11,-35],[1,-42],[15,-29],[19,-10],[14,12],[0,20],[-15,10]],tower,'#bda49a',1);
+    polygon(c,[[-10,-28],[0,-34],[10,-26],[8,7],[0,13],[-9,5]],'#272a31','#95786a',.75);
+    for(let y=-25;y<5;y+=8){polygon(c,[[-8,y],[7,y+7],[7,y+9],[-8,y+2]],'#a88c80');polygon(c,[[7,y],[-8,y+7],[-8,y+9],[7,y+2]],'#796965');}
+    polygon(c,[[-10,-34],[0,-41],[10,-33],[7,-27],[-7,-27]],bronze,'#f2b39a',.9);
+    for(const side of [-1,1])polygon(c,[[side*11,-30],[side*17,-19],[side*15,10],[side*9,13],[side*12,-14]],bronze,'#bc9c8b',.6);
+    if(elite){c.fillStyle=color;c.fillRect(-5,-36,10,3);}
+   }else if(species==='devolarium'){
+    const armorGreen=linear(c,-42,-26,42,28,[[0,'#738b44'],[.24,'#3b512c'],[.52,'#172921'],[.72,'#455c31'],[1,'#101d16']]);
+    polygon(c,[[-45,-7],[-29,-20],[-9,-26],[15,-23],[37,-14],[45,-6],[37,7],[43,15],[24,24],[-5,28],[-26,20],[-39,12]],armorGreen,'#536d3c',.9);
+    for(const side of [-1,1]){
+     polygon(c,[[-39,5*side],[-20,16*side],[8,22*side],[30,16*side],[37,7*side],[12,8*side],[-5,4*side]],armorGreen,'#78924a',.65);
+     polygon(c,[[-26,5*side],[-15,10*side],[8,9*side],[22,13*side],[30,9*side],[12,3*side],[-10,2*side]],'#233526','#5a8038',.6);
+     for(let i=0;i<4;i++){c.fillStyle='#79974b';c.fillRect(-20+i*7,side*17-1,4,1);}
+    }
+    polygon(c,[[-32,0],[-15,-6],[13,-5],[36,-1],[25,4],[0,6],[-15,4]],'#23352a','#8fa857',.8);
+    for(const [x,y,r] of [[-29,-2,4],[-8,0,6],[12,-3,5],[28,-2,3],[7,13,3]]){
+     c.fillStyle=radial(c,x,y,r,[[0,'#e2ff8f'],[.3,'#91e323'],[1,'#68bb1200']]);c.fillRect(x-r,y-r,r*2,r*2);
+    }
+   }else{
+    const hull=linear(c,-48,-29,44,29,[[0,'#c4dcda'],[.18,'#75969a'],[.42,'#37545d'],[.66,'#172a32'],[.83,'#59777d'],[1,'#24343c']]);
+    const inset='#172c35',rim='#85a8ac';
+    polygon(c,[[-46,0],[-39,-17],[-24,-25],[12,-21],[35,-15],[46,-4],[44,14],[28,24],[-25,25],[-42,14]],inset,'#54747e',.85);
+    polygon(c,[[-18,-34],[2,-34],[9,-25],[11,23],[4,32],[-15,31],[-21,21],[-22,-23]],hull,rim,1);
+    polygon(c,[[-15,-26],[3,-26],[5,-13],[-16,-13]],'#365661',rim,.7);
+    polygon(c,[[-16,-8],[4,-8],[5,18],[-15,18]],inset,rim,.8);
+    for(let y=-5;y<17;y+=5){c.fillStyle='#67898f';c.fillRect(-12,y,14,2);}
+    polygon(c,[[15,-26],[31,-21],[43,-11],[47,9],[33,24],[16,21],[21,9],[18,-8]],hull,rim,.9);
+    for(const [x,y] of [[17,-23],[27,-20],[36,-14]]){polygon(c,[[x,y],[x+6,y+1],[x+7,y+12],[x+1,y+13]],'#95b4b6','#3b5962',.5);}
+    polygon(c,[[23,0],[38,3],[37,15],[25,17],[21,9]],inset,rim,.7);
+    for(let i=0;i<3;i++){c.fillStyle='#6d8990';c.fillRect(25,5+i*3,10,1.5);}
+    for(const side of [-1,1]){
+     polygon(c,[[-43,3*side],[-37,15*side],[-25,20*side],[-25,9*side]],hull,rim,.7);
+     c.strokeStyle='#77969d';c.lineWidth=1;c.beginPath();c.moveTo(-38,8*side);c.bezierCurveTo(-33,18*side,-24,2*side,-20,10*side);c.stroke();
+     polygon(c,[[7,3*side],[14,5*side],[19,15*side],[10,17*side]],steel,'#5b7c84',.65);
+    }
+    if(elite){c.fillStyle=color;for(const x of [-16,-9,-2,31])c.fillRect(x,-22,3,2);}
+   }
   }else{
    // Three-dimensional modular cube; three visible faces and separately recessed plates.
    const top=[[0,-42],[38,-22],[0,-2],[-38,-22]],left=[[-38,-22],[0,-2],[0,42],[-38,22]],right=[[0,-2],[38,-22],[38,22],[0,42]];
@@ -170,8 +249,33 @@
   interceptor:[40,17,28,7,0],vagrant:[28,20,24,11,1],marauder:[34,28,30,13,2],
   barracuda:[43,19,30,9,0],saboteur:[30,32,21,10,4],annihilator:[35,34,34,17,3],'deadly-battleray':[42,36,35,18,2]
  };
+ // Compact Sibelonit: original artwork informed by IMG_5846.
+ function sibelonit(c,tier,color){
+  const green=radial(c,-9,-10,38,[[0,'#85d887'],[.26,'#32984a'],[.52,'#176b37'],[.79,'#17412d'],[1,'#081c19']]);
+  const steel=linear(c,-33,-21,34,25,[[0,'#b6c7c9'],[.21,'#74858a'],[.47,'#26363c'],[.72,'#52656b'],[1,'#111c23']]);
+  // An asymmetrical cluster with two metallic forks and an offset upper core.
+  polygon(c,[[-38,14],[-28,7],[-16,4],[-10,13],[-17,26],[-35,26],[-40,21]],steel,'#667b80',.85);
+  polygon(c,[[17,-13],[30,-11],[42,1],[39,11],[27,8],[13,0]],steel,'#91a1a3',.7);
+  for(let i=0;i<4;i++){
+   polygon(c,[[-37+i*4,20],[-25+i*3,17],[-16+i*2,20],[-32+i*3,24]],i%2?'#75898e':'#3d5158','#17292c',.55);
+   polygon(c,[[24+i*3,-8+i*2],[34+i*2,2+i*3],[38+i,5+i*3],[35+i,7+i*3]],i%2?'#b9c8c9':'#788e90','#24363d',.5);
+  }
+  polygon(c,[[-29,9],[-20,-5],[-19,-21],[-9,-28],[6,-23],[12,-14],[25,-17],[34,-11],[22,-4],[15,6],[4,20],[-13,20],[-24,16]],green,'#457c51',1);
+  for(const pts of [[[-25,12],[-16,4],[-9,-8],[-5,-5],[-11,8],[-18,16]],[[1,-15],[12,-12],[29,-14],[21,-8],[7,-4]],[[0,0],[13,2],[10,12],[1,19],[-5,11]]]){
+   polygon(c,pts,green,'#64af6b',.65);
+  }
+  const rand=seeded(5846);
+  for(let i=0;i<24;i++){const x=(rand()-.5)*36,y=(rand()-.5)*31;if(x*x/324+y*y/240<1){c.fillStyle=i%3===0?'#8cce8c80':'#0d3e2690';c.fillRect(x,y,.9+rand()*1.2,.8);}}
+  c.fillStyle=radial(c,-3,-14,13,[[0,'#fff8b7'],[.31,'#efce6f'],[.56,'#ab792c'],[.76,'#664719'],[1,'#d0a55300']]);c.fillRect(-16,-27,26,26);
+  c.beginPath();c.arc(-3,-14,6.3,0,Math.PI*2);c.strokeStyle='#eac77b';c.lineWidth=.8;c.stroke();
+  if(tier!=='normal'){c.strokeStyle=tier==='uber'?'#e9d6ff':color;c.lineWidth=1.2;c.beginPath();c.arc(-3,-14,8.5,0,Math.PI*2);c.stroke();}
+ }
  function raider(c,kind,color){
-  const id=kind.slice(8).replace(/-(boss|uber|emperor)$/,''),elite=kind!==('classic-'+id),[nose,wing,back,body,shape]=raiderProfiles[id]||raiderProfiles.vagrant;
+  const id=kind.slice(8).replace(/-(boss|uber|emperor)$/,''),elite=kind!==('classic-'+id);
+  if(id==='lordakium'){radialAlien(c,true,elite,color);return;}
+  if(id==='sibelon'){largeAlien(c,kind,color);return;}
+  if(id==='sibelonit'){sibelonit(c,elite?kind.split('-').at(-1):'normal',color);return;}
+  const [nose,wing,back,body,shape]=raiderProfiles[id]||raiderProfiles.vagrant;
   const steel=linear(c,-back,-wing,nose,wing,[[0,'#c0c9c8'],[.18,'#6a7b82'],[.35,'#293a42'],[.55,'#0b1721'],[.75,'#4b5b60'],[1,'#13202a']]);
   const plating=linear(c,-20,-wing,25,wing,[[0,color],[.27,'#515e62'],[.49,'#141e26'],[.7,'#48575c'],[1,color]]);
   for(const s of [-1,1]){
@@ -189,6 +293,10 @@
   polygon(c,[[nose*.78,0],[nose*.25,-body*.44],[-body*.6,-body*.5],[-back*.6,0],[-body*.6,body*.5],[nose*.25,body*.44]],plating,color,.6);
   polygon(c,[[nose*.48,0],[nose*.1,-body*.27],[-body*.4,0],[nose*.1,body*.27]],'#17232a',color,.6);
   polygon(c,[[nose*.38,0],[nose*.08,-body*.14],[-body*.12,0],[nose*.08,body*.14]],color);
+  for(const s of [-1,1]){
+   polygon(c,[[nose*.25,body*.44*s],[-body*.6,body*.5*s],[-back*.48,body*.42*s],[-body*.4,body*.32*s]],steel,'#8ca0aa',.45);
+   if(elite){c.fillStyle=color;c.fillRect(-body*.45,body*.48*s-.6,body*.7,1.2);}
+  }
  }
  function vant(c,kind,color){
   const id=kind.slice(6),red=color==='#ff3838',blue=color==='#398dff',spartan=color==='#ff8a24';
@@ -276,6 +384,13 @@
   for(const s of [-1,1]){polygon(c,[[-20,5*s],[-13,14*s],[2,17*s],[13,9*s],[19,5*s],[4,4*s]],metal,'#91adb8',.65);polygon(c,[[-14,8*s],[-5,13*s],[5,11*s],[0,7*s]],'#203b45',color,.6);c.fillStyle=color;c.fillRect(-9,10*s-1,5,2);}
   polygon(c,[[22,0],[11,-7],[-6,-8],[-19,-4],[-19,4],[-6,8],[11,7]],metal,'#b1c4cd',.8);polygon(c,[[13,0],[4,-4],[-6,0],[4,4]],color,'#d6fbff',.65);
   c.fillStyle='#0b1d29';c.fillRect(-16,-2,7,4);c.fillStyle=color;c.fillRect(-15,-1,3,2);
+  const shell=linear(c,-17,-15,16,15,[[0,'#e0ebf0'],[.28,'#728e9e'],[.55,'#243946'],[1,'#111e2b']]);
+  for(const s of [-1,1]){
+   polygon(c,[[-13,8*s],[-6,14*s],[2,14*s],[8,9*s],[-3,10*s]],shell,'#a6bbc6',.5);
+   polygon(c,[[-18,5*s],[-12,6*s],[-11,9*s],[-16,8*s]],'#14232e','#7696a6',.5);
+   c.fillStyle=color;c.fillRect(-16,7*s-.7,3,1.4);
+  }
+  polygon(c,[[12,0],[5,-3],[-3,-2],[-5,0],[-3,2],[5,3]],linear(c,-5,-3,12,3,[[0,'#142c38'],[.45,'#c1edf4'],[1,color]]),'#d1e5ee',.45);
  }
  function portalArt(c,color){
   const metal=linear(c,-43,-42,43,42,[[0,'#c5d6dd'],[.18,'#627987'],[.4,'#202f3b'],[.65,'#526570'],[1,'#0c1620']]);
