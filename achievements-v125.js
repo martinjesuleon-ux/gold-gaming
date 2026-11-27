@@ -15,6 +15,16 @@ function createAchievements(pool){
   const title=unlocked.find(t=>t.id===selected)||null;
   return {rings:gates.map(g=>g.gate),gates,unlocked,selected:title?.id||null,title:title?.name||null};
  }
+ async function readMany(ids){
+  const unique=[...new Set(ids)];const result=new Map();if(!unique.length)return result;
+  const gates=(await pool.query('SELECT account_id,gate,completions FROM gg_v14_gates WHERE account_id=ANY($1::uuid[]) AND completions>0 ORDER BY account_id,gate',[unique])).rows;
+  const leader=await champion(pool);
+  const selections=(await pool.query('SELECT account_id,title FROM gg_achievement_titles WHERE account_id=ANY($1::uuid[])',[unique])).rows;
+  const byAccount=new Map(),selectedByAccount=new Map(selections.map(x=>[x.account_id,x.title]));
+  for(const {account_id,...gate} of gates){let list=byAccount.get(account_id);if(!list){list=[];byAccount.set(account_id,list);}list.push(gate);}
+  for(const id of unique){const list=byAccount.get(id)||[],unlocked=list.filter(g=>Object.hasOwn(TITLES,g.gate)).map(g=>({id:g.gate,name:TITLES[g.gate]}));if(leader?.account_id===id)unlocked.push({id:'uba',name:TITLES.uba});const title=unlocked.find(t=>t.id===selectedByAccount.get(id))||null;result.set(id,{rings:list.map(g=>g.gate),gates:list,unlocked,selected:title?.id||null,title:title?.name||null});}
+  return result;
+ }
  async function status(id){const d=await read(id),rows=(await pool.query('SELECT kind,value FROM gg_achievement_counters WHERE account_id=$1',[id])).rows;
   const counters=Object.fromEntries(TYPES.map(k=>[k,Number(rows.find(r=>r.kind===k)?.value||0)]));
   const pvp=(await pool.query('SELECT count(*) AS n FROM gg_rank_kills WHERE attacker=$1',[id])).rows[0];
@@ -22,6 +32,6 @@ function createAchievements(pool){
  }
  async function select(id,title){if(title!==null&&!Object.hasOwn(TITLES,title))throw fail('Título inválido');const d=await read(id);if(title!==null&&!d.unlocked.some(t=>t.id===title))throw fail('Título no desbloqueado');
   await pool.query('INSERT INTO gg_achievement_titles(account_id,title) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET title=EXCLUDED.title',[id,title]);return status(id);}
- return {ready,add,read,status,select};
+ return {ready,add,read,readMany,status,select};
 }
 module.exports={TITLES,createAchievements};
