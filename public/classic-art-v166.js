@@ -25,6 +25,19 @@
    }
   }
   if(crystal){for(let i=0;i<12;i++){const x=(rand()-.5)*size*.8,y=(rand()-.5)*size*.8;c.strokeStyle='#e0faff65';c.lineWidth=.55;c.beginPath();c.moveTo(x,y);c.lineTo(x+3+rand()*8,y-2-rand()*5);c.stroke();}}
+  // Tier identification is a material accent, not a change to NPC size or shape.
+  // Preserve the reference palette under a restrained edge highlight.
+  const tier=kind.match(/-(boss|uber|emperor)$/)?.[1];
+  if(tier&&/^classic-(?!ship-|drone|pet|portal|base|station)/.test(kind)){
+   const tint=tier==='boss'?'#e99b62':tier==='uber'?'#b79cea':'#f4d17b';
+   const sheen=c.createLinearGradient(-half,-half,half,half);
+   sheen.addColorStop(0,tint+'66');sheen.addColorStop(.22,tint+'28');sheen.addColorStop(.5,tint+'00');sheen.addColorStop(.82,tint+'08');sheen.addColorStop(1,tint+'38');
+   c.fillStyle=sheen;c.fillRect(-half,-half,size,size);
+   for(let i=0;i<(tier==='boss'?12:22);i++){
+    const x=(rand()-.5)*size*.86,y=(rand()-.5)*size*.86;
+    c.fillStyle=tint+'a0';c.fillRect(x,y,1.2,.75);
+   }
+  }
   c.restore();
  }
  // The supplied images are visual references, not imported or redistributed game assets.
