@@ -8,7 +8,7 @@ const {quote,configurations}=require('./equipment-v13');
 const {assertShipDoesNotUsePet,hasMountedGear}=require('./pet-equipment-rules-v173');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
-const {specialGateQuantity}=require('./uridium-event-v157');
+const {specialGateQuantity,multiply}=require('./uridium-event-v157');
 function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async()=>1}={}){
  const formations=createFormations(pool),pilot=createPilot(pool);
  async function ready(){
@@ -403,7 +403,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   });
  }
  async function hadesKill(ids,wave,key,payout,killer,dronePoints=0){
-  if(typeof key!=='string'||!/^\d+:\d+$/.test(key)||!ids.includes(killer))throw fail('Enemigo inválido');
+  if(typeof key!=='string'||!/^(?:0|[1-9]\d*):(?:0|[1-9]\d*)$/.test(key)||!ids.includes(killer))throw fail('Enemigo inválido');
   const [group,slot]=key.split(':').map(Number),entry=WAVES.hades[wave]?.[group];
   if(!entry||slot<0||slot>=entry[1]||!payout||!['credits','xp','uridium','honor'].every(k=>Number.isSafeInteger(payout[k])&&payout[k]>=0))throw fail('Recompensa inválida');
   return hadesTransaction(ids,async(c,rows,state)=>{
@@ -414,7 +414,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const share=(amount,id)=>Math.floor(amount/ids.length)+(id===killer?amount%ids.length:0);const factor=await uridiumFactor(c);
    for(const {id,g} of rows){
     g.kills.push(key);await saveGateRow(c,id,g);
-    const paid={credits:share(payout.credits,id),xp:share(payout.xp,id),uridium:share(payout.uridium,id)*factor,honor:share(payout.honor,id)};payouts[id]=paid;
+    const paid={credits:share(payout.credits,id),xp:share(payout.xp,id),uridium:multiply(share(payout.uridium,id),factor===2),honor:share(payout.honor,id)};payouts[id]=paid;
     balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,paid.credits,paid.xp,paid.uridium,paid.honor])).rows[0];
    }
    return {balances,payouts,rankChanged:await drones.award(c,killer,dronePoints)};
@@ -456,7 +456,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   });
  }
  async function gateKill(id,gate,wave,key,payout,dronePoints=0){
-  if(!PLAYABLE.includes(gate)||!Number.isInteger(wave)||typeof key!=='string'||!/^\d+:\d+$/.test(key))throw fail('Enemigo inválido');
+  if(!PLAYABLE.includes(gate)||!Number.isInteger(wave)||typeof key!=='string'||!/^(?:0|[1-9]\d*):(?:0|[1-9]\d*)$/.test(key))throw fail('Enemigo inválido');
   const [group,slot]=key.split(':').map(Number),entry=WAVES[gate]?.[wave]?.[group];
   if(!entry||slot<0||slot>=entry[1]||!payout||!['credits','xp','uridium','honor'].every(k=>Number.isSafeInteger(payout[k])&&payout[k]>=0))throw fail('Recompensa inválida');
   return transaction(id,async c=>{
@@ -464,7 +464,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(!g.built||g.wave!==wave||g.lives<1)throw fail('Progreso de puerta inválido');
    if(g.kills.includes(key))return {duplicate:true};
    g.kills.push(key);await saveGateRow(c,id,g);
-   const {credits,xp,uridium,honor}=payout,paidUridium=uridium*(await uridiumFactor(c));
+   const {credits,xp,uridium,honor}=payout,paidUridium=multiply(uridium,(await uridiumFactor(c))===2);
    const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,paidUridium,honor])).rows[0];
    return {balance,payout:{credits,xp,uridium:paidUridium,honor},rankChanged:await drones.award(c,id,dronePoints)};
   });
