@@ -15,6 +15,18 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function laser(a,b){io.to('world').emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player'});}
  for(let i=0;i<npcCount;i++)spawnNPC(false,i<5?{x:WORLD.w/2+random(480,1000),y:WORLD.h/2+random(-650,650)}:point());for(let i=0;i<boxCount;i++)spawnBox(i<5?{x:WORLD.w/2+random(-420,420),y:WORLD.h/2+random(-420,420)}:point());
  const publicPlayer=p=>({id:p.id,name:p.name,ship:p.ship,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil,pet:p.petUntil>Date.now()&&p.petMode!=='off'&&!p.deadUntil?{mode:p.petMode,x:p.petX,y:p.petY}:null});
+ function collectBox(p,b,byPet=false){
+  if(!boxes.delete(b.id))return;
+  if(closing)return;
+  const job=p.writes.catch(()=>{}).then(async()=>{
+   const r=await accounts.awardBox(p.accountId);p.credits=Number(r.balance.credits);
+   const label=({'credits':'créditos','uridium':'uridium','gate-energy':'energía de puerta'})[r.loot.code]||r.loot.code;
+   io.to(p.id).emit('notice',(byPet?'P.E.T.':'Caja')+': +'+r.loot.quantity+' '+label);
+   io.to(p.id).emit('v14:loot',r);
+  });
+  p.writes=job;pending.add(job);
+  job.then(()=>{pending.delete(job);later(()=>spawnBox(),6500);},()=>{pending.delete(job);later(()=>spawnBox(),6500);io.to(p.id).emit('notice','No se pudo confirmar la recompensa');});
+ }
  function award(p,credits,xp,message){if(closing)return Promise.reject(Error('Servidor cerrando'));const job=p.writes.catch(()=>{}).then(async()=>{const r=await accounts.reward(p.accountId,credits,xp);Object.assign(p,{credits:Number(r.credits),experience:Number(r.experience),level:Number(r.level)});io.to(p.id).emit('notice',message+(xp?` · +${xp} EXP`:''));return p.credits;});p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo confirmar una recompensa en la base de datos.');});return job;}
  app.disable('x-powered-by');app.use((req,res,next)=>{res.set({'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});next();});app.use(express.json({limit:'8kb'}));accounts.endpoints(app);
  app.get('/health',async(req,res)=>{try{await accounts.ready();res.json({ok:true,database:true,players:players.size});}catch{res.status(503).json({ok:false,database:false});}});
@@ -52,11 +64,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(Math.hypot(p.petX-p.x,p.petY-p.y)>850){p.petX=p.x;p.petY=p.y;}
   const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy);
   if(len>1){const step=Math.min(len,Math.max(550,p.speed+100)*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;}
-  if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35&&boxes.delete(targetBox.id)){
-   award(p,targetBox.value,10,'P.E.T.: +'+targetBox.value+' créditos').then(()=>later(()=>spawnBox(),6500),()=>later(()=>spawnBox(),6500));
-  }
+  if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
  }
- for(const b of boxes.values())if(distance(p,b)<52){boxes.delete(b.id);award(p,b.value,10,`Caja: +${b.value} créditos`).then(()=>later(()=>spawnBox(),6500),()=>later(()=>spawnBox(),6500));}
+ for(const b of boxes.values())if(distance(p,b)<52)collectBox(p,b);
  const n=npcs.get(p.target);if(!n){p.target=null;p.attack=false;}else if(p.attack&&!p.reloadPending&&distance(p,n)<=(p.v13?600:650)&&now-p.lastShot>=(p.v13?(catalogV13.ammo.find(a=>a.id===p.ammo)?.intervalMs||1000):450)&&!p.shotPending){
  p.lastShot=now;
  const finish=()=>{n.target=p.id;if(n.hp<=0&&npcs.get(n.id)===n){npcs.delete(n.id);p.target=null;p.attack=false;award(p,n.reward,n.type==='boss'?500:50,n.name+' eliminado · +'+n.reward+' créditos').catch(()=>{});if(n.type!=='boss')later(()=>spawnNPC(),5000);}};
