@@ -397,5 +397,35 @@
     "maxUpgrade": 16,
     "laserUpgradePerStep": 0.004,
     "shieldUpgradePerStep": 0.01
-  }
+  },
+  "rockets": [
+    {
+      "id": "R-310",
+      "damage": 1000,
+      "miss": 0.1,
+      "price": 100,
+      "currency": "credits"
+    },
+    {
+      "id": "PLT-2026",
+      "damage": 2000,
+      "miss": 0.1,
+      "price": 500,
+      "currency": "credits"
+    },
+    {
+      "id": "PLT-2021",
+      "damage": 4000,
+      "miss": 0.1,
+      "price": 5,
+      "currency": "uridium"
+    },
+    {
+      "id": "PLT-3030",
+      "damage": 6000,
+      "miss": 0.5,
+      "price": 7,
+      "currency": "uridium"
+    }
+  ]
 }
