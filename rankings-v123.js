@@ -20,6 +20,7 @@ function createRankings(pool){
  CREATE TABLE IF NOT EXISTS gg_rank_deaths(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,radiation boolean NOT NULL DEFAULT false,at timestamptz NOT NULL DEFAULT now());
  ALTER TABLE gg_rank_deaths ADD COLUMN IF NOT EXISTS request_id uuid;
  CREATE UNIQUE INDEX IF NOT EXISTS gg_rank_death_request ON gg_rank_deaths(account_id,request_id);
+ CREATE INDEX IF NOT EXISTS gg_rank_deaths_account_radiation ON gg_rank_deaths(account_id,radiation);
  CREATE TABLE IF NOT EXISTS gg_rank_clock(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),day bigint NOT NULL);
  ALTER TABLE gg_rank_clock ADD COLUMN IF NOT EXISTS refreshed_at bigint NOT NULL DEFAULT 0;`);}
  let running=null,lastLocalRefresh=0;
