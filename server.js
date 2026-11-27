@@ -715,8 +715,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const testKami=p.godAllowed===true&&require('./pet-test-kit-v175').testKitEnabled(p.accountId);const now=Date.now();if(!testKami&&(p.kamiUntil||0)>now){io.to(p.id).emit('v184:petKami',{pending:false,readyAt:p.kamiUntil});io.to(p.id).emit('notice','Kamikaze: espera '+Math.ceil((p.kamiUntil-now)/1000)+' s');return;}
   if(p.petMode==='off'||p.petUntil<=now||!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){io.to(p.id).emit('notice','Activa tu P.E.T. primero');return;}
   const zone=p.zone,generation=p.petGeneration;p.kamiPending=true;io.to(p.id).emit('v184:petKami',{pending:true,readyAt:p.kamiUntil||0});
-  const job=p.writes.catch(()=>{}).then(()=>accounts.petKamikaze(p.accountId)).then(r=>{
-   p.kamiUntil=r.readyAt??0;p.petFuel=r.fuel;
+  const valid=()=>!closing&&players.get(p.id)===p&&p.zone===zone&&!p.deadUntil&&!p.gatePending&&!p.gateWaiting&&p.petGeneration===generation&&p.petMode!=='off'&&!p.petVitals?.destroyed&&!p.petTradePending;
+  const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petKamikaze(p.accountId):null).then(r=>{
+   if(!r)return;p.kamiUntil=r.readyAt??0;p.petFuel=r.fuel;
    if(players.get(p.id)!==p||p.zone!==zone||p.deadUntil||p.gatePending||p.gateWaiting||p.petGeneration!==generation)return;
    const center={x:p.petX,y:p.petY};if(!Number.isFinite(center.x)||!Number.isFinite(center.y))return;
    const kami=testKami?TEST_KAMIKAZE:(r.kamikaze||KAMIKAZE);p.petFuel=r.fuel;p.kamiUntil=testKami?0:(r.readyAt??Date.now()+kami.cooldown);if(!testKami)setPetMode(p,'off');
@@ -735,8 +736,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const valid=()=>!closing&&players.get(p.id)===p&&!p.deadUntil&&!p.gatePending&&p.petGeneration===generation&&p.petMode!=='off'&&!p.petVitals?.destroyed;
   p.petComboPending=true;
   const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petComboRepair(p.accountId):null).then(r=>{
-   if(!r||!valid())return;
-   p.petFuel=r.stock;p.petComboRepair=r;
+   if(!r)return;
+   p.petFuel=r.stock;if(players.get(p.id)===p)io.to(p.id).emit('v189:petCooldowns',{comboReadyAt:r.readyAt});if(!valid())return;p.petComboRepair=r;
    io.to(p.id).emit('v14:petCombo',{until:r.until,readyAt:r.readyAt,repairPerSecond:r.repairPerSecond});
    io.to(p.id).emit('v14:petState',{mode:p.petMode,fuel:p.petFuel,pending:false,vitals:p.petVitals||null});
   }).catch(e=>{if(valid())io.to(p.id).emit('notice',e.status?e.message:'Combo reparación no disponible');}).finally(()=>{p.petComboPending=false;pending.delete(job);});
@@ -753,13 +754,13 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    return accounts.petTrade(p.accountId,requestId);
   }).then(r=>{
    if(players.get(p.id)!==p)return;
-   p.credits=Number(r.balance.credits);p.petTradeUntil=r.until;setPetMode(p,'off');
+   p.credits=Number(r.balance.credits);p.petTradeUntil=r.until>Date.now()?r.until:0;if(p.petTradeUntil)setPetMode(p,'off');
    io.to(p.id).emit('v181:petTradeState',{until:r.until});
-   ack({ok:true,until:r.until,credits:r.credits,bonus:r.bonus,sold:r.sold});
+   ack({ok:true,until:p.petTradeUntil,credits:r.credits,bonus:r.bonus,sold:r.sold,duplicate:!!r.duplicate});
   }).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo confirmar la venta'})).finally(()=>{p.petTradePending=false;pending.delete(job);});
   p.writes=job;pending.add(job);
  });
- socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource','locate-resource','locate-enemy','combo-guard'].includes(mode))return;if(p.petTradePending)return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;if(p.petTradeUntil>Date.now()){io.to(p.id).emit('notice','El P.E.T. sigue comerciando');return;}setPetMode(p,mode);});
+ socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource','locate-resource','locate-enemy','combo-guard'].includes(mode))return;if(p.petTradePending||p.kamiPending||p.petComboPending)return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;if(p.petTradeUntil>Date.now()){io.to(p.id).emit('notice','El P.E.T. sigue comerciando');return;}setPetMode(p,mode);});
  function broadcastHades(room){if(room)for(const member of room.players)io.to(member.id).emit('v14:hadesLobby',room);}
  socket.on('v14:hadesLobby',async(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
@@ -892,7 +893,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  let last=Date.now();const loop=setInterval(()=>{if(closing)return;const now=Date.now(),dt=Math.min((now-last)/1000,.1);last=now;const petCandidates=createTickCandidates(npcs,players);
  for(const p of players.values()){if(p.ubaReturn||p.invasionReturn)continue;if(now>=(p.nextBoosterCheck||0)){p.nextBoosterCheck=now+1000;updateBoosters(p,now);io.to(p.id).volatile.emit('gg:shipStats',{damage:p.damage*(p.boost?.damage||1),speed:p.speed,config:(p.activeConfig||0)+1});}if(p.gatePending)continue;if(p.deadUntil){if(now>=p.deadUntil){const home=p.company+'-1';changeMap(p,home);spawnPlayer(p);p.protectedUntil=Date.now()+3000;const job=p.writes.catch(()=>{}).then(()=>accounts.saveLocation(p.accountId,p.company,home));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>pending.delete(job));}else continue;}if((p.reloadRequested||p.nextUpgradeAt&&now>=p.nextUpgradeAt)&&!p.reloadPending&&!p.shotPending&&!p.upgradePending){p.nextUpgradeAt=0;p.reloadRequested=false;p.reloadPending=true;p.attack=false;const job=Promise.resolve().then(()=>accounts.combatLoadout(p.accountId)).then(l=>{if(players.get(p.id)!==p)return;if(p.deadUntil){p.reloadRequested=true;return;}if(!l)throw Error('Sin configuración guardada');applyLoadout(p,l);io.to(p.id).emit('notice','Configuración '+(l.active+1)+' activa · '+l.lasers+' láseres');io.to(p.id).emit('v13:loadoutApplied',{active:l.active,lasers:l.lasers,damage:l.damage});}).catch(()=>{if(players.get(p.id)===p)io.to(p.id).emit('notice','No se pudo activar el equipo. Guarda de nuevo en el hangar.');}).finally(()=>{p.reloadPending=false;pending.delete(job);});pending.add(job);}generatorTick(p,now);abilityTick(p,now,dt);move(p,p.dest,dt);if(p.dest&&distance(p,p.dest)<2)p.dest=null;p.shield=clamp(p.shield+shieldDelta(p,dt)+(now-p.lastHit>6500?35*dt:0),0,p.maxShield);
- if(p.petTradeUntil&&now>=p.petTradeUntil){p.petTradeUntil=0;io.to(p.id).emit('v181:petTradeState',{until:0});io.to(p.id).emit('notice','El P.E.T. ha vuelto del comercio');}
+ if(p.petTradeUntil&&now>=p.petTradeUntil){p.petTradeUntil=0;io.to(p.id).emit('v181:petTradeState',{until:0});io.to(p.id).emit('notice','El P.E.T. ha vuelto del comercio');if(!p.deadUntil&&!p.gate&&!p.gateWaiting&&!p.gatePending&&!p.petVitals?.destroyed&&p.petMode==='off')setPetMode(p,'passive');}
  if(p.petMode&&p.petMode!=='off'&&now>=p.petUntil&&!p.petPending&&!p.petTradePending){
   const mode=p.petMode,generation=p.petGeneration;p.petPending=true;
   const job=p.writes.catch(()=>{}).then(()=>accounts.petInterval(p.accountId,mode)).then(async result=>{
