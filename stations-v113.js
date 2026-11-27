@@ -59,6 +59,39 @@ function lowerDeflector(station,minutes,now=Date.now()){
  const d=deflector(station,now);if(d.mode!=='protected')throw fail('El deflector no está levantado');
  return {...d,downUntil:now+minutes*60000,mode:'vulnerable',protected:false};
 }
+const DESTRUCTION_REWARD=Object.freeze({credits:50000000,xp:10000000,honor:500000,uridium:0});
+const EMERGENCY=Object.freeze({price:500,rate:7500,duration:20000});
+function moduleLimits(m){
+ const d=MODULES[m.code];if(!d||!Number.isInteger(m.level)||m.level<1||m.level>16)throw fail('Módulo inválido');
+ const scale=1+(m.level-1)*.02;
+ return {hp:Math.round((m.slot===0?d.hp:RULES.edgeHp)*scale),shield:Math.round((m.slot===1?d.shield:RULES.edgeShield)*scale)};
+}
+function stationHit(station,slot,damage,now=Date.now()){
+ if(!Number.isSafeInteger(damage)||damage<=0||!Number.isInteger(slot)||slot<0||slot>9)throw fail('Golpe inválido');
+ if(deflector(station,now).mode!=='vulnerable')return {applied:0,modules:station.modules};
+ if(slot===0&&station.modules.some(m=>m.slot!==0&&m.hp>0))return {applied:0,modules:station.modules};
+ const modules=station.modules.map(m=>({...m})),target=modules.find(m=>m.slot===slot);
+ if(!target||target.hp<=0)return {applied:0,modules};
+ const shieldLoss=Math.min(target.shield,Math.round(damage*RULES.absorption)),hpLoss=Math.min(target.hp,damage-shieldLoss);
+ target.shield-=shieldLoss;target.hp-=hpLoss;
+ return {modules,applied:shieldLoss+hpLoss,destroyed:target.hp===0,lastHit:now,stationDestroyed:slot===0&&target.hp===0};
+}
+function repairModule(m,rate,elapsedMs){
+ if(!Number.isFinite(rate)||rate<0||!Number.isFinite(elapsedMs)||elapsedMs<0)throw fail('Reparación inválida');
+ if(m.hp<=0)return {...m}; // destroyed equipment must be recovered and repaired separately
+ return {...m,hp:Math.min(moduleLimits(m).hp,m.hp+Math.floor(rate*elapsedMs/1000))};
+}
+function passiveRepairRate(modules,lastHit,now=Date.now()){
+ if(now-lastHit<RULES.repairDelay)return 0;
+ const repair=modules.find(m=>m.code==='REPM-1'&&m.hp>0);
+ return repair?20500*(1+(repair.level-1)*.02):20500/20;
+}
+function destructionShares(contributions,now=Date.now()){
+ // Wiki specifies participants from the prior ten minutes, not distribution weights.
+ // Equal share among unique eligible attackers, deterministic remainder by account ID.
+ const ids=[...new Set(contributions.filter(x=>uuid(x.accountId)&&Number.isFinite(x.at)&&x.at>=now-600000&&x.at<=now&&x.damage>0).map(x=>x.accountId))].sort();
+ return ids.map((accountId,i)=>({accountId,...Object.fromEntries(Object.entries(DESTRUCTION_REWARD).map(([k,n])=>[k,Math.floor(n/ids.length)+(i<n%ids.length?1:0)]))}));
+}
 function createStations(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_cbs_stations(asteroid_id text PRIMARY KEY,clan_id uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,builder uuid NOT NULL REFERENCES accounts(id),ready_at bigint NOT NULL,down_until bigint NOT NULL,modules jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS gg_cbs_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));
@@ -103,4 +136,4 @@ function createStations(pool){
  }
  return {ready,status,build,lower};
 }
-module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,createStations};
+module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,destructionShares,createStations};
