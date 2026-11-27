@@ -72,12 +72,13 @@ function createPetProgression(pool){
    ON CONFLICT(account_id) DO UPDATE SET experience=LEAST(9007199254740991,gg_pet_progress_v173.experience+EXCLUDED.experience)`,[id,amount,process.env.GG_PET_HULL_PURCHASES_ENABLED==='1'?0:null]);
   return r.rowCount>0;
  }
- async function buySlot(id,{type,requestId}={}){
-  if(!TYPES.includes(type)||typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Solicitud de ranura inválida');
+ async function buySlot(id,{type,requestId,expectedSlot}={}){
+  if(!TYPES.includes(type)||(expectedSlot!==undefined&&(!Number.isSafeInteger(expectedSlot)||expectedSlot<1))||typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Solicitud de ranura inválida');
   return transaction(id,async(c,p,balance)=>{
    const previous=(await c.query('SELECT kind,response FROM gg_pet_slot_receipts_v173 WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
-   if(previous){if(previous.kind!==type)throw fail('Solicitud ya utilizada',409);return previous.response;}
+   if(previous){if(previous.kind!==type||(expectedSlot!==undefined&&previous.response.slot!==expectedSlot))throw fail('Solicitud ya utilizada',409);return previous.response;}
    const q=quoteSlot(p,type);
+   if(expectedSlot!==undefined&&q.slot!==expectedSlot)throw fail('La ranura cambió. Actualiza el hangar antes de comprar.',409);
    if(Number(balance.uridium)<q.price)throw fail('Uridium insuficiente',409);
    const slots={...p.slots,[type]:q.slot};
    const b=(await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1 RETURNING uridium',[id,q.price])).rows[0];
