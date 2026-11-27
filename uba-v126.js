@@ -57,7 +57,19 @@ function createLobby({eligible=()=>true}={}){
 }
 function createUBA(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_uba_scores(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,score integer NOT NULL DEFAULT 50 CHECK(score>=50),wins integer NOT NULL DEFAULT 0,losses integer NOT NULL DEFAULT 0);
+ CREATE TABLE IF NOT EXISTS gg_uba_ammo_batches(batch_id uuid PRIMARY KEY,response jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS gg_uba_results(match_id uuid PRIMARY KEY,winner uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,loser uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,response jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());`);}
+ async function authorizeAmmo(batchId,plans){
+  const codes=require('./data/catalog-v13.json').ammo.map(a=>a.id);
+  if(!uuid(batchId)||!Array.isArray(plans)||plans.length<1||plans.length>2||new Set(plans.map(p=>p.accountId)).size!==plans.length||plans.some(p=>!uuid(p.accountId)||!codes.includes(p.code)||!Number.isSafeInteger(p.count)||p.count<1||p.count>100))throw fail('Munición inválida');
+  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413005)');
+   const prior=(await c.query('SELECT response FROM gg_uba_ammo_batches WHERE batch_id=$1',[batchId])).rows[0];if(prior){await c.query('COMMIT');return prior.response;}
+   const result={};for(const p of [...plans].sort((a,b)=>a.accountId.localeCompare(b.accountId))){
+    const r=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[p.accountId,p.code,p.count])).rows[0];result[p.accountId]=r?Number(r.quantity):null;
+   }
+   await c.query('INSERT INTO gg_uba_ammo_batches(batch_id,response) VALUES($1,$2)',[batchId,JSON.stringify(result)]);await c.query('COMMIT');return result;
+  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
+ }
  async function status(id){
   const own=(await pool.query('SELECT score,wins,losses FROM gg_uba_scores WHERE account_id=$1',[id])).rows[0]||{score:50,wins:0,losses:0};
   const rows=(await pool.query('SELECT a.username AS name,s.score,s.wins,s.losses,s.account_id=$1 AS own FROM gg_uba_scores s JOIN accounts a ON a.id=s.account_id ORDER BY s.score DESC,s.wins DESC,a.username LIMIT 100',[id])).rows;
@@ -78,6 +90,6 @@ function createUBA(pool){
    await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- return {ready,status,settle};
+ return {ready,status,settle,authorizeAmmo};
 }
 module.exports={RULES,scoreResult,createMatch,accept,advance,finishRound,forfeit,expireOffer,createLobby,createUBA};
