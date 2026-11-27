@@ -37,3 +37,11 @@ test('UBA preview prunes unavailable pilots and never enters combat',()=>{
  l.remove('c');assert.equal(l.get('b'),null);assert.equal(l.get('c'),null);
  assert.throws(()=>l.enqueue(a,20000),/no disponible/);
 });
+test('UBA forfeit requires a started match and cannot settle twice',()=>{
+ const {forfeit,expireOffer}=require('../uba-v126'),a={id:'a',level:14},b={id:'b',level:14},m=createMatch(a,b,0);
+ assert.equal(forfeit(m,'a'),false);accept(m,'a',1);accept(m,'b',1);advance(m,15001);m.started=true;
+ assert.equal(forfeit(m,'outsider'),false);assert.equal(forfeit(m,'b'),true);assert.equal(m.winner,'a');assert.equal(m.phase,'finished');assert.equal(m.reason,'forfeit');assert.equal(forfeit(m,'a'),false);
+ const next=createMatch(a,b,0);accept(next,'a',1);accept(next,'b',1);advance(next,15001);next.started=true;finishRound(next,'b',16000);accept(next,'a',17000);
+ assert.equal(expireOffer(next,45999),false);assert.equal(expireOffer(next,46000),true);assert.equal(next.winner,'a');
+ const cancelled=createMatch(a,b,0);accept(cancelled,'a',1);assert.equal(expireOffer(cancelled,40000),false);
+});
