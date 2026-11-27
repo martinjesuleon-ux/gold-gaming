@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto');
+const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');
 const {bonusLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
@@ -100,6 +100,7 @@ function createInventory(pool){
  }
  async function snapshot(id){
   return transaction(id,async(c,p)=>{
+   await settleEquipment(c,id);
    // Reading inventory must not activate an empty combat loadout.
    const hangar=(await c.query('SELECT ship,configs,active,design FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0]||{ship:'phoenix',configs:[[],[]],active:0};
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
@@ -110,6 +111,7 @@ function createInventory(pool){
  async function equip(id,{ship,configs,active,design=null}){
   if(!catalog.ships.some(s=>s.id===ship)||![0,1].includes(active))throw fail('Nave o configuración inválida');
   return transaction(id,async c=>{
+   await settleEquipment(c,id);
    const rows=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    if(ship!=='phoenix'&&!rows.some(x=>x.category==='ships'&&x.code===ship))throw fail('Nave no adquirida');
    if(design!==null&&(!catalog.designs.some(d=>d.id===design&&d.ship===ship)||!rows.some(x=>x.category==='ship-designs'&&x.code===design)))throw fail('Diseño no adquirido o incompatible');
@@ -121,12 +123,13 @@ function createInventory(pool){
  }
  async function combatLoadout(id){
   return transaction(id,async c=>{
+   const upgrades=await settleEquipment(c,id);
    const h=(await c.query('SELECT ship,configs,active,design FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];
    if(!h)return null;
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    const stats=configurations(h.ship,h.configs,new Map(items.map(i=>[i.instanceId,i])));
    const d=catalog.designs.find(d=>d.id===h.design&&d.ship===h.ship&&items.some(i=>i.category==='ship-designs'&&i.code===d.id));
-   return {ship:h.ship,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
+   return {ship:h.ship,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
   });
  }
  async function useCpu(id,code,destination=null){
