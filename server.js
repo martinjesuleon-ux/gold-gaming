@@ -56,7 +56,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function initMap(zone){if(initializedMaps.has(zone)||!MAPS[zone])return;initializedMaps.add(zone);
   for(let i=0;i<({'5-1':85,'5-3':66}[zone]||0);i++)spawnMine(zone,point(),'ACM-01');
   if(npcCount>0)for(const [name,count] of population(zone))for(let i=0;i<count;i++)spawnMapNPC(name,zone);
-  if(boxCount>0&&MAPS[zone].pirate)for(let i=0;i<Math.min(12,boxCount);i++)spawnPirate(zone);
+  if(boxCount>0)for(let i=0;i<15;i++)spawnPirate(zone);
    if(boxCount>0&&zone==='5-3')for(let i=0;i<50;i++)spawnPalladium();
   if(boxCount>0&&!['4-4','4-5'].includes(zone))for(let i=0;i<(/^4-[123]$/.test(zone)?100:boxCount);i++)spawnBox(point(),zone);
  }
