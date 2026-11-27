@@ -719,18 +719,28 @@ function faction(){
  }
  body.append(grid,el('p','Disponible en una base segura, fuera de combate.'));
 }
-let pendingGate=null,gateRequest=null;
+let pendingGate=null,gateRequest=null,gateAccountId=null;
+function createGateJournal(storage){
+ const key=id=>'gg.gate.pending.v213:'+id;
+ function load(id){if(!id)return null;try{const r=JSON.parse(storage.getItem(key(id))||'null');return r&&r.expectedAccountId===id&&typeof r.requestId==='string'&&/^[0-9a-f-]{36}$/i.test(r.requestId)&&['spin','build','life'].includes(r.kind)&&typeof r.gate==='string'&&[1,10,100,1000].includes(r.count)&&typeof r.useMultiplier==='boolean'&&typeof r.allowUridium==='boolean'?r:null;}catch{return null;}}
+ function save(id,request){if(!id)return;try{if(request&&request.expectedAccountId===id)storage.setItem(key(id),JSON.stringify(request));else if(request===null)storage.removeItem(key(id));}catch{}}
+ return {load,save};
+}
+const gateJournal=createGateJournal({getItem:key=>sessionStorage.getItem(key),setItem:(key,value)=>sessionStorage.setItem(key,value),removeItem:key=>sessionStorage.removeItem(key)});
+function syncGateAccount(id){if(id===gateAccountId)return;gateAccountId=id||null;gateRequest=gateJournal.load(gateAccountId);}
+function setGateRequest(request,accountId){gateJournal.save(accountId,request);if(accountId===gateAccountId)gateRequest=request;}
 async function gates(){
  body.replaceChildren(el('h2','Puertas galácticas'),el('p','Cargando generador…'));
  try{
-  let data=await api('gates'),selected=pendingGate||'alpha',multiplier=false,paid=false;
+  syncGateAccount(state?.accountId);const accountId=gateAccountId;
+  let data=await api('gates'),selected=gateRequest?.gate||pendingGate||'alpha',multiplier=false,paid=false;
   pendingGate=null;if(!modal.open||mode!=='Portales')return;if(!data.gates.includes(selected))selected=data.gates[0];
   async function action(kind,count=1){
-   if(busy)return;const request=gateRequest||{kind,gate:selected,count,useMultiplier:multiplier,allowUridium:paid,requestId:crypto.randomUUID()};if(gateRequest&&(kind!==request.kind||count!==request.count||selected!==request.gate)){status.textContent='Confirma primero la operación pendiente';return;}gateRequest=request;busy=true;draw();
+   if(busy)return;if(!accountId||state?.accountId!==accountId){status.textContent='Actualiza el inventario antes de operar el portal.';return;}const request=gateRequest||{kind,gate:selected,count,useMultiplier:multiplier,allowUridium:paid,requestId:crypto.randomUUID(),expectedAccountId:accountId};if(gateRequest&&(kind!==request.kind||count!==request.count||selected!==request.gate)){status.textContent='Confirma primero la operación pendiente';return;}setGateRequest(request,accountId);busy=true;draw();
    try{
-    data=await api('gates/'+kind,request);gateRequest=null;
+    data=await api('gates/'+kind,request);setGateRequest(null,accountId);
     if(kind==='build')window.gg16RefreshGalaxy?.();state.balance=data.balance;if(data.batch&&kind==='spin'){const b=data.batch;status.textContent=fmt(b.spins)+' / '+fmt(b.requested)+' tiradas · '+fmt(b.uridiumUsed)+' uridium · '+fmt(b.energyUsed)+' energía · '+b.rewards.map(r=>(r.gate?r.gate.toUpperCase()+' ': '')+r.code+' ×'+fmt(r.quantity)).join(' | ')+' · '+balance();}else status.textContent=(data.reward?'Resultado: '+data.reward.code+' ×'+data.reward.quantity+(data.reward.gate?' · '+data.reward.gate.toUpperCase():''):'Operación realizada')+' · '+balance();
-   }catch(e){if(e.status>=400&&e.status<500)gateRequest=null;status.textContent=e.message+(gateRequest?' · Reintenta para confirmar la operación pendiente.':'');}finally{busy=false;if(modal.open&&mode==='Portales')draw();}
+   }catch(e){if(e.status>=400&&e.status<500&&e.status!==408&&e.status!==429)setGateRequest(null,accountId);status.textContent=e.message+(gateRequest?' · Reintenta para confirmar la operación pendiente.':'');}finally{busy=false;if(modal.open&&mode==='Portales')draw();}
   }
   function draw(){
    body.replaceChildren(el('h2','Generador de puertas galácticas'));
