@@ -5,7 +5,7 @@ const {createGame}=require('../server');
 const {setTimeout:delay}=require('node:timers/promises');
 function accountsForTest(){
  const saves=new Map();
- return {saves,endpoints(){},async authenticate(headers){const id=headers['x-test-pilot'];if(!/^pilot-\d+$/.test(id||''))return null;return {id,username:id,ship:'scout',credits:1000,experience:0,level:1,honor:0};},async boosterRead(){return {};},async upgradeStatus(){return {upgrades:{}};},async assemblyStatus(){return {active:{}};},async location(id){return {company:1,company_chosen:true,map:Number(id.split('-')[1])%2?'1-1':'2-1'};},async dailyClaim(){return {already:true,balance:{credits:1000}};},async gateStatus(){return {gates:[],states:{}};},async achievementAdd(id,kind,n){saves.set(id,(saves.get(id)||0)+n);},async health(){},async close(){}};
+ return {saves,endpoints(){},async authenticate(headers){const id=headers['x-test-pilot'];if(!/^pilot-\d+$/.test(id||''))return null;return {id,username:id,ship:'scout',credits:1000,experience:0,level:1,honor:0};},async boosterRead(){return {};},async upgradeStatus(){return {upgrades:{}};},async assemblyStatus(){return {active:{}};},async location(id){return {company:1,company_chosen:true,map:Number(id.split('-')[1])%2?'1-1':'2-1'};},async dailyClaim(){return {already:true,balance:{credits:1000}};},async gateStatus(){return {gates:[],states:{}};},async achievementAdd(id,kind,n){saves.set(id,(saves.get(id)||0)+n);},async health(){},async close(){this.closed=true;}};
 }
 function waitFor(fn,ms=10000){return (async()=>{const deadline=Date.now()+ms;while(Date.now()<deadline){if(fn())return;await delay(25);}assert.fail('Timed out waiting for expected state');})();}
 test('isolated local game supports 40 pilots, map isolation, movement and reconnect', {timeout:35000},async()=>{
@@ -23,6 +23,6 @@ test('isolated local game supports 40 pilots, map isolation, movement and reconn
   const old=pilots[0];old.c.disconnect();await waitFor(()=>accounts.saves.has('pilot-0')&&pilots[2].last?.players.length===19);
   const rejoined=await open(0);assert.equal(rejoined.join.ok,true);await waitFor(()=>rejoined.last?.players.length===20);assert.ok(rejoined.last.players.some(q=>q.id===rejoined.join.id));
   const h=await fetch(url+'/health');assert.equal(h.status,200);assert.equal((await h.json()).players,40);
-  console.log('Isolated load: 40 simultaneous clients; two maps; overflow rejected; movement and reconnect confirmed.');
+  const before=accounts.saves.get('pilot-2')||0;await game.close();assert.ok(accounts.closed);assert.ok((accounts.saves.get('pilot-2')||0)>before,'shutdown must drain distance checkpoints');console.log('Isolated load: 40 simultaneous clients; two maps; overflow rejected; movement, reconnect and shutdown persistence confirmed.');
  }finally{for(const p of clients)p.c.disconnect();await game.close();}
 });
