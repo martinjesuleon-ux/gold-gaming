@@ -42,3 +42,8 @@ test('Galaxy Gates progress UI reads server state and retains purchase and entry
  const ui=read('gold-v13.js'),menu=ui.slice(ui.indexOf('async function gates()'),ui.indexOf('window.gg13Open=open'));
  assert.match(menu,/gg-gate-card/);assert.match(menu,/g.pieces.length\/g.required/);assert.match(menu,/new Set\(a.pieces\)/);assert.match(menu,/gg-gate-summary/);assert.match(menu,/allowUridium:paid/);assert.match(menu,/api\('gates\/'\+kind/);assert.match(menu,/window.gg16TravelGate\(selected\)/);
 });
+
+test('mission cards classify actual progress and retain server reward claims',()=>{
+ const ui=read('gold-v13.js'),menu=ui.slice(ui.indexOf('function missionPhase('),ui.indexOf('async function socialGroup()'));
+ assert.match(menu,/m.conditions.every/);assert.match(menu,/m.claimed/);assert.match(menu,/gg-mission-tabs/);assert.match(menu,/rewardCards\(m.reward\)/);assert.match(menu,/api\('missions',\{action:m.accepted\?'claim':'accept'/);assert.match(ui,/api\('daily',\{\}\)/);
+});
