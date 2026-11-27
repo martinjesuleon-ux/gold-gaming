@@ -110,7 +110,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
-   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:process.env.GG_PET_GEAR_EQUIP_ENABLED==='1'&&process.env.GG_PET_EQUIPMENT_ENABLED==='1'};
+   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id)};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
@@ -171,7 +171,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
  }
  // El combustible se cobra antes de activar cada intervalo de vuelo.
  async function requireMountedGear(c,id,owned,code){
-  if(process.env.GG_PET_GEAR_EQUIP_ENABLED!=='1'||process.env.GG_PET_EQUIPMENT_ENABLED!=='1')return;
+  if(!require('./pet-test-kit-v175').gearEnabled(id))return;
   const equipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment;
   if(!hasMountedGear(equipment,owned,code))throw fail('Equipa el módulo '+code+' en el hangar del P.E.T.');
  }
