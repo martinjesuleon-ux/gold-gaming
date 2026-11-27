@@ -72,5 +72,5 @@ function createAdmission({eligible=()=>true}={}){
  function view(p){const e=events.get(tier(p?.level));return {enabled:true,joined:!!e&&membership.get(p?.id)===e,event:e?{id:e.id,difficulty:e.difficulty,map:e.map,phase:e.phase,entryUntil:e.entryUntil,participants:e.players.size,capacity:RULES.capacity}:null};}
  return {open,join,leave,tick,view};
 }
-function preview(level){return {rules:RULES,difficulty:tier(level),waves:WAVES,enabled:false,lobbyEnabled:process.env.GG_INVASION_LOBBY_ENABLED==='1'};}
+function preview(level){return {rules:RULES,difficulty:tier(level),waves:WAVES,enabled:process.env.GG_INVASION_COMBAT_ENABLED==='1'&&process.env.GG_INVASION_LOBBY_ENABLED==='1',lobbyEnabled:process.env.GG_INVASION_LOBBY_ENABLED==='1'};}
 module.exports={RULES,WAVES,tier,createEvent,enter,advance,hit,standings,announcement,preview,createAdmission};
