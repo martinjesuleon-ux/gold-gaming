@@ -205,13 +205,13 @@ async function auctionMenu(){
  body.replaceChildren(el('h2','Casa de subastas'),el('p','Cargando…'));
  try{const d=await api('auction-cbs?board='+encodeURIComponent(auctionBoard));if(!modal?.open||mode!=='Subastas')return;
  body.replaceChildren(el('h2','Casa de subastas'));
- const nav=el('div',null,'gg13-grid');for(const [code,label] of [['hourly','POR HORAS'],['daily','DIARIA'],['weekly-cbs','SEMANAL']]){const b=button(label,()=>{if(!busy){auctionBoard=code;auctionMenu();}});b.disabled=auctionBoard===code;nav.append(b);}body.append(nav,el('p','Cierre: '+new Date(d.roundEnd).toLocaleString()+' · Créditos: '+fmt(d.credits)+' · Uridium: '+fmt(d.uridium)),el('p','Puja mínima 500.000 · Incremento 500.000 · Tu propia puja +1.500.000.'));
- const grid=el('div',null,'gg13-grid');
+ const nav=el('div',null,'gg-mission-tabs');for(const [code,label] of [['hourly','POR HORAS'],['daily','DIARIA'],['weekly-cbs','SEMANAL']]){const b=button(label,()=>{if(!busy){auctionBoard=code;auctionMenu();}});b.setAttribute('aria-pressed',String(auctionBoard===code));nav.append(b);}const summary=el('section',null,'gg-social-summary');summary.append(el('strong','Cierre: '+new Date(d.roundEnd).toLocaleString('es-CL')),rewardCards({credits:d.credits,uridium:d.uridium}),el('small','Puja mínima 500.000 · Incremento 500.000 · Tu propia puja +1.500.000.'));body.append(nav,summary);const search=el('input');search.type='search';search.placeholder='Buscar artículo de subasta…';search.setAttribute('aria-label','Buscar artículo de subasta');body.append(search);
+ const grid=el('div',null,'gg13-grid gg-auction-grid');
  const run=async data=>{if(busy)return;busy=true;try{await window.gg114Bid({...data,board:d.board,roundStart:d.roundStart,requestId:crypto.randomUUID()});await refresh();await auctionMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}};
- for(const lot of d.lots){const tile=el('section',null,'gg13-tile'),input=el('input');input.type='number';input.min=String(lot.minBid);input.step='1';input.value=String(lot.minBid);tile.append(el('h3',lot.code+' × '+lot.quantity),el('p','Puja actual: '+fmt(lot.amount)+(lot.own?' · Tu puja':'')),input);
+ for(const lot of d.lots){const tile=el('section',null,'gg13-tile gg-auction-card'),input=el('input');tile.dataset.code=lot.code.toLowerCase();if(lot.own)tile.dataset.own='true';const visual=window.ggShopVisual;const category=Object.keys(labels).find(k=>Array.isArray(cat[k])&&cat[k].some(p=>p.id===lot.code));const item=category?cat[category].find(p=>p.id===lot.code):{id:lot.code};tile.append(visual.art(category||'cpus',item));input.type='number';input.min=String(lot.minBid);input.step='1';input.value=String(lot.minBid);tile.append(el('h3',lot.code+' × '+lot.quantity),el('p','Puja actual: '+fmt(lot.amount)+(lot.own?' · Tu puja':'')),el('small','Mínimo para tu próxima puja: '+fmt(lot.minBid)),input);
  tile.append(button('PUJAR',()=>{const amount=Number(input.value);if(!Number.isSafeInteger(amount)||amount<lot.minBid){status.textContent='Puja insuficiente';return;}run({action:'bid',code:lot.code,amount});}));
  if(lot.directPrice!==null)tile.append(button('COMPRA DIRECTA · '+fmt(lot.directPrice)+(lot.currency==='credits'?' C':' U'),()=>run({action:'buy',code:lot.code})));else tile.append(el('p','Solo puja'));grid.append(tile);}
- body.append(grid,el('p','Subastas por horas, diarias y semanales. Construcción CBS aún no habilitada.'));status.textContent='Créditos: '+fmt(d.credits);
+ search.oninput=()=>{const q=search.value.trim().toLowerCase();for(const tile of grid.children)tile.hidden=!tile.dataset.code.includes(q);};body.append(grid,el('p','Subastas por horas, diarias y semanales.'));status.textContent='Créditos: '+fmt(d.credits);
  }catch(e){if(modal?.open&&mode==='Subastas')body.replaceChildren(el('p',e.message));}
 }
 async function stationMenu(){
@@ -318,31 +318,31 @@ async function mineralMenu(tab){
  function draw(){
   if(!modal.open||!['Skylab','Refinación','Comercio'].includes(mode))return;
   body.replaceChildren(el('h2',tab));
-  const nav=el('div',null,'gg13-grid');for(const name of ['Skylab','Refinación','Comercio']){const b=button(name,()=>{if(busy)return;tab=name;mode=name;draw();});b.disabled=tab===name;nav.append(b);}body.append(nav,button('POTENCIACIÓN',()=>{if(!busy){mode='Potenciación';upgradeMenu();}}));
-  body.append(el('p','Bodega '+fmt(data.cargoUsed)+' / '+fmt(data.capacity)+' · Xenomit sin peso'));
+  const nav=el('div',null,'gg-mission-tabs');for(const name of ['Skylab','Refinación','Comercio']){const b=button(name,()=>{if(busy)return;tab=name;mode=name;draw();});b.setAttribute('aria-pressed',String(tab===name));nav.append(b);}body.append(nav,button('POTENCIACIÓN',()=>{if(!busy){mode='Potenciación';upgradeMenu();}}));
+  const cargo=el('section',null,'gg-social-summary');const cargoMeter=el('progress');cargoMeter.max=Math.max(1,data.capacity);cargoMeter.value=data.cargoUsed;cargoMeter.setAttribute('aria-label','Ocupación de bodega');cargo.append(el('strong','Bodega '+fmt(data.cargoUsed)+' / '+fmt(data.capacity)),cargoMeter,el('small','Xenomit sin peso'));body.append(cargo);
   async function run(action,fields){if(busy)return;busy=true;try{data=action==='cbs-sell'?await window.gg120Sell({...fields,asteroidId:ownStation.id,requestId:crypto.randomUUID()}):await api('minerals',{action,...fields,requestId:crypto.randomUUID()});state.balance=data.balance;status.textContent=balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}}
   function quantity(max,step=1){const n=el('input');n.type='number';n.min=step;n.max=Math.max(0,max);n.step=step;n.value=step;n.style.width='95px';return n;}
   function qtyButton(tile,label,action,code,max,step=1){const q=quantity(max,step),b=button(label,()=>{if(q.checkValidity())run(action,{code,quantity:Number(q.value)});});b.disabled=max<step;tile.append(q,b);}
-  const grid=el('div',null,'gg13-grid');
+  const grid=el('div',null,'gg13-grid gg-mineral-grid');const colors={prometium:'#e76c53',endurium:'#72b7e8',terbium:'#e6c96c',prometid:'#bd90df',duranium:'#73d4b5',promerium:'#d6b471',seprom:'#7fd1ed',xenomit:'#c1e2ef',paladio:'#9dc2f1'};function mineralTile(code){const tile=el('section',null,'gg13-tile gg-mineral-card');const art=el('span',null,'gg-mineral-art');art.style.setProperty('--mineral-color',colors[code]||'#92a9c1');art.append(el('span'),el('span'),el('span'));art.setAttribute('aria-hidden','true');tile.append(art);return tile;}
   if(tab==='Skylab'){
-   body.append(el('p','Energía: '+fmt(data.metrics.used)+' / '+fmt(data.metrics.power)+' · Rendimiento '+fmt(Math.round(data.metrics.efficiency*100))+' %'),el('p','Estación persistente. Producción y transporte directo de prueba; mejoras pendientes.'));
+   const power=el('section',null,'gg-social-summary'),meter=el('progress');meter.max=Math.max(1,data.metrics.power);meter.value=data.metrics.used;meter.setAttribute('aria-label','Consumo energético');power.append(el('strong','Energía '+fmt(data.metrics.used)+' / '+fmt(data.metrics.power)),meter,el('p','Rendimiento '+fmt(Math.round(data.metrics.efficiency*100))+' %'),el('small','Producción y transporte directo de prueba; mejoras pendientes.'));body.append(power);
    for(const [code,level] of Object.entries(data.lab.levels)){
-    const tile=el('section',null,'gg13-tile');tile.append(el('h3',code.toUpperCase()),el('p','Nivel '+level));
+    const tile=mineralTile(code);tile.append(el('h3',code.toUpperCase()),el('p','Nivel '+level));
     if(Object.hasOwn(data.lab.enabled,code)){const enabled=data.lab.enabled[code],stock=data.lab.stock[code]||0;
-     tile.append(el('p',(enabled?'Activo':'Apagado')+' · '+fmt(data.rates[code])+'/h'),el('p',fmt(stock)+' / '+fmt(data.limits[code])),button(enabled?'APAGAR':'ACTIVAR',()=>run('toggle',{code,enabled:!enabled})));
+     tile.dataset.enabled=String(enabled);const meter=el('progress');meter.max=Math.max(1,data.limits[code]);meter.value=stock;meter.setAttribute('aria-label','Almacenamiento '+code);tile.append(el('p',(enabled?'Activo':'Apagado')+' · '+fmt(data.rates[code])+'/h'),el('p',fmt(stock)+' / '+fmt(data.limits[code])),meter,button(enabled?'APAGAR':'ACTIVAR',()=>run('toggle',{code,enabled:!enabled})));
      qtyButton(tile,'TRANSPORTAR','transfer',code,Math.min(stock,code==='xenomit'?1000000:Math.max(0,data.capacity-data.cargoUsed)));
     }grid.append(tile);
    }
   }else if(tab==='Refinación'){
    body.append(el('p','Convierte minerales de la bodega pagando la comisión indicada.'));
-   for(const [code,r] of Object.entries(data.recipes)){if(code==='xenomit'||r.premium)continue;const tile=el('section',null,'gg13-tile');tile.append(el('h3',code.toUpperCase()),el('p',Object.entries(r.inputs).map(([k,n])=>n+' '+k).join(' + ')),el('p','Comisión '+fmt(r.fee)+' créditos/u'));
+   for(const [code,r] of Object.entries(data.recipes)){if(code==='xenomit'||r.premium)continue;const tile=mineralTile(code);tile.append(el('h3',code.toUpperCase()));for(const [k,n] of Object.entries(r.inputs))tile.append(el('p',k.toUpperCase()+' · '+fmt(data.cargo[k]||0)+' disponibles / '+fmt(n)+' requeridos por unidad'));tile.append(el('p','Comisión '+fmt(r.fee)+' créditos/u'));
     const max=Math.min(Math.floor(Number(data.balance.credits)/r.fee),...Object.entries(r.inputs).map(([k,n])=>Math.floor((data.cargo[k]||0)/n)),1000000);
     qtyButton(tile,'REFINAR','refine',code,max);grid.append(tile);
    }
   }else{
    body.append(el('p','Venta en mapas con base. Honor '+fmt(data.honor)+'. Paladio se cambia en 5-2.'));if(ownStation)body.append(el('p','Comercio de tu estación CBS: +10 % de créditos.'));
-   for(const [code,price] of Object.entries(data.prices)){const tile=el('section',null,'gg13-tile'),n=data.cargo[code]||0;tile.append(el('h3',code.toUpperCase()),el('p',fmt(n)+' disponibles'),el('p','Precio base '+fmt(price)+' créditos/u'));qtyButton(tile,'VENDER','sell',code,n);if(ownStation)qtyButton(tile,'VENDER CBS +10%','cbs-sell',code,n);grid.append(tile);}
-   const tile=el('section',null,'gg13-tile');tile.append(el('h3','PALADIO'),el('p',fmt(data.cargo.paladio||0)+' · 10 = 1 energía'));qtyButton(tile,'CANJEAR','exchange','paladio',Math.floor((data.cargo.paladio||0)/10)*10,10);grid.append(tile);
+   for(const [code,price] of Object.entries(data.prices)){const tile=mineralTile(code),n=data.cargo[code]||0;tile.append(el('h3',code.toUpperCase()),el('p',fmt(n)+' disponibles'),el('p','Precio base '+fmt(price)+' créditos/u'));qtyButton(tile,'VENDER','sell',code,n);if(ownStation)qtyButton(tile,'VENDER CBS +10%','cbs-sell',code,n);grid.append(tile);}
+   const tile=mineralTile('paladio');tile.append(el('h3','PALADIO'),el('p',fmt(data.cargo.paladio||0)+' · 10 = 1 energía'));qtyButton(tile,'CANJEAR','exchange','paladio',Math.floor((data.cargo.paladio||0)/10)*10,10);grid.append(tile);
   }
   body.append(grid,button('ACTUALIZAR',()=>{if(!busy)mineralMenu(tab);}));
  }
