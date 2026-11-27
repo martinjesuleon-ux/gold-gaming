@@ -70,7 +70,7 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  app.post('/api/v13/gates/build',routeV13(req=>inventory.gateBuild(req.pilotV13.id,req.body||{})));
  app.post('/api/v13/gates/life',routeV13(req=>inventory.gateLife(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/catalog',routeV13(async()=>({...catalogV13,petGearLevels:require('./pet-gear-levels-v177').GEARS})));
- app.get('/api/v13/inventory',routeV13(req=>inventory.snapshot(req.pilotV13.id)));
+ app.get('/api/v13/inventory',routeV13(async req=>({...await inventory.snapshot(req.pilotV13.id),accountId:req.pilotV13.id})));
  app.get('/api/v13/pet/progression',routeV13(req=>petProgression.status(req.pilotV13.id)));
  app.get('/api/v13/pet/equipment',routeV13(req=>petProgression.equipmentRead(req.pilotV13.id)));
  app.get('/api/v13/pet/vitals',routeV13(req=>petProgression.vitalsRead(req.pilotV13.id)));
