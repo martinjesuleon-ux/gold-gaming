@@ -80,7 +80,19 @@ function fireRocket(code){
   rocketUntil=performance.now()+r.cooldown;ammoStock[code]=r.stock;syncAmmoButtons();notice(code+' · '+(r.damage?fmt(r.damage)+' daño':'Sin daño'));
  });
 }
-function syncAmmoButtons(){const buttons=document.querySelectorAll('.gg-slots button');ammoCodes.forEach((code,i)=>{const b=buttons[i+1];if(!b)return;b.disabled=false;b.textContent=code;b.title=code+(ammoStock[code]===undefined?'':' · '+ammoStock[code]);b.classList.toggle('active',code===selectedAmmo);b.onclick=()=>{if(!joined)return;selectedAmmo=code;socket.emit('v13:ammo',code);syncAmmoButtons();};});rocketCodes.forEach((code,i)=>{const b=buttons[i+7];if(!b)return;b.disabled=false;b.textContent=code;b.title='Disparar '+code+' · '+(ammoStock[code]??'—')+' disponibles · recarga 2 s';b.onclick=()=>fireRocket(code);});}
+const ordnanceCodes=['PLD-8','DCR-250','R-IC3','ECO-10','SAR-01','SAR-02','HSTRM-01','UBR-100','CBR'];
+const ordnanceUntil={};let ordnanceBusy=false;
+function fireOrdnance(code){
+ if(!joined||ordnanceBusy)return;
+ const key=ordnanceCodes.indexOf(code)<3?code:'hellstorm';
+ if(performance.now()<(ordnanceUntil[key]||0)){notice('Arma en recarga');return;}
+ if(!selected){notice('Selecciona un objetivo');return;}
+ ordnanceBusy=true;socket.timeout(10000).emit('v18:ordnance',code,(err,r)=>{
+  ordnanceBusy=false;if(err||!r?.ok){notice(r?.error||'Arma no disponible');return;}
+  ordnanceUntil[r.key]=performance.now()+r.cooldown;ammoStock[code]=r.stock;syncAmmoButtons();notice(code+' ×'+r.count+' · '+(r.effect?'Efecto aplicado':r.damage?fmt(r.damage)+' daño':'Disparo confirmado'));
+ });
+}
+function syncAmmoButtons(){const buttons=document.querySelectorAll('.gg-slots button');ammoCodes.forEach((code,i)=>{const b=buttons[i+1];if(!b)return;b.disabled=false;b.textContent=code;b.title=code+(ammoStock[code]===undefined?'':' · '+ammoStock[code]);b.classList.toggle('active',code===selectedAmmo);b.onclick=()=>{if(!joined)return;selectedAmmo=code;socket.emit('v13:ammo',code);syncAmmoButtons();};});rocketCodes.forEach((code,i)=>{const b=buttons[i+7];if(!b)return;b.disabled=false;b.textContent=code;b.title='Disparar '+code+' · '+(ammoStock[code]??'—')+' disponibles · recarga 2 s';b.onclick=()=>fireRocket(code);});ordnanceCodes.forEach((code,i)=>{const b=buttons[i+11];if(!b)return;b.disabled=false;b.textContent=code;b.title='Disparar '+code+' · '+(ammoStock[code]??'—')+' disponibles';b.onclick=()=>fireOrdnance(code);});}
 socket.on('v13:ammoStock',({code,quantity})=>{ammoStock[code]=quantity;syncAmmoButtons();});
 window.addEventListener('gg13:loadout',()=>socket.emit('v13:reload'));
 window.addEventListener('gg13:inventory',e=>{for(const a of e.detail.ammo||[])ammoStock[a.code]=a.quantity;syncAmmoButtons();});
