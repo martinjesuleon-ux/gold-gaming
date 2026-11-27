@@ -67,11 +67,11 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);layout.classList
    if(!progression.isConnected)return;
    content.replaceChildren();
    const info=el('section',null,'gg13-tile'),meter=el('progress');
-   meter.max=p.nextExperience||Math.max(1,p.experience);meter.value=p.experience;
+   meter.max=p.nextExperience===null?1:Math.max(1,p.nextExperience-p.levelStartExperience);meter.value=p.nextExperience===null?1:Math.max(0,p.experience-p.levelStartExperience);
    meter.setAttribute('aria-label','Experiencia del P.E.T.');
    info.append(el('h3','Nivel '+p.level+' / 20'),el('p',fmt(p.experience)+' EXP'+(p.nextExperience?' / '+fmt(p.nextExperience):' · Nivel máximo')),meter,
     el('p','Vida máxima por nivel: '+fmt(p.maxHp)+' PV'),el('p','Daño +'+p.damageBonus+' % · Escudo +'+p.shieldBonus+' %'),
-    el('p','Nivel de equipo permitido: '+p.equipmentTier),el('p','Coste de reparación de referencia: '+fmt(p.repair)+' U'));
+    el('p',p.nextExperience===null?'Nivel máximo alcanzado':'Faltan '+fmt(Math.max(0,p.nextExperience-p.experience))+' EXP para el siguiente nivel'),el('p',p.xpSharePercent?'EXP compartida de NPC: '+p.xpSharePercent+' %':'EXP compartida: pendiente de configurar'),el('p','Nivel de equipo permitido: '+p.equipmentTier),el('p','Coste de reparación de referencia: '+fmt(p.repair)+' U'));
    const hull=el('section',null,'gg13-tile'),hullQuote=p.nextHull;
    hull.append(el('h3','MEJORA DE VIDA'));
    if(p.hullPurchasesEnabled){
@@ -106,7 +106,7 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);layout.classList
     }
     content.append(tile);
    }
-   if(!p.purchasesEnabled)content.append(el('p','Vista de progresión en pruebas. Los efectos de combate y la obtención de EXP se integrarán por separado.'));
+   if(!p.purchasesEnabled)content.append(el('p','Compra de ranuras pendiente de habilitación; la progresión se consulta desde el servidor.'));
   }
   async function readProgression(){try{showProgression(await api('pet/progression'));}catch(e){if(progression.isConnected)content.replaceChildren(el('p','Progresión no disponible: '+e.message),button('REINTENTAR',()=>readProgression()));}}
   content.append(el('p','Cargando progresión…'));readProgression();
