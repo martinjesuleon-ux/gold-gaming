@@ -15,3 +15,8 @@ test('catalog visuals load before shop and menu buttons contain visible labels',
 });
 
 test('laser and drone design colors distinguish individual items',()=>{const window={};vm.runInNewContext(read('shop-visual-v163.js'),{window});const v=window.ggShopVisual;assert.equal(new Set(cat.lasers.map(p=>v.itemColor('lasers',p))).size,cat.lasers.length);assert.equal(v.itemColor('droneDesigns',{id:'Havoc'}),'#ff3838');assert.equal(v.itemColor('droneDesigns',{id:'Hercules'}),'#398dff');assert.equal(v.itemColor('droneDesigns',{id:'Spartan'}),'#ff8a24');assert.match(v.describe('lasers',{id:'LF-4',damage:200}),/200/);assert.match(read('gold-v13.js'),/gg-inventory-filters/);});
+
+test('visual hangar retains equip API and exposes configuration, slots, preview and inventory search',()=>{
+ const ui=read('gold-v13.js'),h=ui.slice(ui.indexOf('function hangar()'),ui.indexOf('const rewardText'));
+ assert.match(h,/api\('equip'/);assert.match(h,/draft.configs\[tab\]/);assert.match(h,/gg-hangar-preview/);assert.match(h,/gg-hangar-targets/);assert.match(h,/gg-hangar-usage/);assert.match(h,/visual.art\(i.category,p\)/);assert.match(h,/search.oninput/);assert.match(h,/dataTransfer.getData/);assert.match(h,/cat.drones\[d.code\].slots/);
+});
