@@ -55,6 +55,9 @@ function createLobby({eligible=()=>true}={}){
  function previewTick(now=Date.now()){const unique=[...new Set(matches.values())];for(const m of unique){if(m.phase==='countdown'&&now>=m.until){m.phase='preview-complete';m.until=0;}else if(m.phase==='offer')advance(m,now);}return unique;}
  return {enqueue,get,remove,tick,previewTick,all:()=>[...new Set(matches.values())],queued:id=>waiting.has(id)};
 }
+const RANKED_FROM=" FROM gg_uba_scores s JOIN accounts a ON a.id=s.account_id JOIN player_progress p ON p.account_id=s.account_id LEFT JOIN gg_rank_profiles r ON r.account_id=s.account_id WHERE NOT COALESCE(r.admin,false) AND p.honor>=0 AND s.wins>0";
+const RANKED_ORDER=" ORDER BY s.score DESC,s.wins DESC,a.username ASC,s.account_id ASC";
+async function champion(pool){return (await pool.query("SELECT s.account_id,a.username AS name,s.score,s.wins"+RANKED_FROM+RANKED_ORDER+" LIMIT 1")).rows[0]||null;}
 function createUBA(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_uba_scores(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,score integer NOT NULL DEFAULT 50 CHECK(score>=50),wins integer NOT NULL DEFAULT 0,losses integer NOT NULL DEFAULT 0);
  CREATE TABLE IF NOT EXISTS gg_uba_ammo_batches(batch_id uuid PRIMARY KEY,response jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
@@ -72,8 +75,8 @@ function createUBA(pool){
  }
  async function status(id){
   const own=(await pool.query('SELECT score,wins,losses FROM gg_uba_scores WHERE account_id=$1',[id])).rows[0]||{score:50,wins:0,losses:0};
-  const rows=(await pool.query('SELECT a.username AS name,s.score,s.wins,s.losses,s.account_id=$1 AS own FROM gg_uba_scores s JOIN accounts a ON a.id=s.account_id ORDER BY s.score DESC,s.wins DESC,a.username LIMIT 100',[id])).rows;
-  return {rules:RULES,own,rows,enabled:process.env.GG_UBA_COMBAT_ENABLED==='1'&&process.env.GG_UBA_LOBBY_ENABLED==='1',lobbyEnabled:process.env.GG_UBA_LOBBY_ENABLED==='1'};
+  const rows=(await pool.query('SELECT a.username AS name,s.score,s.wins,s.losses,s.account_id=$1 AS own'+RANKED_FROM+RANKED_ORDER+' LIMIT 100',[id])).rows;
+  return {rules:RULES,own,rows,champion:rows[0]||null,enabled:process.env.GG_UBA_COMBAT_ENABLED==='1'&&process.env.GG_UBA_LOBBY_ENABLED==='1',lobbyEnabled:process.env.GG_UBA_LOBBY_ENABLED==='1'};
  }
  // Only the trusted game loop may settle a completed duel. No client score inputs.
  async function settle(matchId,winner,loser){
@@ -92,4 +95,4 @@ function createUBA(pool){
  }
  return {ready,status,settle,authorizeAmmo};
 }
-module.exports={RULES,scoreResult,createMatch,accept,advance,finishRound,forfeit,expireOffer,createLobby,createUBA};
+module.exports={RULES,scoreResult,createMatch,accept,advance,finishRound,forfeit,expireOffer,createLobby,createUBA,champion};
