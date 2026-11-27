@@ -89,16 +89,20 @@ function createPetProgression(pool){
  async function equipmentState(c,id,p,requested){
   const {EMPTY,validatePetEquipment,shipReservations}=require('./pet-equipment-rules-v173');
   const configs=(await c.query('SELECT configs FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0]?.configs||[[],[]];
-  const rows=(await c.query("SELECT instance_id AS \"instanceId\",code,category,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('lasers','shields')",[id])).rows;
+  const rows=(await c.query("SELECT instance_id AS \"instanceId\",code,category,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('lasers','shields','petGear')",[id])).rows;
   const saved=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||EMPTY();
-  const result=validatePetEquipment(p,requested===undefined?saved:requested,new Map(rows.map(i=>[i.instanceId,i])),configs);
+  const gearEnabled=require('./pet-test-kit-v175').gearEnabled(id);
+  const candidate=requested===undefined?saved:{...requested,gear:requested?.gear??saved.gear??[]};
+  if(requested!==undefined&&(!requested||typeof requested!=='object'||Array.isArray(requested)))throw fail('Equipamiento inválido');
+  if(!gearEnabled&&requested!==undefined&&JSON.stringify(candidate.gear||[])!==JSON.stringify(saved.gear||[]))throw fail('Asignación de módulos en pruebas',403);
+  const result=validatePetEquipment(p,candidate,new Map(rows.map(i=>[i.instanceId,i])),configs);
   if(p.hullPurchasesEnabled)result.stats.maxHp=levels[p.paidHullTier].maxHp;
   const reserved=shipReservations(configs);
-  return {...result,available:rows.filter(i=>!reserved.has(i.instanceId)),enabled:process.env.GG_PET_EQUIPMENT_ENABLED==='1'};
+  return {...result,available:rows.filter(i=>!reserved.has(i.instanceId)),enabled:require('./pet-test-kit-v175').equipmentEnabled(id),gearEnabled};
  }
  async function equipmentRead(id){return transaction(id,(c,p)=>equipmentState(c,id,p));}
  async function equipmentSave(id,body){
-  if(process.env.GG_PET_EQUIPMENT_ENABLED!=='1')throw fail('Equipamiento P.E.T. en pruebas',403);
+  if(!require('./pet-test-kit-v175').equipmentEnabled(id))throw fail('Equipamiento P.E.T. en pruebas',403);
   if(!body||!Object.hasOwn(body,'equipment'))throw fail('Equipamiento P.E.T. requerido');
   return transaction(id,async(c,p)=>{
    const result=await equipmentState(c,id,p,body.equipment);
@@ -108,11 +112,11 @@ function createPetProgression(pool){
  }
  // Experimental guard uses basic ammunition from the pilot's stock, one unit per PET laser.
  async function authorizeGuardShot(id){
-  if(process.env.GG_PET_GUARD_ENABLED!=='1'||process.env.GG_PET_EQUIPMENT_ENABLED!=='1')return null;
+  if(!require('./pet-test-kit-v175').guardEnabled(id))return null;
   return transaction(id,async(c,p)=>{
    const {stats}=await equipmentState(c,id,p);
    if(!stats.lasers||!stats.damage)return null;
-   if(process.env.GG_PET_VITALS_ENABLED==='1'){
+   if(require('./pet-test-kit-v175').vitalsEnabled(id)){
     const row=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
     if(row&&Number(row.hp)===0)return null;
    }
@@ -130,9 +134,9 @@ function createPetProgression(pool){
  async function writeVitals(c,id,v){
   await c.query('INSERT INTO gg_pet_vitals_v173(account_id,hp,shield) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET hp=EXCLUDED.hp,shield=EXCLUDED.shield',[id,v.hp,v.shield]);
  }
- async function vitalsRead(id){return transaction(id,async(c,p)=>({...((await readVitals(c,id,p)).vitals),repairPrice:p.repair,enabled:process.env.GG_PET_VITALS_ENABLED==='1'}));}
+ async function vitalsRead(id){return transaction(id,async(c,p)=>({...((await readVitals(c,id,p)).vitals),repairPrice:p.repair,enabled:require('./pet-test-kit-v175').vitalsEnabled(id)}));}
  async function applyPetDamage(id,amount){
-  if(process.env.GG_PET_VITALS_ENABLED!=='1')return null;
+  if(!require('./pet-test-kit-v175').vitalsEnabled(id))return null;
   return transaction(id,async(c,p)=>{
    const {stats,saved}=await readVitals(c,id,p);
    const v=require('./pet-vitals-v173').damageVitals(stats,saved,amount);
@@ -143,7 +147,7 @@ function createPetProgression(pool){
  }
  async function regeneratePetShield(id){
   const rules=require('./pet-vitals-v173'),percent=rules.shieldRegenPercent(process.env.GG_PET_SHIELD_REGEN_PERCENT);
-  if(process.env.GG_PET_VITALS_ENABLED!=='1'||!percent)return null;
+  if(!require('./pet-test-kit-v175').vitalsEnabled(id)||!percent)return null;
   return transaction(id,async(c,p)=>{
    const {stats,saved,vitals}=await readVitals(c,id,p);
    if(!saved||vitals.destroyed||vitals.shield>=vitals.maxShield)return vitals;
@@ -173,7 +177,7 @@ function createPetProgression(pool){
   });
  }
  async function repairPet(id,body){
-  if(process.env.GG_PET_VITALS_ENABLED!=='1')throw fail('Reparación P.E.T. en pruebas',403);
+  if(!require('./pet-test-kit-v175').vitalsEnabled(id))throw fail('Reparación P.E.T. en pruebas',403);
   const requestId=body?.requestId;
   if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Solicitud inválida');
   return transaction(id,async(c,p,balance)=>{

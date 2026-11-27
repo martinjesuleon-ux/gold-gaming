@@ -22,3 +22,19 @@ test('PET level bonuses apply to equipped gear without changing the inventory',(
  assert.equal(r.stats.damage,232);assert.equal(r.stats.shield,11800);assert.equal(r.stats.maxHp,250000);
  assert.equal(owned.get('laser').level,1);
 });
+
+test('module slots validate ownership, type, duplicates, capacity and actual mounted code',()=>{
+ const {hasMountedGear}=require('../pet-equipment-rules-v173');
+ const modules=new Map([...owned,['loot',{code:'G-AL1',category:'petGear',level:1}],['kami',{code:'G-KK1',category:'petGear',level:1}],['fake',{code:'G-AL1',category:'lasers',level:1}]]);
+ const e={laser:[],generator:[],gear:['loot']};
+ assert.deepEqual(validatePetEquipment(base,e,modules).equipment,e);
+ for(const gear of [['loot','kami'],['missing'],['fake'],['laser']])assert.throws(()=>validatePetEquipment(base,{...e,gear},modules));
+ const list=[...modules].map(([instanceId,i])=>({instanceId,...i}));
+ assert.equal(hasMountedGear(e,list,'G-AL1'),true);
+ assert.equal(hasMountedGear(e,list,'G-KK1'),false);
+ assert.equal(hasMountedGear({gear:['fake']},list,'G-AL1'),false);
+ assert.equal(hasMountedGear({},list,'G-AL1'),false);
+ const level1={...base,experience:8000,slots:{...base.slots,gear:2}};
+ assert.deepEqual(validatePetEquipment(level1,{...e,gear:['loot','kami']},modules).equipment.gear,['loot','kami']);
+ assert.throws(()=>validatePetEquipment(level1,{...e,gear:['loot','loot']},modules));
+});

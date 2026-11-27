@@ -5,7 +5,7 @@ const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
-const {assertShipDoesNotUsePet}=require('./pet-equipment-rules-v173');
+const {assertShipDoesNotUsePet,hasMountedGear}=require('./pet-equipment-rules-v173');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const {specialGateQuantity}=require('./uridium-event-v157');
@@ -74,7 +74,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    }
    if(category==='petGear'){
     if(!['G-AL1','G-KK1'].includes(code)||quantity!==1)throw fail('Engranaje inválido');
-    const rows=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+    const rows=(await c.query("SELECT instance_id AS \"instanceId\",category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
     if(!rows.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
     if(rows.some(x=>x.code===code))throw fail('Engranaje ya adquirido');
     q={id:code,category,quantity,currency:'uridium',total:7500};
@@ -110,7 +110,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
-   return {balance:p,hangar,items,ammo,petEquipment};
+   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id)};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
@@ -170,10 +170,16 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   });
  }
  // El combustible se cobra antes de activar cada intervalo de vuelo.
+ async function requireMountedGear(c,id,owned,code){
+  if(!require('./pet-test-kit-v175').gearEnabled(id))return;
+  const equipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment;
+  if(!hasMountedGear(equipment,owned,code))throw fail('Equipa el módulo '+code+' en el hangar del P.E.T.');
+ }
  async function petKamikaze(id){
   return transaction(id,async c=>{
-   const owned=(await c.query("SELECT code,category FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   const owned=(await c.query("SELECT instance_id AS \"instanceId\",code,category FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet')||!owned.some(x=>x.code==='G-KK1'))throw fail('Compra el módulo G-KK1 Kamikaze en la tienda');
+   await requireMountedGear(c,id,owned,'G-KK1');
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-10 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=10 RETURNING quantity",[id])).rows[0];
    if(!r)throw fail('Necesitas 10 unidades de combustible');
    return {fuel:Number(r.quantity)};
@@ -182,10 +188,11 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
  async function petInterval(id,mode){
   if(!['passive','guard','loot'].includes(mode))throw fail('Modo inválido');
   return transaction(id,async c=>{
-   const owned=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   const owned=(await c.query("SELECT instance_id AS \"instanceId\",category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
    if(mode==='loot'&&!owned.some(x=>x.code==='G-AL1'))throw fail('Necesitas el engranaje G-AL1');
-   if(process.env.GG_PET_VITALS_ENABLED==='1'){
+   if(mode==='loot')await requireMountedGear(c,id,owned,'G-AL1');
+   if(require('./pet-test-kit-v175').vitalsEnabled(id)){
     const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
     if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido. Repáralo primero');
    }

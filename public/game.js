@@ -187,7 +187,7 @@ function renderPetPanel(){
  setHudText(gear,petGear===null?'Módulos: —':(petGear.has('G-AL1')?'Auto-botín':'Sin auto-botín')+' · '+(petGear.has('G-KK1')?'Kamikaze':'Sin kamikaze'));
 }
 socket.on('v14:petState',s=>{petMode=s.mode;petFuel=s.fuel;petPending=!!s.pending;if(s.vitals?.enabled){petVitalsEpoch++;petVitals=s.vitals;}renderPetPanel();if(petOwned===true&&!petVitals)refreshPetVitals();});
-window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);petOwned=e.detail.items.some(i=>i.category==='pet');petGear=new Set(e.detail.items.map(i=>i.code).filter(code=>['G-AL1','G-KK1'].includes(code)));if(!petOwned){petVitals=null;petVitalsEpoch++;}renderPetPanel();if(petOwned)refreshPetVitals();});
+window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);petOwned=e.detail.items.some(i=>i.category==='pet');petGear=new Set(e.detail.items.filter(i=>!e.detail.petGearEquipEnabled||e.detail.petEquipment?.gear?.includes(i.instanceId)).map(i=>i.code).filter(code=>['G-AL1','G-KK1'].includes(code)));if(!petOwned){petVitals=null;petVitalsEpoch++;}renderPetPanel();if(petOwned)refreshPetVitals();});
 socket.on('disconnect',()=>{petMode='off';petFuel=null;petPending=false;petOwned=null;petGear=null;petVitals=null;petVitalsEpoch++;petRepairRequest=null;renderPetPanel();});
 document.addEventListener('DOMContentLoaded',()=>queueMicrotask(renderPetPanel));
 const ammoCodes=['LCB-10','MCB-25','MCB-50','UCB-100','SAB-50','RSB-75'];let selectedAmmo='LCB-10';const ammoStock={};

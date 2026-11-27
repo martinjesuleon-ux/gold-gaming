@@ -110,15 +110,16 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);petLeft.hidden=!
    try{
     const [p,d]=await Promise.all([api('pet/progression'),api('pet/equipment')]);
     if(!loadout.isConnected)return;
-    const equipped={laser:[...d.equipment.laser],generator:[...d.equipment.generator]};
+    const equipped={laser:[...d.equipment.laser],generator:[...d.equipment.generator],gear:[...(d.equipment.gear||[])]};
     const types=[['laser','lasers','LÁSERES',12],['generator','shields','GENERADORES',22],['gear','petGear','MÓDULOS',6],['protocol','petProtocol','PROTOCOLOS',12]];
     const findItem=id=>d.available.find(i=>i.instanceId===id);
-    const isMounted=id=>equipped.laser.includes(id)||equipped.generator.includes(id);
+    const isMounted=id=>Object.values(equipped).some(ids=>ids.includes(id));
+    const canEdit=type=>d.enabled&&(['laser','generator'].includes(type)||type==='gear'&&d.gearEnabled);
     async function changeEquipment(type,id,remove=false){
-     if(busy||!d.enabled||!['laser','generator'].includes(type))return;
-     const item=findItem(id),category=type==='laser'?'lasers':'shields';
+     if(busy||!canEdit(type))return;
+     const item=findItem(id),category=type==='laser'?'lasers':type==='generator'?'shields':'petGear';
      if(!item||item.category!==category){status.textContent='Equipo incompatible';return;}
-     const next={laser:[...equipped.laser],generator:[...equipped.generator]};
+     const next={laser:[...equipped.laser],generator:[...equipped.generator],gear:[...equipped.gear]};
      if(remove)next[type]=next[type].filter(x=>x!==id);
      else{if(isMounted(id)||next[type].length>=p.slots[type]){status.textContent='No hay ranuras disponibles';return;}next[type].push(id);}
      busy=true;layout.inert=true;
@@ -138,18 +139,18 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);petLeft.hidden=!
      loadout.replaceChildren();
      for(const [type,category,label,max] of types){
       const frame=el('section',null,'gg-slot-section'),heading=el('h3',label),grid=el('div',null,'gg-pet-slot-grid');
-      const editable=type==='laser'||type==='generator',ids=editable?equipped[type]:[],purchased=p.slots[type],limit=p.limits[type],quote=p.nextSlots?.[type];
+      const editable=type!=='protocol',ids=editable?equipped[type]:[],purchased=p.slots[type],limit=p.limits[type],quote=p.nextSlots?.[type];
       heading.append(el('span',editable?ids.length+' / '+purchased+' · máx. '+max:purchased+' / '+max+' ranuras'));
       frame.append(heading,grid);
       for(let j=0;j<max;j++){
        const item=j<ids.length?findItem(ids[j]):null;
        let slot;
-       if(item){slot=equipmentTile(item,()=>changeEquipment(type,item.instanceId,true),'Retirar');slot.disabled=!d.enabled;}
-       else if(j<purchased){slot=button('+',()=>{if(selectedId)changeEquipment(type,selectedId);else{petFilter=category;drawEquipment();}});slot.className='gg-pet-slot gg-pet-slot-free';slot.title=editable?'Ranura libre · selecciona o arrastra equipo':'Equipamiento aún no integrado';slot.setAttribute('aria-label',label+' · ranura '+(j+1)+' libre');slot.disabled=!editable||!d.enabled;slot.ondragover=e=>{if(editable&&d.enabled)e.preventDefault();};slot.ondrop=e=>{e.preventDefault();changeEquipment(type,e.dataTransfer.getData('text/plain'));};}
+       if(item){slot=equipmentTile(item,()=>changeEquipment(type,item.instanceId,true),'Retirar');slot.disabled=!canEdit(type);}
+       else if(j<purchased){slot=button('+',()=>{if(selectedId)changeEquipment(type,selectedId);else{petFilter=category;drawEquipment();}});slot.className='gg-pet-slot gg-pet-slot-free';slot.title=editable?'Ranura libre · selecciona o arrastra equipo':'Equipamiento aún no integrado';slot.setAttribute('aria-label',label+' · ranura '+(j+1)+' libre');slot.disabled=!canEdit(type);slot.ondragover=e=>{if(canEdit(type))e.preventDefault();};slot.ondrop=e=>{e.preventDefault();changeEquipment(type,e.dataTransfer.getData('text/plain'));};}
        else{const purchasable=j===purchased&&j<limit&&quote,requestId=purchasable?crypto.randomUUID():null;slot=button('',()=>buy(type,quote,requestId));slot.className='gg-pet-slot gg-pet-slot-locked';slot.append(el('span',null,'gg-pet-lock'));slot.title=purchasable?'Desbloquear por '+fmt(quote.price)+' U':j<limit?'Compra las ranuras anteriores':'Bloqueada por nivel';slot.setAttribute('aria-label',slot.title);slot.disabled=!purchasable||!p.purchasesEnabled||Number(p.uridium)<quote.price;if(purchasable){slot.classList.add('gg-pet-slot-purchasable');slot.append(el('small',fmt(quote.price)+' U'));}}
        grid.append(slot);
       }
-      if(!editable)frame.append(el('small',type==='gear'?'Módulos adquiridos en el inventario; asignación pendiente.':'Protocolos: equipamiento pendiente.'));
+      if(type==='gear'&&!d.gearEnabled)frame.append(el('small','Asignación de módulos en pruebas.'));if(!editable)frame.append(el('small','Protocolos: equipamiento pendiente.'));
       loadout.append(frame);
      }
      loadout.append(el('p','Daño base: '+fmt(d.stats.damage)+' · Escudo: '+fmt(d.stats.shield),'gg-pet-hangar-statline'));
@@ -158,10 +159,10 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);petLeft.hidden=!
      const search=el('input'),filter=el('select'),bag=el('div',null,'gg-pet-inventory-grid');
      search.type='search';search.placeholder='Buscar equipo…';search.value=petSearch;
      for(const [k,label] of [['','Todo'],['lasers','Láseres'],['shields','Generadores'],['petGear','Módulos']]){const o=el('option',label);o.value=k;filter.append(o);}filter.value=petFilter;
-     const inventory=[...d.available.filter(i=>!isMounted(i.instanceId)),...ownedGear.map(i=>({...i,category:'petGear'}))];
+     const inventory=d.available.filter(i=>!isMounted(i.instanceId));
      function drawBag(){bag.replaceChildren();for(const item of inventory.filter(i=>(!petFilter||i.category===petFilter)&&i.code.toLowerCase().includes(petSearch.toLowerCase()))){
       const tile=equipmentTile(item,()=>{selectedId=item.instanceId;drawBag();status.textContent=item.code+' seleccionado';},'Seleccionar');
-      tile.setAttribute('aria-pressed',String(selectedId===item.instanceId));tile.draggable=d.enabled&&['lasers','shields'].includes(item.category);tile.ondragstart=e=>e.dataTransfer.setData('text/plain',item.instanceId);bag.append(tile);
+      tile.setAttribute('aria-pressed',String(selectedId===item.instanceId));tile.draggable=d.enabled&&(['lasers','shields'].includes(item.category)||item.category==='petGear'&&d.gearEnabled);tile.ondragstart=e=>e.dataTransfer.setData('text/plain',item.instanceId);bag.append(tile);
      }if(!bag.children.length)bag.append(el('p','Sin equipos disponibles'));}
      search.oninput=()=>{petSearch=search.value;drawBag();};filter.onchange=()=>{petFilter=filter.value;drawBag();};
      right.append(search,filter,bag,button('COMPRA RÁPIDA',()=>open('Tienda')),button('ACTUALIZAR',()=>readPetEquipment()));drawBag();
