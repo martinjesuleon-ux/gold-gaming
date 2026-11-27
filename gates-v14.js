@@ -26,8 +26,12 @@ WAVES.lambda=[
 ];
 const ZETA_FINAL=['Streuner','Lordakia','Saimon','Mordon','Devolarium','Kristallin','Sibelon','Sibelonit','Kristallon','Lordakium','Boss Streuner','Boss Lordakia','Boss Saimon','Boss Mordon','Boss Devolarium','Boss Sibelonit','Boss Kristallin','Infernal','Scorher'];
 WAVES.zeta[9]=[['Devourer',1,1,true],...ZETA_FINAL.map(n=>[n,1])];
-const PROVISIONAL={epsilon:'Distribución de 30 secciones y cantidades por alien pendientes de confirmación.',lambda:'Agrupación de jefes y cantidades por sección pendientes de confirmación.',zeta:'Los 19 tipos de la sección 10 son una selección provisional.'};
-const PLAYABLE=['alpha','beta','gamma','delta','kappa','zeta','epsilon','lambda'];
+// Fleet order supplied by the wiki; exact allocation among sections 1–12 is unspecified.
+const SATURN_FLEET=['Phoenix','Yamato','Defcom','Liberator','Nostromo','Piranha','BigBoy','Vengeance','Leonov','Venom','Sentinel','Spectrum','Diminisher','Solace','Enforcer','Bastion','Crimson','Jade','Sapphire','Spearhead','Citadel','Aegis'];
+WAVES.kronos=Array.from({length:12},(_,i)=>SATURN_FLEET.slice(Math.floor(i*SATURN_FLEET.length/12),Math.floor((i+1)*SATURN_FLEET.length/12)).map(n=>['Saturn '+n,1]));
+WAVES.kronos.push([['Mirror',1],['Evil Iris',8]]);
+const PROVISIONAL={kronos:'Distribución de la flota entre las primeras 12 secciones y estadísticas de las naves Saturn provisionales.',epsilon:'Distribución de 30 secciones y cantidades por alien pendientes de confirmación.',lambda:'Agrupación de jefes y cantidades por sección pendientes de confirmación.',zeta:'Los 19 tipos de la sección 10 son una selección provisional.'};
+const PLAYABLE=['alpha','beta','gamma','delta','kappa','zeta','epsilon','lambda','kronos'];
 const REWARDS={alpha:[20000,4000000,100000,20000,2,200,2,0],beta:[40000,8000000,200000,40000,4,400,4,0],gamma:[60000,12000000,300000,60000,10,600,6,0],delta:[45000,9000000,225000,45000,8,450,5,0],epsilon:[25000,5000000,150000,20000,10,0,0,5],zeta:[35000,6000000,200000,25000,50,0,0,25],kappa:[15000,9000000,325000,30000,10,0,0,5],lambda:[15000,2750000,100000,10000,3,0,0,5],hades:[20000,4000000,200000,15000,8,0,0,4],kronos:[25000,12000000,450000,25000,15,0,0,10]};
 function spinGate(rows,gate,roll,random,useMultiplier=false){
  if(!DEFS[gate]||gate==='kronos'||!Number.isInteger(roll)||roll<0||roll>=100)throw Error('Tirada inválida');
@@ -54,4 +58,4 @@ function itemDraw(gate,first,roll){
  if(gate==='kronos')return roll<200?'Saturn':roll<400?'Spartan':null;
  return null;
 }
-module.exports={DEFS,GATES,ALPHA,SHARED,KRONOS,AMMO,WAVES,PLAYABLE,PROVISIONAL,REWARDS,spinGate,itemDraw};
+module.exports={DEFS,GATES,ALPHA,SHARED,KRONOS,AMMO,WAVES,PLAYABLE,PROVISIONAL,SATURN_FLEET,REWARDS,spinGate,itemDraw};
