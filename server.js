@@ -403,6 +403,25 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    ack({ok:true,stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo colocar la mina'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
  });
+ socket.on('v116:cbsShot',(data,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id),now=Date.now();
+  if(process.env.GG_CBS_COMBAT_ENABLED!=='1')return ack({ok:false,error:'Combate CBS en pruebas'});
+  if(!p||p.deadUntil||p.gate||p.gatePending||p.shotPending||p.upgradePending||p.reloadPending||p.reloadRequested||p.cbsBusy||p.godMode||safeZone(p)||!p.v13||!p.lasers)return ack({ok:false,error:'Arma no disponible'});
+  const ammo=catalogV13.ammo.find(a=>a.id===p.ammo);
+  if(!ammo||ammo.shieldOnly||now-p.lastShot<(ammo.intervalMs||1000))return ack({ok:false,error:'Espera la recarga o cambia munición'});
+  const asteroidId=data?.asteroidId,slot=data?.slot;
+  if(typeof asteroidId!=='string'||!Number.isInteger(slot)||slot<0||slot>9)return ack({ok:false,error:'Objetivo inválido'});
+  const a=require('./stations-v113').ASTEROIDS.find(x=>x.id===asteroidId);
+  if(!a||p.zone!==a.map||distance(p,a)>600)return ack({ok:false,error:'Acércate a la estación'});
+  const count=p.lasers,code=ammo.id,damage=Math.max(1,Math.round(p.damage*(p.boost?.damage||1)*combatFactor(p,true)*ammo.multiplier));
+  const requestId=crypto.randomUUID();
+  p.lastShot=now;p.shotPending=true;p.cbsBusy=true;p.attack=false;p.target=null;p.protectedUntil=0;breakCloak(p);
+  const job=p.writes.catch(()=>{}).then(()=>{
+   if(players.get(p.id)!==p||p.deadUntil||p.zone!==a.map||distance(p,a)>600)throw Object.assign(Error('Fuera de alcance'),{status:400});
+   return accounts.stationHit(p.accountId,{asteroidId,slot,damage,requestId},{x:p.x,y:p.y,zone:p.zone},{code,count});
+  });p.writes=job;pending.add(job);
+  job.then(r=>{io.to(p.id).emit('v13:ammoStock',{code,quantity:r.stock});if(players.get(p.id)===p){p.angle=Math.atan2(a.y-p.y,a.x-p.x);laser(p,a);}ack({ok:true,...r});}).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo guardar el disparo'})).finally(()=>{p.shotPending=false;p.cbsBusy=false;pending.delete(job);});
+ });
  socket.on('v115:cbs',(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
   if(!p||p.deadUntil||p.gatePending||p.gate||p.cbsBusy)return ack({ok:false,error:'Estación no disponible'});
