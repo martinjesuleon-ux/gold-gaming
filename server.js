@@ -121,7 +121,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const job=p.writes.catch(()=>{}).then(async()=>{try{await save();}catch(e){if(!accounts.flightCheckpoint)throw e;await save();}p.flightCheckpoint=null;}).catch(e=>{if(!accounts.flightCheckpoint){p.flightDistance+=batch.count;p.flightCheckpoint=null;}console.error('Flight checkpoint:',e.code||e.message);}).finally(()=>{p.flightFlushPending=null;pending.delete(job);});
   p.flightFlushPending=job;p.writes=job;pending.add(job);return job;
  }
- async function flushFlightFinal(p){await flushFlight(p);if(p.flightCheckpoint||Math.floor(p.flightDistance||0)>0)await flushFlight(p);if(p.flightCheckpoint)console.error('Flight checkpoint pending at disconnect');}
+ async function flushFlightFinal(p){await flushFlight(p);if(p.flightCheckpoint||Math.floor(p.flightDistance||0)>0)await flushFlight(p);if(p.flightCheckpoint||Math.floor(p.flightDistance||0)>0)console.error('Flight checkpoint pending at disconnect');}
  function move(v,d,dt){if(!d)return;const dx=d.x-v.x,dy=d.y-v.y,len=Math.hypot(dx,dy);if(len<1)return;v.angle=Math.atan2(dy,dx);const step=Math.min(len,v.speed*speedFactor(v,Date.now())*(v.freezeUntil>Date.now()?0:v.mineSlowUntil>Date.now()?.5:v.slowUntil>Date.now()?.7:1)*dt);const x=v.x,y=v.y;v.x=clamp(v.x+dx/len*step,25,WORLD.w-25);v.y=clamp(v.y+dy/len*step,25,WORLD.h-25);if(v.accountId)v.flightDistance=(v.flightDistance||0)+Math.hypot(v.x-x,v.y-y);}
  function laser(a,b){io.to(zoneOf(a)).emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player'});}
  const initializedMaps=new Set();
