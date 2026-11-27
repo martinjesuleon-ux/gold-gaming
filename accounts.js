@@ -41,6 +41,6 @@ app.use('/api/auth',(req,res,next)=>{res.set('Cache-Control','no-store');if(req.
  // Cada recompensa se confirma en PostgreSQL antes de mostrarse al jugador.
  async function reward(id,credits,xp){const r=(await pool.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,level=GREATEST(level,1+((experience+$3)/500)::integer),updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level',[id,credits,xp])).rows[0];if(!r)throw Error('Cuenta sin progreso');return r;}
  async function ready(){await pool.query('SELECT a.id,p.account_id,s.token_hash,i.item_code FROM accounts a LEFT JOIN player_progress p ON p.account_id=a.id LEFT JOIN player_sessions s ON s.account_id=a.id LEFT JOIN player_inventory i ON i.account_id=a.id LIMIT 0');await inventory.ready();}
- return {endpoints,authenticate,reward,ready,combatLoadout:inventory.combatLoadout,consumeAmmo:inventory.consumeAmmo,petInterval:inventory.petInterval,close:()=>pool.end()};
+ return {endpoints,authenticate,reward,ready,combatLoadout:inventory.combatLoadout,consumeAmmo:inventory.consumeAmmo,petInterval:inventory.petInterval,awardBox:inventory.awardBox,close:()=>pool.end()};
 }
 module.exports={createAccounts,hashPassword,verifyPassword};
