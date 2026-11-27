@@ -44,7 +44,7 @@ function createMinerals(pool){
  ALTER TABLE gg_v15_honor_penalty ADD COLUMN IF NOT EXISTS theft_step integer NOT NULL DEFAULT 0;
  ALTER TABLE gg_v15_honor_penalty ADD COLUMN IF NOT EXISTS theft_last bigint NOT NULL DEFAULT 0;
  CREATE TABLE IF NOT EXISTS gg_v17_mineral_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
- async function tx(id,fn){const c=await pool.connect();try{await c.query('BEGIN');const p=(await c.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rows[0];if(!p)throw fail('Piloto no disponible');const result=await fn(c,p);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
+ async function tx(id,fn,cbs=false){const c=await pool.connect();try{await c.query('BEGIN');if(cbs)await c.query('SELECT pg_advisory_xact_lock(71413003)');const p=(await c.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rows[0];if(!p)throw fail('Piloto no disponible');const result=await fn(c,p);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
  async function labRow(c,id){const row=(await c.query('SELECT data FROM gg_v17_skylab WHERE account_id=$1',[id])).rows[0];return row?.data||initial(Date.now());}
  async function save(c,id,lab){await c.query('INSERT INTO gg_v17_skylab(account_id,data) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET data=EXCLUDED.data',[id,JSON.stringify(lab)]);}
  async function cargo(c,id){const rows=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1 AND code=ANY($2::text[])',[id,MINERALS])).rows;return Object.fromEntries(rows.map(x=>[x.code,Number(x.quantity)]));}
@@ -96,7 +96,7 @@ function createMinerals(pool){
  }else throw fail('Acción inválida');
  }
  const result=await view(c,id,p,lab);await c.query('INSERT INTO gg_v17_mineral_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,d.requestId,JSON.stringify(result)]);return result;
- });}
+ },d.action==='cbs-sell');}
  return {ready,status,action,collect};
 }
 module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,supply,demand,capacity,cargoUsed,saleValue,npcCargo,fitCargo,createMinerals};
