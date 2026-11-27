@@ -32,6 +32,8 @@ function quoteSlot(state,type){
 function createPetProgression(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_pet_progress_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,experience bigint NOT NULL DEFAULT 0 CHECK(experience BETWEEN 0 AND 9007199254740991),slots jsonb NOT NULL DEFAULT '{"laser":1,"generator":2,"gear":1,"protocol":2}');
  CREATE TABLE IF NOT EXISTS gg_pet_vitals_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,hp bigint NOT NULL CHECK(hp>=0),shield bigint NOT NULL CHECK(shield>=0));
+ ALTER TABLE gg_pet_vitals_v173 ADD COLUMN IF NOT EXISTS last_damage_at timestamptz NOT NULL DEFAULT now();
+ ALTER TABLE gg_pet_vitals_v173 ADD COLUMN IF NOT EXISTS last_regen_at timestamptz NOT NULL DEFAULT now();
  CREATE TABLE IF NOT EXISTS gg_pet_slot_receipts_v173(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,kind text NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
  async function transaction(id,fn){
   const c=await pool.connect();
@@ -123,7 +125,24 @@ function createPetProgression(pool){
   return transaction(id,async(c,p)=>{
    const {stats,saved}=await readVitals(c,id,p);
    const v=require('./pet-vitals-v173').damageVitals(stats,saved,amount);
-   await writeVitals(c,id,v);return v;
+   await writeVitals(c,id,v);
+   if(amount>0)await c.query('UPDATE gg_pet_vitals_v173 SET last_damage_at=now() WHERE account_id=$1',[id]);
+   return v;
+  });
+ }
+ async function regeneratePetShield(id){
+  const rules=require('./pet-vitals-v173'),percent=rules.shieldRegenPercent(process.env.GG_PET_SHIELD_REGEN_PERCENT);
+  if(process.env.GG_PET_VITALS_ENABLED!=='1'||!percent)return null;
+  return transaction(id,async(c,p)=>{
+   const {stats,saved,vitals}=await readVitals(c,id,p);
+   if(!saved||vitals.destroyed||vitals.shield>=vitals.maxShield)return vitals;
+   const row=(await c.query("SELECT EXTRACT(EPOCH FROM (now()-GREATEST(last_damage_at,last_regen_at)))*1000 AS elapsed FROM gg_pet_vitals_v173 WHERE account_id=$1",[id])).rows[0];
+   const v=rules.regenerateShield(stats,saved,percent,Number(row?.elapsed||0));
+   if(v.shield>vitals.shield){
+    await writeVitals(c,id,v);
+    await c.query('UPDATE gg_pet_vitals_v173 SET last_regen_at=now() WHERE account_id=$1',[id]);
+   }
+   return v;
   });
  }
  async function repairPet(id,body){
@@ -137,11 +156,12 @@ function createPetProgression(pool){
    const r=require('./pet-vitals-v173').repairVitals(stats,saved,p.repair,Number(balance.uridium));
    if(r.price)await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1',[id,r.price]);
    await writeVitals(c,id,r.vitals);
+   await c.query('UPDATE gg_pet_vitals_v173 SET last_regen_at=now() WHERE account_id=$1',[id]);
    const response={...r,uridium:String(r.uridium)};
    await c.query('INSERT INTO gg_pet_slot_receipts_v173(account_id,request_id,kind,response) VALUES($1,$2,$3,$4::jsonb)',[id,requestId,'repair',JSON.stringify(response)]);
    return response;
   });
  }
- return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet};
+ return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet,regeneratePetShield};
 }
 module.exports={levelForExperience,profile,quoteSlot,createPetProgression,TYPES,INITIAL};
