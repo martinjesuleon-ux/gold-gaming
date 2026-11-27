@@ -24,7 +24,13 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function spawnGateGroup(p,group,groupIndex){
   const [name,count,scale=1,shielded=false]=group;
   const key=p.gate.gate==='kappa'&&['Boss Kucurbium','Century-Falcon'].includes(name)?name+' (Kappa)':name;
-  const base=alienStats[key]||{hp:650,shield:220,damage:55,speed:155,credits:0,uridium:0,xp:0,honor:0};
+  let base=alienStats[key]||{hp:650,shield:220,damage:55,speed:155,credits:0,uridium:0,xp:0,honor:0};
+  if(name==='Mirror')base={hp:p.maxHp,shield:p.maxShield,damage:p.damage,speed:p.speed,credits:0,uridium:0,xp:0,honor:0};
+  else if(name.startsWith('Saturn ')){
+   const variant=name.slice(7).toLowerCase(),hull=catalogV13.ships.find(x=>x.id===variant)||catalogV13.ships.find(x=>x.id==='goliath');
+   // Temporary combat parameters, no unverified alien payout.
+   base={hp:hull.hp,shield:hull.generators*10000,damage:hull.lasers*200,speed:hull.speed,credits:0,uridium:0,xp:0,honor:0};
+  }
   let spawned=0;
   for(let i=0;i<count;i++){
    const killKey=groupIndex+':'+i;if(p.gate.kills.includes(killKey))continue;
