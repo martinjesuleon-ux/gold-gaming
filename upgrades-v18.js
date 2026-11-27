@@ -1,4 +1,5 @@
 'use strict';
+const {premiumRead}=require('./boosters-v112');
 // Wiki multipliers. One mineral = ten rounds; generator rounds use a
 // provisional ten-second interval of active use, not real-time expiry.
 const catalog=require('./data/catalog-v13.json');
@@ -25,7 +26,7 @@ function createUpgrades(pool){
  if(options.autoMineral&&!(upgrades[slot]?.rounds>0)){for(const mineral of ['seprom','promerium','prometid']){const take=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code=$2 AND quantity>=1 RETURNING quantity',[id,mineral])).rows[0];if(take){upgrades=load(upgrades,slot,mineral,1);resources[mineral]=Number(take.quantity);break;}}}
  if(slot==='laser'&&options.aim){const take=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-10 WHERE account_id=$1 AND code='xenomit' AND quantity>=10 RETURNING quantity",[id])).rows[0];if(take){aimBoost=true;resources.xenomit=Number(take.quantity);}}
  const {next,factors}=consume(upgrades,[slot]);if(upgrades[slot]?.rounds>0)await save(c,id,next);
- return {stock:Number(r.quantity),factor:factors[slot],upgrades:next,aimBoost,resources};});}
+ return {stock:Number(r.quantity),factor:factors[slot],upgrades:next,aimBoost,resources,...(slot==='rocket'?{premium:await premiumRead(c,id)}:{})};});}
  async function ordnance(id,code,count){const item=[...catalog.specialRockets,...catalog.launcherAmmo,...catalog.mines].find(x=>x.id===code);if(!item||!Number.isSafeInteger(count)||count<1||count>5||(catalog.specialRockets.includes(item)||catalog.mines.includes(item))&&count!==1)throw fail('Munición inválida');return tx(id,async c=>{const r=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,code,count])).rows[0];return r?Number(r.quantity):null;});}
  async function generatorRound(id,slots){return tx(id,async c=>{const upgrades=await read(c,id),{next,factors}=consume(upgrades,slots.filter(k=>k==='speed'||k==='shield'));if(slots.some(k=>upgrades[k]?.rounds>0))await save(c,id,next);return {upgrades:next,factors};});}
  return {ready,status,charge,shot,ordnance,generatorRound};
