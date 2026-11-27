@@ -22,6 +22,13 @@ window.gg14GateNext=()=>{if(joined)socket.emit('v14:gateNext');};
 window.gg14GateLeave=()=>{if(joined)socket.emit('v14:gateLeave');};
 window.gg14GateState=()=>gateState;
 window.gg15Pilot=()=>state.players.find(p=>p.id===meId)||null;
+let groupState=null;
+window.gg15Group=(action,data={})=>new Promise((resolve,reject)=>{
+ if(!joined||!socket.connected){reject(Error('Conéctate primero'));return;}
+ socket.timeout(10000).emit('v15:group',{...data,action},(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Grupo no disponible'));else{groupState=r;resolve(r);}});
+});
+socket.on('v15:group',r=>{groupState=r;window.dispatchEvent(new CustomEvent('gg15:group',{detail:r}));});
+socket.on('disconnect',()=>{groupState=null;});
 window.gg15Company=company=>new Promise((resolve,reject)=>{
  if(!joined||!socket.connected){reject(Error('Conéctate primero'));return;}
  socket.timeout(10000).emit('v15:company',company,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Cambio no disponible'));else resolve(r);});
