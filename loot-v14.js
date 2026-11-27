@@ -6,4 +6,18 @@ function bonusLoot(roll,amountRoll){
  for(const [code,weight,values] of BONUS){if(roll<weight){return {code,quantity:values[Math.min(values.length-1,Math.floor(amountRoll*amountRoll*values.length))]};}roll-=weight;}
  throw Error('Invalid loot table');
 }
-module.exports={BONUS,bonusLoot};
+// Provisional balance for green-key pirate chests; all rolls are server-side.
+const PIRATE=Object.freeze([
+ Object.freeze({code:'UCB-100',quantity:500,weight:45}),
+ Object.freeze({code:'uridium',quantity:500,weight:25}),
+ Object.freeze({code:'credits',quantity:25000,weight:15}),
+ Object.freeze({code:'log-disk',quantity:5,weight:10}),
+ Object.freeze({code:'LF-3',quantity:1,category:'lasers',weight:4}),
+ Object.freeze({code:'LF-4',quantity:1,category:'lasers',weight:1})
+]);
+function pirateLoot(roll){
+ if(!Number.isInteger(roll)||roll<0||roll>=100)throw Error('Invalid pirate roll');
+ for(const {weight,...reward} of PIRATE){if(roll<weight)return reward;roll-=weight;}
+ throw Error('Invalid pirate loot table');
+}
+module.exports={BONUS,bonusLoot,PIRATE,pirateLoot};
