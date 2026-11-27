@@ -8,7 +8,7 @@ function button(text,fn){const b=el('button',text);b.type='button';b.onclick=fn;
 function balance(){return 'Créditos: '+fmt(state.balance.credits)+'   |   Uridium: '+fmt(state.balance.uridium);}
 async function refresh(){state=await api('inventory');window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:state}));}
 async function open(which){if(busy)return;if(modal?.open){modal.close();return;}mode=which; if(!modal){modal=el('dialog',null,'gg13');const head=el('header');head.append(el('strong','GOLD GAMING • V1.3'),button('Cerrar',()=>{if(!busy)modal.close();}));body=el('main');status=el('footer');status.setAttribute('role','status');modal.append(head,body,status);modal.addEventListener('cancel',e=>{if(busy)e.preventDefault();});document.body.append(modal);}modal.showModal();body.replaceChildren(el('p','Cargando…'));status.textContent='';busy=true;try{cat=await api('catalog');await refresh();render();}catch(e){body.replaceChildren(el('p',e.message));}finally{busy=false;}}
-function render(){body.replaceChildren();status.textContent=balance();if(mode==='Tienda')shop();else if(mode==='Hangar')hangar();else inventory();}
+function render(){body.replaceChildren();status.textContent=balance();if(mode==='Portales'){gates();return;}if(mode==='Tienda')shop();else if(mode==='Hangar')hangar();else inventory();}
 function shop(){const layout=el('div',null,'gg13-shop'),nav=el('aside'),grid=el('section',null,'gg13-grid'),detail=el('section',null,'gg13-detail');layout.append(nav,grid,detail);body.append(layout);
 function list(category){grid.replaceChildren();detail.replaceChildren(el('p','Selecciona un objeto'));for(const p of (category==='petGear'?[{id:'G-AL1',name:'G-AL1 Auto-botín',price:state.items.some(i=>i.category==='pet')&&!state.items.some(i=>i.code==='G-AL1')?7500:null,currency:'uridium'}]:category==='fuel'?[{id:'pet-fuel',name:'Combustible P.E.T.',price:state.items.some(i=>i.category==='pet')?.25:null,currency:'uridium'}]:category==='pet'?[{id:'pet-10',name:'P.E.T. 10',hp:50000,price:state.items.some(i=>i.category==='pet')?null:50000,currency:'uridium'}]:category==='drones'?['flax','iris'].map(id=>({id,name:id.toUpperCase(),...cat.drones[id],price:cat.drones[id].prices[state.items.filter(i=>i.category==='drones'&&['flax','iris'].includes(i.code)).length]??null})):cat[category])){const card=button('',()=>select(category,p));card.append(el('span',category==='ships'?'◇':category==='lasers'?'╱╱':category==='ammo'?'•••':category==='shields'?'◈':'»','gg13-symbol'),el('strong',p.name||p.id),el('small',p.price==null?'Recompensa':fmt(p.price)+' '+p.currency));grid.append(card);}}
 function select(category,p){detail.replaceChildren(el('h3',p.name||p.id));for(const k of ['hp','speed','damage','shield','absorption','lasers','generators','multiplier'])if(p[k]!=null)detail.append(el('p',k+': '+p[k]));if(p.price==null||p.id==='phoenix'){detail.append(el('p','No disponible para compra'));return;}const qty=el('input');qty.type='number';qty.min='1';qty.max=category==='petGear'?'1':category==='pet'?'1':category==='drones'?'1':category==='ships'?'1':category==='ammo'?'100000':'100';qty.value=category==='fuel'?'1000':'1';if(category==='fuel'){qty.min='4';qty.max=String(50000-Number(state.ammo.find(a=>a.code==='pet-fuel')?.quantity||0));qty.step='4';}const total=el('p');const buy=button('COMPRAR',async()=>{if(busy||!qty.checkValidity())return;busy=true;buy.disabled=true;const requestId=crypto.randomUUID();try{await api('purchase',{category,code:p.id,quantity:Number(qty.value),requestId});await refresh();status.textContent='Compra confirmada • '+balance();if(['drones','pet','petGear','fuel'].includes(category))list(category);}catch(e){status.textContent=e.message;}finally{busy=false;buy.disabled=false;}});const update=()=>{total.textContent='Total: '+fmt(Number(qty.value)*p.price)+' '+p.currency;};qty.oninput=update;update();detail.append(qty,total,buy);}
@@ -24,5 +24,32 @@ else{const n=dest.filter(x=>(items.find(y=>y.instanceId===x)?.category==='lasers
 for(const c of draft.configs)for(const a of all(c)){const pos=a.indexOf(id);if(pos>=0)a.splice(pos,1);}dest.push(id);draw();}
 function draw(){middle.replaceChildren(el('h3','Equipamiento'));for(let t=0;t<2;t++){const b=button('Configuración '+(t+1),()=>{tab=t;destination='ship';draw();});b.disabled=tab===t;middle.append(b);}const ship=cat.ships.find(s=>s.id===draft.ship);middle.append(el('p','Láseres: '+ship.lasers+' | Generadores: '+ship.generators));const pick=el('select');for(const [id,label] of [['ship','NAVE'],...drones.map((d,i)=>[d.instanceId,d.code.toUpperCase()+' '+(i+1)])]){const o=el('option',label);o.value=id;pick.append(o);}pick.value=destination;pick.onchange=()=>{destination=pick.value;draw();};middle.append(pick);const slots=el('div',null,'gg13-grid');slots.ondragover=e=>e.preventDefault();slots.ondrop=e=>{e.preventDefault();move(e.dataTransfer.getData('text/plain'));};for(const id of current()){const i=items.find(x=>x.instanceId===id);if(i)slots.append(button(i.code+' ×',()=>{const a=current();a.splice(a.indexOf(id),1);draw();}));}slots.append(el('p','Arrastra o selecciona equipo'));middle.append(slots);right.replaceChildren(el('h3','Inventario'));const bag=el('div',null,'gg13-grid');for(const i of items.filter(i=>!draft.configs.some(c=>all(c).some(a=>a.includes(i.instanceId)))&&(destination==='ship'||i.category!=='engines'))){const b=button(i.code+' · N'+i.level,()=>move(i.instanceId));b.draggable=true;b.ondragstart=e=>e.dataTransfer.setData('text/plain',i.instanceId);bag.append(b);}right.append(bag);}
 draw();}
+async function gates(){
+ body.replaceChildren(el('h2','Puertas galácticas'),el('p','Cargando generador…'));
+ try{
+  const data=await api('gates');if(!modal.open||mode!=='Portales')return;
+  function draw(){
+   body.replaceChildren(el('h2','Generador de puertas galácticas'));
+   const nav=el('div',null,'gg13-grid');
+   for(const id of data.gates){const b=button(id.toUpperCase(),()=>{});b.disabled=true;nav.append(b);}
+   body.append(nav,el('h3','ALPHA'),el('p','Versión de prueba: construcción de puerta; oleadas aún no disponibles.'));
+   const a=data.alpha;
+   const progress=el('progress');progress.max=a.required;progress.value=a.pieces.length;
+   body.append(progress,el('p',a.pieces.length+' / '+a.required+' piezas · Energía extra: '+fmt(data.energy)+' · Multiplicador ×'+a.multiplier));
+   const grid=el('div',null,'gg13-grid');
+   for(let i=1;i<=a.required;i++){const tile=el('span',(a.pieces.includes(i)?'✓ ':'○ ')+i,'gg13-tile');grid.append(tile);}
+   body.append(grid);
+   const mult=el('input');mult.type='checkbox';const label=el('label',' Usar multiplicador');label.prepend(mult);
+   const paid=el('input');paid.type='checkbox';const pl=el('label',' Permitir gasto de 100 uridium si no hay energía');pl.prepend(paid);
+   const spin=button('GENERAR',async()=>{
+    if(busy)return;busy=true;spin.disabled=true;
+    try{const result=await api('gates/spin',{gate:'alpha',requestId:crypto.randomUUID(),useMultiplier:mult.checked,allowUridium:paid.checked});
+     Object.assign(a,{pieces:result.pieces,multiplier:result.multiplier,ready:result.ready});data.energy=result.energy;state.balance=result.balance;draw();status.textContent='Resultado: '+result.reward.code+' ×'+result.reward.quantity+' · '+balance();
+    }catch(e){status.textContent=e.message;}finally{busy=false;spin.disabled=a.ready;}
+   });spin.disabled=a.ready;body.append(label,pl,spin);if(a.ready)body.append(el('p','Puerta ensamblada. Acceso al combate pendiente.'));
+  }
+  draw();
+ }catch(e){if(modal.open&&mode==='Portales')body.replaceChildren(el('p',e.message));}
+}
 window.gg13Open=open;
 })();
