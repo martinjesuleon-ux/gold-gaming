@@ -69,20 +69,36 @@ socket.on('v14:hadesLobby',room=>{hadesLobby=room;window.dispatchEvent(new Custo
 socket.on('disconnect',()=>{hadesLobby=null;});
 socket.on('v14:gateState',s=>{gateState={...s,localUntil:s.phase==='between'?performance.now()+1000*(s.seconds||10):0};entities.clear();selected=null;attacking=false;dest=null;notice(s.inside?(s.gate||'Puerta').toUpperCase()+' · Oleada '+s.wave+'/'+s.total+' · Vidas '+s.lives+(s.phase==='countdown'?' · Inicio en '+s.seconds+' s':s.phase==='between'?' · Portal de salida abierto durante 10 s':''):'De vuelta al sector');window.dispatchEvent(new CustomEvent('gg14:gateState',{detail:s}));});
 socket.on('disconnect',()=>{gateState={inside:false};});
-let petMode='off',petFuel=null,petPending=false;
+let petMode='off',petFuel=null,petPending=false,petOwned=null,petGear=null;
 function renderPetPanel(){
  const panel=document.querySelector('.gg-window[data-key="pet"]');if(!panel)return;
  let controls=panel.querySelector('.pet-controls');
- if(!controls){panel.querySelector('p')?.remove();controls=document.createElement('div');controls.className='pet-controls';panel.append(controls);}
- controls.replaceChildren();
- const info=document.createElement('p');info.textContent='P.E.T. '+(petPending?'Activando…':petMode==='off'?'Apagado':petMode==='loot'?'Auto-botín':'Pasivo')+' · Combustible '+(petFuel===null?'—':fmt(petFuel));controls.append(info);
- for(const [mode,label] of [['off','Apagar'],['passive','Pasivo'],['loot','Auto-botín']]){
-  const b=document.createElement('button');b.type='button';b.textContent=label;b.disabled=petPending&&mode!=='off';b.onclick=()=>{if(joined)socket.emit('v14:pet',mode);};controls.append(b);
+ if(!controls){
+  panel.querySelector('p')?.remove();controls=document.createElement('div');controls.className='pet-controls';panel.append(controls);
+  const art=window.ggShopVisual.art('pet',{id:'pet-10',name:'P.E.T. 10'});controls.append(art);
+  const info=document.createElement('p');info.className='gg-pet-status';controls.append(info);
+  const fuelLabel=document.createElement('p');fuelLabel.className='gg-pet-fuel';controls.append(fuelLabel);
+  const meter=document.createElement('progress');meter.max=50000;meter.setAttribute('aria-label','Combustible P.E.T.');controls.append(meter);
+  const modes=document.createElement('div');modes.className='gg-pet-modes';controls.append(modes);
+  for(const [mode,label] of [['off','Apagar'],['passive','Pasivo'],['loot','Auto-botín']]){
+   const b=document.createElement('button');b.type='button';b.dataset.mode=mode;b.textContent=label;b.onclick=()=>{if(joined)socket.emit('v14:pet',mode);};modes.append(b);
+  }
+  const kami=document.createElement('button');kami.type='button';kami.className='gg-pet-kami';kami.textContent='KAMIKAZE';kami.title='PRUEBA: 1.000.000 de daño a NPC en radio 1.500 · recarga 10 s';kami.onclick=()=>{if(joined)socket.emit('v16:kamikaze');};controls.append(kami);
+  const gear=document.createElement('p');gear.className='gg-pet-gear';controls.append(gear);
+  const store=document.createElement('button');store.type='button';store.className='gg-pet-shop';store.textContent='Tienda P.E.T.';store.onclick=()=>window.gg13Open?.('Tienda');controls.append(store);
  }
- const kami=document.createElement('button');kami.type='button';kami.textContent='KAMIKAZE';kami.title='PRUEBA: 1.000.000 de daño a NPC en radio 1.500 · recarga 10 s';kami.disabled=petPending||petMode==='off';kami.onclick=()=>{if(joined)socket.emit('v16:kamikaze');};controls.append(kami);
+ const info=controls.querySelector('.gg-pet-status'),fuelLabel=controls.querySelector('.gg-pet-fuel'),meter=controls.querySelector('progress'),gear=controls.querySelector('.gg-pet-gear');
+ setHudText(info,petOwned===false?'P.E.T. no adquirido':petPending?'Activando…':petMode==='off'?'Apagado':petMode==='loot'?'Auto-botín':'Pasivo');
+ info.dataset.phase=petPending?'pending':petMode==='off'?'off':'active';
+ setHudText(fuelLabel,'Combustible '+(petFuel===null?'—':fmt(petFuel))+' / 50.000');
+ if(petFuel===null)meter.removeAttribute('value');else setHudValue(meter,Math.max(0,Math.min(50000,petFuel)));
+ for(const b of controls.querySelectorAll('[data-mode]')){const mode=b.dataset.mode;b.setAttribute('aria-pressed',String(!petPending&&petMode===mode));b.disabled=mode!=='off'&&(petPending||petOwned===false||(mode==='loot'&&petGear!==null&&!petGear.has('G-AL1')));}
+ controls.querySelector('.gg-pet-kami').disabled=petPending||petMode==='off'||petOwned===false||(petGear!==null&&!petGear.has('G-KK1'));
+ setHudText(gear,petGear===null?'Módulos: sin consultar':'Auto-botín: '+(petGear.has('G-AL1')?'instalado':'no adquirido')+' · Kamikaze: '+(petGear.has('G-KK1')?'instalado':'no adquirido'));
 }
 socket.on('v14:petState',s=>{petMode=s.mode;petFuel=s.fuel;petPending=!!s.pending;renderPetPanel();});
-window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);renderPetPanel();});
+window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);petOwned=e.detail.items.some(i=>i.category==='pet');petGear=new Set(e.detail.items.map(i=>i.code).filter(code=>['G-AL1','G-KK1'].includes(code)));renderPetPanel();});
+socket.on('disconnect',()=>{petMode='off';petFuel=null;petPending=false;petOwned=null;petGear=null;renderPetPanel();});
 document.addEventListener('DOMContentLoaded',()=>queueMicrotask(renderPetPanel));
 const ammoCodes=['LCB-10','MCB-25','MCB-50','UCB-100','SAB-50','RSB-75'];let selectedAmmo='LCB-10';const ammoStock={};
 const rocketCodes=['R-310','PLT-2026','PLT-2021','PLT-3030'];let rocketBusy=false,rocketUntil=0;
