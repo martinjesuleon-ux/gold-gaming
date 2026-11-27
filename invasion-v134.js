@@ -48,5 +48,29 @@ function hit(e,pilotId,npcId,damage,now=Date.now()){
 }
 function standings(e){return [...e.scores].map(([id,points])=>({id,points})).sort((a,b)=>b.points-a.points||String(a.id).localeCompare(String(b.id)));}
 function announcement(e,now=Date.now()){if(!['wave','boss','intermission'].includes(e.phase)||now<e.nextAnnounce)return null;e.nextAnnounce=now+RULES.announcementMs;return standings(e);}
-function preview(level){return {rules:RULES,difficulty:tier(level),waves:WAVES,enabled:false};}
-module.exports={RULES,WAVES,tier,createEvent,enter,advance,hit,standings,announcement,preview};
+function createAdmission({eligible=()=>true}={}){
+ const events=new Map(),membership=new Map();
+ function open(difficulty,now=Date.now()){
+  const old=events.get(difficulty);if(old?.phase==='entry'&&now<old.entryUntil)throw fail('Portal ya abierto');
+  if(old)close(old,'cancelled');
+  const e=createEvent(difficulty,now);events.set(difficulty,e);return e;
+ }
+ function join(p,now=Date.now()){
+  if(!p||!eligible(p))throw fail('Piloto no disponible');
+  const difficulty=tier(p.level),e=events.get(difficulty);
+  if(!e)throw fail('Portal cerrado');
+  if(membership.has(p.id)&&membership.get(p.id)!==e)throw fail('Ya estás inscrito');
+  enter(e,p.id,p.level,now);membership.set(p.id,e);return e;
+ }
+ function leave(id){const e=membership.get(id);if(!e)return false;membership.delete(id);e.players.delete(id);e.scores.delete(id);return true;}
+ function close(e,phase){e.phase=phase;for(const id of e.players)membership.delete(id);if(events.get(e.difficulty)===e)events.delete(e.difficulty);}
+ function tick(now=Date.now()){
+  const closed=[];
+  for(const e of events.values())if(now>=e.entryUntil){const ids=[...e.players];close(e,ids.length?'preview-complete':'cancelled');closed.push({event:e,ids});}
+  return closed;
+ }
+ function view(p){const e=events.get(tier(p?.level));return {enabled:true,joined:!!e&&membership.get(p?.id)===e,event:e?{id:e.id,difficulty:e.difficulty,map:e.map,phase:e.phase,entryUntil:e.entryUntil,participants:e.players.size,capacity:RULES.capacity}:null};}
+ return {open,join,leave,tick,view};
+}
+function preview(level){return {rules:RULES,difficulty:tier(level),waves:WAVES,enabled:false,lobbyEnabled:process.env.GG_INVASION_LOBBY_ENABLED==='1'};}
+module.exports={RULES,WAVES,tier,createEvent,enter,advance,hit,standings,announcement,preview,createAdmission};
