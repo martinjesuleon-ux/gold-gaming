@@ -171,6 +171,8 @@ function createStations(pool){
    const prior=(await c.query('SELECT response FROM gg_cbs_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(prior){await c.query('COMMIT');return prior.response;}
    const m=(await c.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1 FOR UPDATE OF m,c',[id])).rows[0];
    if(!m||!(m.leader===id||m.permissions.includes('cbs')))throw fail('Se requiere permiso CBS del clan');
+   await require('./equipment-upgrade-v19').settle(c,id);
+   if((await c.query('SELECT 1 FROM gg_v19_equipment_jobs WHERE account_id=$1 AND instance_id=ANY($2::uuid[]) LIMIT 1',[id,moduleIds])).rowCount)throw fail('Espera a que terminen las mejoras de los módulos antes de construir');
    const rows=(await c.query("SELECT instance_id AS \"instanceId\",code,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-modules' AND instance_id=ANY($2::uuid[]) FOR UPDATE",[id,moduleIds])).rows;
    if(rows.length!==10)throw fail('Faltan módulos en tu inventario');
    const modules=validateModules(moduleIds.map(mid=>rows.find(r=>r.instanceId===mid)),minutes*60000);
