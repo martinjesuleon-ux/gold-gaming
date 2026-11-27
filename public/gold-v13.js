@@ -107,7 +107,7 @@ async function stationMenu(){
     const minutes=el('input');minutes.type='number';minutes.min='5';minutes.max='60';minutes.value='5';details.append(el('p','Minutos de construcción'),minutes);
     const build=button('CONSTRUIR',()=>{const moduleIds=selects.map(x=>x.value);if(moduleIds.some(x=>!x)||new Set(moduleIds).size!==10){status.textContent='Selecciona diez módulos distintos';return;}run({action:'build',asteroidId:a.id,minutes:Number(minutes.value),moduleIds});});build.disabled=!d.constructionEnabled;details.append(build);tile.append(details);
    }grid.append(tile);}
-  body.append(grid,el('p','Módulos disponibles: '+d.inventory.length));
+  body.append(grid,el('p','Módulos disponibles: '+d.inventory.length));if(d.broken?.length){body.append(el('h3','Módulos recuperados · rotos'));for(const item of d.broken)body.append(el('p',item.code+' · Nv. '+item.level+' · reparación pendiente'));}
  }catch(e){if(modal?.open&&mode==='Estaciones CBS')body.replaceChildren(el('p',e.message));}
 }
 async function boosterMenu(){
