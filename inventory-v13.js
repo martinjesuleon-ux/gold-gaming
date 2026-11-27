@@ -202,6 +202,7 @@ function createInventory(pool){
    if(reward.honor>0)reward.honor=Math.round(reward.honor*Math.max(1,Math.min(1.5,Number(honorFactor)||1)));
    if(reward.penalty)await c.query('INSERT INTO gg_v15_honor_penalty(account_id,ally_step,ally_last) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET ally_step=EXCLUDED.ally_step,ally_last=EXCLUDED.ally_last',[attacker,reward.penalty.next,reward.penalty.last]);
    const balance=(await c.query('UPDATE player_progress SET credits=GREATEST(0,credits+$2),experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[attacker,reward.credits,reward.xp,reward.uridium,reward.honor])).rows[0];
+   await c.query('INSERT INTO gg_rank_kills(attacker,victim,ally) VALUES($1,$2,$3)',[attacker,victim,!!reward.penalty]);
    const rankChanged=reward.honor>=0&&await drones.award(c,attacker,dronePoints);return {reward,balance,rankChanged};
   });
  }

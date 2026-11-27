@@ -593,7 +593,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  const maintenance=setInterval(()=>{
   if(closing||maintenanceBusy)return;maintenanceBusy=true;
   const job=(async()=>{
-   await accounts.auctionSettle();const charges=await accounts.collectClanTaxes();
+   await accounts.rankingRefresh?.();await accounts.auctionSettle();const charges=await accounts.collectClanTaxes();
    for(const charge of charges){const p=active.get(charge.id);if(p){io.to(p.id).emit('notice','Impuesto del clan: '+charge.credits+' créditos / '+charge.uridium+' uridium');}}
    const tags=await accounts.clanTags([...active.keys()]);const byId=new Map(tags.map(t=>[t.account_id,t.tag]));
    for(const p of players.values())p.clanTag=byId.get(p.accountId)||'';
