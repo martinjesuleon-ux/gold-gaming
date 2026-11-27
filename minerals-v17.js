@@ -1,4 +1,5 @@
 'use strict';
+const {bonus:pilotBonus}=require('./pilot-v19');
 const catalog=require('./data/catalog-v13.json');const {penalty}=require('./pvp-v15');
 const MINERALS=['prometium','endurium','terbium','prometid','duranium','promerium','seprom','xenomit','paladio'];
 const PRICES={prometium:10,endurium:15,terbium:25,prometid:50,duranium:75,promerium:150,seprom:300};
@@ -47,7 +48,7 @@ function createMinerals(pool){
  async function labRow(c,id){const row=(await c.query('SELECT data FROM gg_v17_skylab WHERE account_id=$1',[id])).rows[0];return row?.data||initial(Date.now());}
  async function save(c,id,lab){await c.query('INSERT INTO gg_v17_skylab(account_id,data) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET data=EXCLUDED.data',[id,JSON.stringify(lab)]);}
  async function cargo(c,id){const rows=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1 AND code=ANY($2::text[])',[id,MINERALS])).rows;return Object.fromEntries(rows.map(x=>[x.code,Number(x.quantity)]));}
- async function maxCargo(c,id){const row=(await c.query('SELECT ship FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];const owned=(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='cpus' AND code='GEMINEX-XI' LIMIT 1",[id])).rowCount;return (catalog.ships.find(s=>s.id===(row?.ship||'phoenix'))?.cargo||100)*(owned?2:1);}
+ async function maxCargo(c,id){const row=(await c.query('SELECT ship FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];const owned=(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='cpus' AND code='GEMINEX-XI' LIMIT 1",[id])).rowCount;const skills=(await c.query('SELECT skills FROM gg_v19_pilot WHERE account_id=$1',[id])).rows[0]?.skills||{};return Math.floor((catalog.ships.find(s=>s.id===(row?.ship||'phoenix'))?.cargo||100)*(owned?2:1)*pilotBonus(skills).capacity);}
  async function add(c,id,k,n){if(!n)return;await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,k,n]);}
  async function take(c,id,k,n){const r=await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,k,n]);if(!r.rowCount)throw fail('Mineral insuficiente: '+k);}
  async function view(c,id,p,lab){const metrics=tick(lab,Date.now());await save(c,id,lab);const b=await cargo(c,id),limit=await maxCargo(c,id);return {lab,metrics,cargo:b,cargoUsed:cargoUsed(b),capacity:limit,limits:Object.fromEntries(MINERALS.filter(k=>k!=='paladio').map(k=>[k,capacity(lab.levels.storage,k)])),rates:Object.fromEntries(PRODUCTION.map(k=>[k,RATES[lab.levels[k]]/(RECIPES[k]?20:1)])),prices:PRICES,recipes:RECIPES,balance:{credits:p.credits,uridium:p.uridium},honor:Number(p.honor),provisional:true};}
@@ -57,7 +58,7 @@ function createMinerals(pool){
   if(!Object.keys(taken).length)return {taken,balance:p,penalty:0};
   let fine=0;
   if(owner&&owner!==id){const level=(await c.query('SELECT level FROM player_progress WHERE account_id=$1',[id])).rows[0].level;const prev=(await c.query('SELECT theft_step,theft_last FROM gg_v15_honor_penalty WHERE account_id=$1',[id])).rows[0];const step=penalty(level,prev?.theft_step||0,Number(prev?.theft_last||0),Date.now(),10);fine=step.amount;await c.query('INSERT INTO gg_v15_honor_penalty(account_id,theft_step,theft_last) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET theft_step=EXCLUDED.theft_step,theft_last=EXCLUDED.theft_last',[id,step.next,step.last]);await c.query('UPDATE player_progress SET honor=honor-$2 WHERE account_id=$1',[id,fine]);p.honor=String(Number(p.honor)-fine);}
-  for(const [k,n] of Object.entries(taken))await add(c,id,k,n);
+  const skills=(await c.query('SELECT skills FROM gg_v19_pilot WHERE account_id=$1',[id])).rows[0]?.skills||{},extra=pilotBonus(skills).cargo-1;const bonusCargo=fitCargo(Object.fromEntries(Object.entries(taken).map(([k,n])=>[k,Math.floor(n*extra)])),Math.max(0,limit-cargoUsed(b)-cargoUsed(taken)));for(const [k,n] of Object.entries(taken))await add(c,id,k,n+(bonusCargo[k]||0));
   return {taken,balance:p,penalty:fine};
  });}
  async function status(id){return tx(id,async(c,p)=>view(c,id,p,await labRow(c,id)));}
