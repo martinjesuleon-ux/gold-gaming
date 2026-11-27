@@ -326,7 +326,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   const {gate,requestId,useMultiplier=false,allowUridium=false}=body||{};
   if(!GATES.includes(gate)||!validRequest(requestId)||typeof useMultiplier!=='boolean'||typeof allowUridium!=='boolean')throw fail('Solicitud de puerta inválida');
   return transaction(id,async(c,p)=>{
-   const old=(await c.query('SELECT response FROM gg_v14_gate_spins WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old)return old.response;
+   const old=(await c.query('SELECT response FROM gg_v14_gate_spins WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){const prior=old.response;if(prior.request&&(prior.request.action!==action||prior.request.gate!==gate||prior.request.count!==(body.count??1)||prior.request.useMultiplier!==useMultiplier||prior.request.allowUridium!==allowUridium))throw fail('Solicitud ya utilizada',409);return {...await gateView(c,id,await gateRows(c,id)),reward:prior.reward,batch:prior.batch,duplicate:true};}
    const rows=await gateRows(c,id),g=rows[gate],def=DEFS[gate];let reward=null,batch=null;
    if(action==='spin'){
     if(gate==='kronos')throw fail('Kronos se construye completando otras puertas');
@@ -366,7 +366,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     if(!allowUridium||Number(p.uridium)<25000)throw fail('Se necesitan 25.000 uridium y autorización');
     await c.query('UPDATE player_progress SET uridium=uridium-25000 WHERE account_id=$1',[id]);g.lives++;await saveGateRow(c,id,g);
    }else throw fail('Acción inválida');
-   const result={...await gateView(c,id,rows),reward,batch};
+   const result={...await gateView(c,id,rows),reward,batch,request:{action,gate,count:body.count??1,useMultiplier,allowUridium}};
    await c.query('INSERT INTO gg_v14_gate_spins(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);return result;
   });
  }
