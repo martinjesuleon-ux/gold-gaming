@@ -88,6 +88,21 @@ function passiveRepairRate(modules,lastHit,now=Date.now()){
  const repair=modules.find(m=>m.code==='REPM-1'&&m.hp>0);
  return repair?20500*(1+(repair.level-1)*.02):20500/20;
 }
+// Lazy repair: account for elapsed time exactly once, including server restarts.
+function repairState(station,now=Date.now()){
+ const start=Math.max(Number(station.ready_at),Number(station.repair_at??station.ready_at));
+ const until=Math.max(start,now),lastHit=Number(station.last_hit||0);
+ const passiveStart=Math.max(start,lastHit+RULES.repairDelay);
+ const passiveMs=Math.max(0,until-passiveStart);
+ const rate=passiveRepairRate(station.modules,lastHit,until);
+ const emergencyEnd=Number(station.emergency_until||0);
+ const emergencyMs=Math.max(0,Math.min(until,emergencyEnd)-Math.max(start,emergencyEnd-EMERGENCY.duration));
+ const modules=station.modules.map(m=>{
+  const normal=repairModule(m,rate,passiveMs);
+  return m.slot===station.emergency_slot?repairModule(normal,EMERGENCY.rate,emergencyMs):normal;
+ });
+ return {modules,repairAt:until};
+}
 function destructionShares(contributions,now=Date.now()){
  // Wiki specifies participants from the prior ten minutes, not distribution weights.
  // Equal share among unique eligible attackers, deterministic remainder by account ID.
@@ -100,14 +115,17 @@ function createStations(pool){
  ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS clock_at bigint;
  ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS charge_units bigint;
  ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS last_hit bigint NOT NULL DEFAULT 0;
+ ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS repair_at bigint;
+ ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS emergency_until bigint NOT NULL DEFAULT 0;
+ ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS emergency_slot integer;
  CREATE TABLE IF NOT EXISTS gg_cbs_hits(asteroid_id text NOT NULL REFERENCES gg_cbs_stations(asteroid_id) ON DELETE CASCADE,account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,at_ms bigint NOT NULL,damage bigint NOT NULL CHECK(damage>0),PRIMARY KEY(asteroid_id,account_id));`);}
  async function status(id,map){
   const member=(await pool.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1',[id])).rows[0];
   const canManage=!!member&&(member.leader===id||member.permissions.includes('cbs'));
-  const stations=(await pool.query('SELECT s.clan_id,s.asteroid_id,s.ready_at,s.down_until,s.clock_at,s.charge_units,s.modules,c.tag AS clan_tag FROM gg_cbs_stations s JOIN gg_v15_clans c ON c.id=s.clan_id')).rows;
+  const stations=(await pool.query('SELECT s.clan_id,s.asteroid_id,s.ready_at,s.down_until,s.clock_at,s.charge_units,s.modules,s.last_hit,s.repair_at,s.emergency_until,s.emergency_slot,c.tag AS clan_tag FROM gg_cbs_stations s JOIN gg_v15_clans c ON c.id=s.clan_id')).rows;
   const inventory=(await pool.query("SELECT instance_id AS \"instanceId\",code,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-modules' ORDER BY code,instance_id",[id])).rows;
   const broken=(await pool.query(`SELECT instance_id AS "instanceId",code,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-broken' ORDER BY code,instance_id`,[id])).rows;
-  return {catalog:MODULES,rules:RULES,broken,canManage,constructionEnabled:process.env.GG_CBS_BUILD_ENABLED==='1',asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,modules:s.modules.map(({slot,code,level,hp,shield})=>({slot,code,level,hp,shield})),owned:member?.id===s.clan_id,state:deflector(s).mode,deflector:deflector(s)}:null};}),inventory,combatEnabled:process.env.GG_CBS_COMBAT_ENABLED==='1'};
+  return {catalog:MODULES,rules:RULES,broken,canManage,constructionEnabled:process.env.GG_CBS_BUILD_ENABLED==='1',asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,modules:repairState(s).modules.map(({slot,code,level,hp,shield})=>({slot,code,level,hp,shield})),owned:member?.id===s.clan_id,state:deflector(s).mode,deflector:deflector(s)}:null};}),inventory,repairEnabled:process.env.GG_CBS_COMBAT_ENABLED==='1',combatEnabled:process.env.GG_CBS_COMBAT_ENABLED==='1'};
  }
  async function build(id,{asteroidId,moduleIds,minutes,requestId}={},position){
   if(!uuid(requestId)||!Array.isArray(moduleIds)||moduleIds.length!==10||!moduleIds.every(uuid)||new Set(moduleIds).size!==10)throw fail('Solicitud inválida');
@@ -151,7 +169,7 @@ function createStations(pool){
    const member=(await c.query('SELECT clan_id FROM gg_v15_clan_members WHERE account_id=$1',[id])).rows[0];
    if(member?.clan_id===station.clan_id||station.builder===id)throw fail('No puedes atacar tu propia estación');
    if(member&&(await c.query("SELECT 1 FROM gg_v15_clan_diplomacy WHERE state='alliance' AND ((source=$1 AND target=$2) OR (source=$2 AND target=$1))",[member.clan_id,station.clan_id])).rowCount)throw fail('Estación aliada');
-   const now=Date.now(),result=stationHit(station,slot,damage,now);
+   const now=Date.now(),repaired=repairState(station,now),result=stationHit({...station,modules:repaired.modules},slot,damage,now);
    if(!result.applied)throw fail('Módulo protegido o destruido');
    let stock=null;
    if(weapon){const ammo=catalog.ammo.find(a=>a.id===weapon.code);if(!ammo||ammo.shieldOnly||!Number.isSafeInteger(weapon.count)||weapon.count<1||weapon.count>100)throw fail('Munición no compatible');
@@ -173,11 +191,27 @@ function createStations(pool){
    const payouts=new Map(shares.map(r=>[r.accountId,{...r}]));if(uridium){const p=payouts.get(id)||{accountId:id,credits:0,xp:0,honor:0,uridium:0};p.uridium+=uridium;payouts.set(id,p);}
    for(const [accountId,p] of [...payouts].sort(([a],[b])=>a.localeCompare(b)))await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,honor=honor+$4,uridium=uridium+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1',[accountId,p.credits,p.xp,p.honor,p.uridium]);
    if(result.stationDestroyed)await c.query('DELETE FROM gg_cbs_stations WHERE asteroid_id=$1',[asteroidId]);
-   else await c.query('UPDATE gg_cbs_stations SET modules=$2,last_hit=$3 WHERE asteroid_id=$1',[asteroidId,JSON.stringify(result.modules),now]);
+   else await c.query('UPDATE gg_cbs_stations SET modules=$2,last_hit=$3,repair_at=$3 WHERE asteroid_id=$1',[asteroidId,JSON.stringify(result.modules),now]);
    const response={stock,applied:result.applied,destroyed:result.destroyed,stationDestroyed:result.stationDestroyed,uridium,shares};
    await c.query('INSERT INTO gg_cbs_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(response)]);await c.query('COMMIT');return response;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- return {ready,status,build,lower,hit};
+ async function emergency(id,{asteroidId,slot,requestId}={}){
+  if(!uuid(requestId)||!ASTEROIDS.some(a=>a.id===asteroidId)||!Number.isInteger(slot)||slot<0||slot>9)throw fail('Solicitud inválida');
+  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413003)');
+   const old=(await c.query('SELECT response FROM gg_cbs_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){await c.query('COMMIT');return old.response;}
+   const member=(await c.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1',[id])).rows[0];
+   if(!member||!(member.leader===id||member.permissions.includes('cbs')))throw fail('Sin permiso CBS');
+   const station=(await c.query('SELECT * FROM gg_cbs_stations WHERE asteroid_id=$1 AND clan_id=$2 FOR UPDATE',[asteroidId,member.id])).rows[0];
+   const now=Date.now();if(!station||now<Number(station.ready_at))throw fail('Estación no disponible');
+   if(Number(station.emergency_until)>now)throw fail('Reparación de emergencia activa');
+   const r=repairState(station,now),m=r.modules.find(m=>m.slot===slot);if(!m||m.hp<=0||m.hp>=moduleLimits(m).hp)throw fail('Módulo sin daño reparable');
+   const paid=await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1 AND uridium>=$2 RETURNING uridium',[id,EMERGENCY.price]);if(!paid.rowCount)throw fail('Uridium insuficiente');
+   const result={slot,until:now+EMERGENCY.duration,uridium:Number(paid.rows[0].uridium)};
+   await c.query('UPDATE gg_cbs_stations SET modules=$2,repair_at=$3,emergency_slot=$4,emergency_until=$5 WHERE asteroid_id=$1',[asteroidId,JSON.stringify(r.modules),r.repairAt,slot,result.until]);
+   await c.query('INSERT INTO gg_cbs_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);await c.query('COMMIT');return result;
+  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
+ }
+ return {ready,status,build,lower,hit,emergency};
 }
-module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,MODULE_REWARDS,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,destructionShares,createStations};
+module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,MODULE_REWARDS,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,repairState,destructionShares,createStations};
