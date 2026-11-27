@@ -2,7 +2,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
 const {CATALOG,factors,createBoosters}=require('../boosters-v112');
 test('wiki boosters price, duration, active and shared effects',()=>{
- assert.equal(Object.keys(CATALOG).length,15);
+ assert.equal(Object.keys(CATALOG).length,18);
+ assert.equal(Object.values(CATALOG).filter(x=>x.price===10000).length,14);
+ for(const code of ['PREMIUM','NBX-B01','QR-01']){assert.equal(CATALOG[code].price,undefined);assert.deepEqual(CATALOG[code].effects,{});assert.deepEqual(CATALOG[code].shared,{});}
  for(const d of Object.values(CATALOG).filter(x=>x.price)){assert.equal(d.price,10000);assert.equal(d.seconds,36000);}
  const now=1000,active={'DMG-B01':2000,'SHD-B02':2000,'MUL-B03':2000,'HP-B01':900};
  const result=factors(active,[{'DMG-B02':2000,'SHD-B02':2000},{'DMG-B02':2000}],now);
