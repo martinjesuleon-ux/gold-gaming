@@ -180,7 +180,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function safeZone(p){if(stationEffects(p).safe)return true;const b=homeBase(p.zone,WORLD.w,WORLD.h);return b?distance(p,b)<b.radius:!!MAPS[p.zone]?.base&&distance(p,{x:WORLD.w/2,y:WORLD.h/2})<450;}
  function personalPortals(p){return galaxyPortals(p.zone,p.company,p.ggBuilt||[],WORLD.w,WORLD.h);}
  function atGalaxyPortal(p,gate){const q=galaxyPortals(p.zone,p.company,[gate],WORLD.w,WORLD.h)[0];return !!q&&distance(p,q)<=125;}
- async function refreshGalaxy(p){const data=await accounts.gateStatus(p.accountId);if(accounts.achievementRead){const a=await accounts.achievementRead(p.accountId);p.pilotTitle=a.title;p.gateRings=a.rings;}if(players.get(p.id)!==p)return;p.ggBuilt=data.gates.filter(g=>data.states[g].built);io.to(p.id).emit('v16:basePortals',{map:p.zone,portals:personalPortals(p)});}
+ function syncSoloGateLives(p,g,snapshot){if(!g||p.gate!==g||g.gate==='hades'||g.closed||g.completed||p.gatePending||!snapshot?.built||snapshot.wave!==g.wave||!Number.isInteger(snapshot.lives)||snapshot.lives<1||snapshot.lives>10||snapshot.lives<=g.lives)return false;g.lives=snapshot.lives;return true;}
+ async function refreshGalaxy(p){const gate=p.gate;const data=await accounts.gateStatus(p.accountId);if(accounts.achievementRead){const a=await accounts.achievementRead(p.accountId);p.pilotTitle=a.title;p.gateRings=a.rings;}if(players.get(p.id)!==p)return;if(syncSoloGateLives(p,gate,data.states[gate?.gate]))io.to(p.id).emit('v214:gateLives',{gate:gate.gate,wave:gate.wave+1,lives:gate.lives});p.ggBuilt=data.gates.filter(g=>data.states[g].built);io.to(p.id).emit('v16:basePortals',{map:p.zone,portals:personalPortals(p)});}
 
  const KAMIKAZE={damage:1000000,radius:1500,cooldown:10000};
  const TEST_KAMIKAZE=Object.freeze({damage:100000000,radius:5000,cooldown:0});
