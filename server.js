@@ -4,7 +4,7 @@ const {factors:boosterFactors}=require('./boosters-v112');const {clanStationEffe
 const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const {MAPS,homeBase,galaxyPortals,portals,requiredLevel,population}=require('./maps-v14');const {eligible,damageFactor}=require('./pvp-v15');const {createGroups}=require('./groups-v15');const {npcCargo}=require('./minerals-v17');const {factor}=require('./upgrades-v18');const {MINES,RULES:MR,mineImpact}=require('./mines-v18');const {repairRate}=require('./cpus-v18');const {TECH,isActive:techActive,leechAmount}=require('./assembly-v19');const {points:dronePoints}=require('./drones-v19');const {get:formationDef,bonuses:formationBonus,stats:formationStats,absorption:formationAbsorption,combatFactor,shieldDelta}=require('./formations-v19');const {ABILITIES,definitions:abilityDefinitions,active:abilityActive,activate:activateAbility,heal,speedFactor,incoming,breakCloak}=require('./abilities-v18');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo,hit}=require('./equipment-v13');
 const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,damage:110},tank:{hp:1800,shield:950,speed:255,damage:155}};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n)),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),random=(a,b)=>a+Math.random()*(b-a),point=()=>({x:random(150,WORLD.w-150),y:random(150,WORLD.h-150)}),validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
-const {buildZoneSnapshots,snapshotFor}=require('./zone-snapshot-v163');const {groupByZone,nearestEligible}=require('./npc-targeting-v163');const {BoxIndex,petEligible}=require('./box-index-v163');const {runDue}=require('./event-calendar-v158');const {runMaintenance,onceAsync}=require('./stability-v160');const {upcomingEvents,createSnapshotCache}=require('./event-feed-v159');
+const {buildZoneSnapshots,snapshotFor}=require('./zone-snapshot-v163');const {groupByZone,nearestEligible}=require('./npc-targeting-v163');const {BoxIndex,petEligible,petResourceEligible}=require('./box-index-v163');const {runDue}=require('./event-calendar-v158');const {runMaintenance,onceAsync}=require('./stability-v160');const {upcomingEvents,createSnapshotCache}=require('./event-feed-v159');
 function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCount=75,accounts=createAccounts(process.env.DATABASE_URL)}={}){
  const app=express(),server=http.createServer(app),io=new Server(server,{maxHttpBufferSize:8192});const hadesLobbies=createHadesLobbies(),groups=createGroups();const players=new Map(),npcs=new Map(),boxes=new BoxIndex(),mines=new Map(),active=new Map(),pending=new Set();let seq=0,tick=0,closing=false;const timers=new Set(),attempts=new Map();
  const {createLobby:makeUBALobby,accept:acceptUBA,advance:advanceUBA,forfeit:forfeitUBA,expireOffer}=require('./uba-v126');const {createArena,command:arenaCommand,tickArenaPaid,viewArena}=require('./uba-arena-v128');
@@ -201,6 +201,21 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const phase=(Date.now()/6500)+(p.petPatrolPhase||0);
   return {x:clamp(p.x+310*Math.cos(phase),25,WORLD.w-25),y:clamp(p.y+310*Math.sin(phase),25,WORLD.h-25)};
  }
+ function tickPetRepair(p,now){
+  if(p.petMode!=='repair'||p.petUntil<=now||!p.petRepairStarted||p.petRepairTickPending)return;
+  if(p.deadUntil||p.attack||p.lastHit>=p.petRepairStarted||p.petRepairUntil&&now>=p.petRepairUntil||p.petVitals?.destroyed||p.petVitals?.hp>=p.petVitals?.maxHp){setPetMode(p,'passive');return;}
+  if(now<p.petRepairNext||!accounts.petRepairHullTick)return;
+  const generation=p.petGeneration,started=p.petRepairStarted;
+  const valid=()=>!closing&&players.get(p.id)===p&&p.petGeneration===generation&&p.petMode==='repair'&&p.petUntil>Date.now()&&!p.deadUntil&&!p.attack&&(p.lastHit||0)<started;
+  p.petRepairTickPending=true;p.petRepairNext=now+1000;
+  const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petRepairHullTick(p.accountId):null).then(v=>{
+   if(!v||!valid())return;
+   p.petVitals=v;if(!p.petRepairUntil)p.petRepairUntil=started+v.durationMs;
+   io.to(p.id).emit('v14:petState',{mode:p.petMode,fuel:p.petFuel,pending:false,vitals:v});
+   if(v.hp>=v.maxHp)setPetMode(p,'passive');
+  }).catch(e=>{if(valid()){setPetMode(p,'passive');io.to(p.id).emit('notice',e.status?e.message:'Reparación del P.E.T. interrumpida');}}).finally(()=>{p.petRepairTickPending=false;pending.delete(job);});
+  p.writes=job;pending.add(job);
+ }
  function shootPetGuard(p,now){
   if(!require('./pet-test-kit-v175').guardEnabled(p.accountId)||!accounts.petGuardShot||p.petShotPending||now<(p.petNextShot||0))return;
   const n=selectGuardTarget(p,npcs.values(),now,600),generation=p.petGeneration;
@@ -239,7 +254,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.writes=job;pending.add(job);return true;
  }
  function setPetMode(p,mode){
-  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;p.petLastHitNpc=null;p.petLastAttackAt=0;p.petGuardStatus=null;p.petNextShot=0;io.to(p.id).emit('v14:petGuard',{target:null});
+  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;p.petLastHitNpc=null;p.petLastAttackAt=0;p.petGuardStatus=null;p.petNextShot=0;p.petRepairStarted=0;p.petRepairNext=0;p.petRepairUntil=0;io.to(p.id).emit('v14:petGuard',{target:null});
   io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel??null,pending:mode!=='off',vitals:p.petVitals||null});
  }
  // Section groups spawn in order. Protegit combat statistics remain provisional.
@@ -357,6 +372,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(closing||b.pending||boxes.get(b.id)!==b||p.cargoBusy||p.cargoRetry>Date.now())return;
   b.pending=true;p.cargoBusy=true;
   const job=p.writes.catch(()=>{}).then(async()=>{
+   if(byPet&&(players.get(p.id)!==p||p.deadUntil||!sameZone(p,b)||!['loot','resource'].includes(p.petMode)||p.petUntil<=Date.now()||Math.hypot(p.petX-b.x,p.petY-b.y)>=35))return;
    const r=await accounts.collectMinerals(p.accountId,b.contents,b.owner);p.honor=Number(r.balance.honor);
    if(!Object.keys(r.taken).length){p.cargoRetry=Date.now()+5000;io.to(p.id).emit('notice','Bodega llena');return;}
    for(const [k,n] of Object.entries(r.taken)){b.contents[k]-=n;if(b.contents[k]<=0)delete b.contents[k];}
@@ -719,7 +735,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }).catch(e=>io.to(p.id).emit('notice',e.status?e.message:'Kamikaze no disponible')).finally(()=>{p.kamiPending=false;pending.delete(job);});
   pending.add(job);
  });
- socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
+ socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
  function broadcastHades(room){if(room)for(const member of room.players)io.to(member.id).emit('v14:hadesLobby',room);}
  socket.on('v14:hadesLobby',async(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
@@ -863,7 +879,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
     if(players.get(p.id)===p&&p.petGeneration===generation)p.petVitals={...v,...(recovered||{})};
    }
    if(closing||players.get(p.id)!==p||p.deadUntil||p.petGeneration!==generation)return;
-   p.petFuel=result.fuel;p.petLootRange=result.lootRange||700;p.petUntil=Date.now()+10000;
+   p.petFuel=result.fuel;p.petLootRange=result.lootRange||700;p.petUntil=Date.now()+10000;if(mode==='repair'&&!p.petRepairStarted){p.petRepairStarted=Date.now();p.petRepairNext=p.petRepairStarted+1000;}
    if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
    io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false,vitals:p.petVitals||null});
   }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});p.writes=job;pending.add(job);
@@ -871,13 +887,14 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  if(p.petUntil>now&&p.petMode!=='off'){
   let targetBox=null;
   if(p.petMode==='loot'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),p.petLootRange||700,b=>petEligible(p,b));
+  if(p.petMode==='resource'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),p.petLootRange||700,b=>petResourceEligible(p,b,now));
   if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
   const goal=petTravelGoal(p,targetBox);
   const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy),deadzone=targetBox?1:22;
   if(len>deadzone){const desired=targetBox?Math.max(550,p.speed+100):Math.min(Math.max(550,p.speed+100),Math.max(85,len*3,p.dest?p.speed:0));const speed=p.petSpeed=Math.min(desired,(p.petSpeed||0)+900*dt);const step=Math.min(len,speed*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;p.petAngle=Math.atan2(dy,dx);}
   if(len<=deadzone)p.petSpeed=0;
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
-  if(p.petMode==='guard')shootPetGuard(p,now);
+  if(p.petMode==='guard')shootPetGuard(p,now);if(p.petMode==='repair')tickPetRepair(p,now);
  }
  if(!p.gate)for(const b of boxes.inZone(zoneOf(p)))if(distance(p,b)<52)collectBox(p,b);
  collectSpaceball(p,now);collectIce(p,now);
@@ -898,7 +915,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }).catch(()=>{p.attack=false;io.to(p.id).emit('notice','No se pudo confirmar el consumo de munición');}).finally(()=>{p.shotPending=false;pending.delete(job);if(players.get(p.id)===p&&p.attack&&!p.deadUntil&&!p.gatePending&&!p.upgradePending&&!p.reloadPending&&Date.now()>=(p.autoRetry||0)){const now=Date.now();const choices=[];if(p.cpus?.includes('AROL-X')&&now>=(p.rocketUntil||0))choices.push('rocket');if(p.launcher&&p.cpus?.includes('RL-LB1')&&now>=(p.ordnanceUntil?.hellstorm||0))choices.push('shell');if(choices.length){const choice=choices[p.autoTurn%choices.length||0];p.autoTurn=(p.autoTurn||0)+1;const ack=r=>{if(!r.ok)p.autoRetry=Date.now()+2000;};if(choice==='rocket')shootRocket(p,p.autoRocket||'R-310',ack);else shootOrdnance(p,p.autoShell||'ECO-10',ack);}}});pending.add(job);}
  }}
  const npcPilotsByZone=groupByZone(players.values(),zoneOf);
- for(const n of npcs.values()){if(n.empUntil>now){n.target=null;continue;}let target=players.get(n.target);if(!target||target.cloaked||abilityActive(target,'ultimate-cloak',now)||target.deadUntil||target.gatePending||safeZone(target)||!sameZone(n,target)||(!n.gateNPC&&distance(n,target)>1000)){target=nearestEligible(n,npcPilotsByZone.get(zoneOf(n))||[],n.gateNPC?Infinity:n.type==='boss'?850:310,p=>!p.deadUntil&&!p.gatePending&&!p.cloaked&&!abilityActive(p,'ultimate-cloak',now)&&sameZone(p,n)&&!safeZone(p));n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100&&!safeZone(target)&&!(target.protectedUntil>now)){n.lastShot=now;if(hitGuardPet(n,target,now))continue;laser(n,target);if(Math.random()<(n.accuracyUntil>now?.6:1)*(1-(formationBonus(target.formation).evasion||0))*(1-(target.pilotBonus?.evasion||0)))damage(target,n.damage*(abilityActive(target,'prism',now)?.1:1));if(target.hp<=0&&!target.deadUntil){recordRankDeath(target);if(target.gate){saveGate(target,'death');continue;}target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else if(!n.gateNPC){if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
+ for(const n of npcs.values()){if(n.empUntil>now){n.target=null;continue;}let target=players.get(n.target);if(!target||target.cloaked||abilityActive(target,'ultimate-cloak',now)||target.deadUntil||target.gatePending||safeZone(target)||!sameZone(n,target)||(!n.gateNPC&&distance(n,target)>1000)){target=nearestEligible(n,npcPilotsByZone.get(zoneOf(n))||[],n.gateNPC?Infinity:n.type==='boss'?850:310,p=>!p.deadUntil&&!p.gatePending&&!p.cloaked&&!abilityActive(p,'ultimate-cloak',now)&&sameZone(p,n)&&!safeZone(p));n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100&&!safeZone(target)&&!(target.protectedUntil>now)){n.lastShot=now;if(target.petMode==='repair')setPetMode(target,'passive');if(hitGuardPet(n,target,now))continue;laser(n,target);if(Math.random()<(n.accuracyUntil>now?.6:1)*(1-(formationBonus(target.formation).evasion||0))*(1-(target.pilotBonus?.evasion||0)))damage(target,n.damage*(abilityActive(target,'prism',now)?.1:1));if(target.hp<=0&&!target.deadUntil){recordRankDeath(target);if(target.gate){saveGate(target,'death');continue;}target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else if(!n.gateNPC){if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
  updateMines(now);updateDefense(now);tickUBA(now);tickInvasion(now);tickHitac(now);tickIce(now,dt);if(spaceballGame)spaceball.advance(spaceballGame,now);
  if(++tick%2===0&&players.size){const zones=buildZoneSnapshots({players:players.values(),npcs:npcs.values(),mines:mines.values(),boxes:[...boxes.values()].filter(b=>MAPS[b.zone]),zoneOf,publicPlayer,isHidden:p=>abilityActive(p,'ultimate-cloak',now),common:zone=>({time:now,map:MAPS[zone]?zone:null,spaceball:zone==='4-4'?spaceballView(now):null,hitac:hitacView(zone),ice:iceView(zone),base:homeBase(zone,WORLD.w,WORLD.h),portals:MAPS[zone]?portals(zone,WORLD.w,WORLD.h):[]})});for(const z of zones.values())for(const viewer of z.viewers)io.to(viewer.id).volatile.emit('state',snapshotFor(z,viewer));}},50);
  const close=onceAsync(async()=>{closing=true;clearInterval(loop);clearInterval(maintenance);clearInterval(calendarTimer);clearInterval(rankingTimer);for(const t of timers)clearTimeout(t);await new Promise(resolve=>io.close(resolve));while(pending.size)await Promise.allSettled([...pending]);await accounts.close();});return{app,server,io,close};}

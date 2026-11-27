@@ -8,4 +8,5 @@ class BoxIndex extends Map{
  inZone(zone){return this.zones.get(zone)?.values()||[];}
 }
 function petEligible(p,b){return !b.pending&&b.kind!=='pirate'&&(b.kind!=='cargo'||b.owner===p.accountId);}
-module.exports={BoxIndex,petEligible};
+function petResourceEligible(p,b,now=Date.now()){return !!b&&['cargo','paladio'].includes(b.kind)&&petEligible(p,b)&&!p.cargoBusy&&!(p.cargoRetry>now)&&(!b.expires||b.expires>now)&&Object.values(b.contents||{}).some(n=>Number(n)>0);}
+module.exports={BoxIndex,petEligible,petResourceEligible};
