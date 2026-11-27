@@ -1,10 +1,10 @@
 'use strict';
 const express=require('express');const http=require('node:http');const path=require('node:path');const crypto=require('node:crypto');const {Server}=require('socket.io');const {createAccounts}=require('./accounts');
-const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const alienStats=require('./data/npcs-v14.json');const {salvo}=require('./equipment-v13');
+const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo}=require('./equipment-v13');
 const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,damage:110},tank:{hp:1800,shield:950,speed:255,damage:155}};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n)),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),random=(a,b)=>a+Math.random()*(b-a),point=()=>({x:random(150,WORLD.w-150),y:random(150,WORLD.h-150)}),validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
 function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCount=75,accounts=createAccounts(process.env.DATABASE_URL)}={}){
- const app=express(),server=http.createServer(app),io=new Server(server,{maxHttpBufferSize:8192});const players=new Map(),npcs=new Map(),boxes=new Map(),active=new Map(),pending=new Set();let seq=0,tick=0,closing=false;const timers=new Set(),attempts=new Map();
+ const app=express(),server=http.createServer(app),io=new Server(server,{maxHttpBufferSize:8192});const hadesLobbies=createHadesLobbies();const players=new Map(),npcs=new Map(),boxes=new Map(),active=new Map(),pending=new Set();let seq=0,tick=0,closing=false;const timers=new Set(),attempts=new Map();
  const zoneOf=o=>o?.zone||'world';const sameZone=(a,b)=>zoneOf(a)===zoneOf(b);
  const later=(fn,ms)=>{if(closing)return;const t=setTimeout(()=>{timers.delete(t);fn();},ms);timers.add(t);};const id=()=>String(++seq);
  function spawnNPC(boss=false,pos=point()){const n={id:id(),type:boss?'boss':'drone',name:boss?'BOSS · TITAN':'Stellar Drone',x:pos.x,y:pos.y,angle:0,hp:boss?8500:650,maxHp:boss?8500:650,shield:boss?4500:220,maxShield:boss?4500:220,speed:boss?105:155,damage:boss?220:55,reward:boss?3500:180,target:null,dest:point(),lastShot:0};npcs.set(n.id,n);return n;}
@@ -108,6 +108,26 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  socket.on('v13:reload',()=>{const p=players.get(socket.id);if(!allowed()||!p)return;p.reloadRequested=true;p.attack=false;io.to(p.id).emit('notice','Equipamiento guardado. Activando configuración…');});
 
  socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','loot'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
+ function broadcastHades(room){if(room)for(const member of room.players)io.to(member.id).emit('v14:hadesLobby',room);}
+ socket.on('v14:hadesLobby',async(data,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;
+  const p=players.get(socket.id);if(!p||p.gate||p.deadUntil||p.hadesPending)return ack({ok:false,error:'Piloto no disponible'});
+  p.hadesPending=true;
+  try{
+   const action=data?.action;let room;
+   if(action==='status')room=hadesLobbies.status(p.id);
+   else if(action==='leave'){room=hadesLobbies.leave(p.id);socket.emit('v14:hadesLobby',null);broadcastHades(room);return ack({ok:true,room:null});}
+   else if(action==='ready')room=hadesLobbies.ready(p.id,data.ready);
+   else if(action==='create'||action==='join'){
+    const eligible=await accounts.hadesEligibility(p.accountId);
+    if(players.get(p.id)!==p||p.gate||p.deadUntil)return ack({ok:false,error:'Piloto no disponible'});
+    const member={id:p.id,name:p.name,wave:eligible.wave};
+    room=action==='create'?hadesLobbies.create(member):hadesLobbies.join(data.code,member);
+   }else throw Error('Acción inválida');
+   broadcastHades(room);ack({ok:true,room});
+  }catch(e){ack({ok:false,error:e.status?e.message:String(e.message||'No disponible')});}
+  finally{p.hadesPending=false;}
+ });
  socket.on('v14:gateEnter',async(gate,ack)=>{
   const p=players.get(socket.id);if(typeof ack!=='function'||!allowed()||!p||p.gatePending||p.gate||p.deadUntil||p.attack||p.shotPending||p.reloadPending)return;
   p.gatePending=true;
@@ -117,7 +137,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  });
  socket.on('v14:gateNext',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending)gateWave(p);});
  socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&!p.shotPending&&!p.deadUntil){returnFromGate(p);socket.emit('v14:gateState',{inside:false});}});
- socket.on('disconnect',()=>{const p=players.get(socket.id);if(p?.gate)clearGateNPCs(p);players.delete(socket.id);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
+ socket.on('disconnect',()=>{const p=players.get(socket.id);if(p?.gate)clearGateNPCs(p);broadcastHades(hadesLobbies.leave(socket.id));players.delete(socket.id);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
  let last=Date.now();const loop=setInterval(()=>{if(closing)return;const now=Date.now(),dt=Math.min((now-last)/1000,.1);last=now;
  for(const p of players.values()){if(p.gatePending)continue;if(p.deadUntil){if(now>=p.deadUntil)spawnPlayer(p);else continue;}if(p.reloadRequested&&!p.reloadPending&&!p.shotPending){p.reloadRequested=false;p.reloadPending=true;p.attack=false;const job=Promise.resolve().then(()=>accounts.combatLoadout(p.accountId)).then(l=>{if(players.get(p.id)!==p)return;if(p.deadUntil){p.reloadRequested=true;return;}if(!l)throw Error('Sin configuración guardada');applyLoadout(p,l);io.to(p.id).emit('notice','Configuración '+(l.active+1)+' activa · '+l.lasers+' láseres');io.to(p.id).emit('v13:loadoutApplied',{active:l.active,lasers:l.lasers,damage:l.damage});}).catch(()=>{if(players.get(p.id)===p)io.to(p.id).emit('notice','No se pudo activar el equipo. Guarda de nuevo en el hangar.');}).finally(()=>{p.reloadPending=false;pending.delete(job);});pending.add(job);}move(p,p.dest,dt);if(p.dest&&distance(p,p.dest)<2)p.dest=null;if(now-p.lastHit>6500)p.shield=Math.min(p.maxShield,p.shield+35*dt);
  if(p.petMode&&p.petMode!=='off'&&now>=p.petUntil&&!p.petPending){
