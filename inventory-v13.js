@@ -81,6 +81,7 @@ function createInventory(pool){
     q={id:code,category,quantity,currency:'uridium',total:50000};
    }
    if(category==='drones'){const d=catalog.drones[code];if(!['flax','iris'].includes(code)||!d||!Number.isSafeInteger(quantity)||quantity<1||quantity>8)throw fail('Dron o cantidad inválida');const n=Number((await c.query("SELECT count(*) AS n FROM gg_v13_inventory WHERE account_id=$1 AND category='drones' AND code IN ('flax','iris')",[id])).rows[0].n);if(n+quantity>8)throw fail('Límite de ocho VANT normales');q={id:code,category,quantity,currency:d.currency,total:d.prices.slice(n,n+quantity).reduce((a,b)=>a+b,0)};}
+   if(category==='cpus'&&(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category='cpus'",[id,code])).rowCount)throw fail('CPU ya adquirido');
    if(category==='designs'&&(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category='ship-designs'",[id,code])).rowCount)throw fail('Diseño ya adquirido');
    if(category==='ships'&&(code==='phoenix'||(await c.query('SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category=$3',[id,code,category])).rowCount))throw fail('Nave ya disponible');
    if(Number(p[q.currency])<q.total)throw fail('Saldo insuficiente',409);
@@ -91,6 +92,7 @@ function createInventory(pool){
    }else{
     for(let i=0;i<q.quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),code,category==='designs'?'ship-designs':category]);
    }
+   if(category==='cpus'){const uses=catalog.cpus.find(x=>x.id===code)?.uses;if(uses)await addStack(c,id,code+'-uses',uses);}
    const result={ok:true,...q,balance};
    await c.query('INSERT INTO gg_v13_purchases(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);
    return result;
@@ -111,7 +113,7 @@ function createInventory(pool){
    const rows=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    if(ship!=='phoenix'&&!rows.some(x=>x.category==='ships'&&x.code===ship))throw fail('Nave no adquirida');
    if(design!==null&&(!catalog.designs.some(d=>d.id===design&&d.ship===ship)||!rows.some(x=>x.category==='ship-designs'&&x.code===design)))throw fail('Diseño no adquirido o incompatible');
-   const owned=new Map(rows.filter(x=>['lasers','engines','shields','drones','launchers'].includes(x.category)).map(x=>[x.instanceId,x]));
+   const owned=new Map(rows.filter(x=>['lasers','engines','shields','drones','launchers','cpus','robots'].includes(x.category)).map(x=>[x.instanceId,x]));
    const computed=configurations(ship,configs,owned);
    await c.query('INSERT INTO gg_v13_hangar(account_id,ship,configs,active,design) VALUES($1,$2,$3,$4,$5) ON CONFLICT(account_id) DO UPDATE SET ship=EXCLUDED.ship,configs=EXCLUDED.configs,active=EXCLUDED.active,design=EXCLUDED.design',[id,ship,JSON.stringify(configs),active,design]);
    return {ok:true,stats:computed[active]};
