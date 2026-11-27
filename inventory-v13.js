@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');
+const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
 const {bonusLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
@@ -8,7 +8,7 @@ const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 function createInventory(pool){
- const formations=createFormations(pool);
+ const formations=createFormations(pool),pilot=createPilot(pool);
  async function ready(){
   await pool.query(`CREATE TABLE IF NOT EXISTS gg_v13_inventory (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -88,7 +88,7 @@ function createInventory(pool){
    if(Number(p[q.currency])<q.total)throw fail('Saldo insuficiente',409);
    const column=q.currency==='credits'?'credits':'uridium';
    const balance=(await c.query('UPDATE player_progress SET '+column+'='+column+'-$2 WHERE account_id=$1 RETURNING credits,uridium',[id,q.total])).rows[0];
-   if(['ammo','fuel','rockets','specialRockets','launcherAmmo','mines'].includes(category)){
+   if(['ammo','fuel','rockets','specialRockets','launcherAmmo','mines','consumables'].includes(category)){
     await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,code,q.quantity]);
    }else{
     for(let i=0;i<q.quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),code,category==='designs'?'ship-designs':category]);
@@ -130,7 +130,7 @@ function createInventory(pool){
    const items=(await c.query("SELECT i.instance_id AS \"instanceId\",i.code,i.category,i.level,i.drone_points AS points,d.code AS design FROM gg_v13_inventory i LEFT JOIN gg_v13_inventory d ON d.account_id=i.account_id AND d.instance_id=i.drone_design AND d.category='drone-designs' WHERE i.account_id=$1",[id])).rows;
    const stats=configurations(h.ship,h.configs,new Map(items.map(i=>[i.instanceId,i])));
    const d=catalog.designs.find(d=>d.id===h.design&&d.ship===h.ship&&items.some(i=>i.category==='ship-designs'&&i.code===d.id));
-   const f=await formations.read(c,id),dr=await drones.read(c,id),mounted=new Set((h.configs[h.active]?.drones||[]).map(d=>d.id));return {ship:h.ship,droneVisuals:dr.drones.filter(d=>mounted.has(d.instanceId)).map(d=>({code:d.code,design:d.design,rank:d.rank})),formation:f.active,formationReadyAt:f.readyAt,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
+   const f=await formations.read(c,id),dr=await drones.read(c,id),mounted=new Set((h.configs[h.active]?.drones||[]).map(d=>d.id));return {ship:h.ship,pilotBonus:pilotBonus((await pilot.read(c,id)).skills),droneVisuals:dr.drones.filter(d=>mounted.has(d.instanceId)).map(d=>({code:d.code,design:d.design,rank:d.rank})),formation:f.active,formationReadyAt:f.readyAt,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
   });
  }
  async function useCpu(id,code,destination=null){
@@ -199,7 +199,7 @@ function createInventory(pool){
    const prev=(await c.query('SELECT ally_step,ally_last FROM gg_v15_honor_penalty WHERE account_id=$1',[attacker])).rows[0];
    const war=(await c.query("SELECT 1 FROM gg_v15_clan_members x JOIN gg_v15_clan_members y ON y.account_id=$2 JOIN gg_v15_clan_diplomacy d ON ((d.source=x.clan_id AND d.target=y.clan_id) OR (d.source=y.clan_id AND d.target=x.clan_id)) WHERE x.account_id=$1 AND d.state='war' LIMIT 1",[attacker,victim])).rowCount>0;
    const reward=rewardFor({...a,company:war?0:a.company,honor:Number(a.honor)},{...b,ship,honor:Number(b.honor)},prev?.ally_step||0,Number(prev?.ally_last||0),Date.now());
-   if(reward.honor>0)reward.honor=Math.round(reward.honor*Math.max(1,Math.min(1.2,Number(honorFactor)||1)));
+   if(reward.honor>0)reward.honor=Math.round(reward.honor*Math.max(1,Math.min(1.5,Number(honorFactor)||1)));
    if(reward.penalty)await c.query('INSERT INTO gg_v15_honor_penalty(account_id,ally_step,ally_last) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET ally_step=EXCLUDED.ally_step,ally_last=EXCLUDED.ally_last',[attacker,reward.penalty.next,reward.penalty.last]);
    const balance=(await c.query('UPDATE player_progress SET credits=GREATEST(0,credits+$2),experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[attacker,reward.credits,reward.xp,reward.uridium,reward.honor])).rows[0];
    const rankChanged=reward.honor>=0&&await drones.award(c,attacker,dronePoints);return {reward,balance,rankChanged};
@@ -209,7 +209,7 @@ function createInventory(pool){
  async function awardBox(id,map='1-1',level=1){
   const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
   return transaction(id,async(c,p)=>{
-   let balance=p;
+   const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*(loot.code==='uridium'?b.luck:1));let balance=p;
    if(['credits','uridium'].includes(loot.code)){
     balance=(await c.query('UPDATE player_progress SET '+loot.code+'='+loot.code+'+$2 WHERE account_id=$1 RETURNING credits,uridium',[id,loot.quantity])).rows[0];
    }else{
