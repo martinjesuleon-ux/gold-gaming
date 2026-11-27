@@ -43,7 +43,7 @@ function createLobby({eligible=()=>true}={}){
  function remove(id){waiting.delete(id);const m=matches.get(id);if(m){for(const pid of m.players)matches.delete(pid);}return m;}
  function tick(now=Date.now()){const unique=[...new Set(matches.values())];for(const m of unique)advance(m,now);return unique;}
  function previewTick(now=Date.now()){const unique=[...new Set(matches.values())];for(const m of unique){if(m.phase==='countdown'&&now>=m.until){m.phase='preview-complete';m.until=0;}else if(m.phase==='offer')advance(m,now);}return unique;}
- return {enqueue,get,remove,tick,previewTick,queued:id=>waiting.has(id)};
+ return {enqueue,get,remove,tick,previewTick,all:()=>[...new Set(matches.values())],queued:id=>waiting.has(id)};
 }
 function createUBA(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_uba_scores(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,score integer NOT NULL DEFAULT 50 CHECK(score>=50),wins integer NOT NULL DEFAULT 0,losses integer NOT NULL DEFAULT 0);
@@ -51,7 +51,7 @@ function createUBA(pool){
  async function status(id){
   const own=(await pool.query('SELECT score,wins,losses FROM gg_uba_scores WHERE account_id=$1',[id])).rows[0]||{score:50,wins:0,losses:0};
   const rows=(await pool.query('SELECT a.username AS name,s.score,s.wins,s.losses,s.account_id=$1 AS own FROM gg_uba_scores s JOIN accounts a ON a.id=s.account_id ORDER BY s.score DESC,s.wins DESC,a.username LIMIT 100',[id])).rows;
-  return {rules:RULES,own,rows,enabled:false,lobbyEnabled:process.env.GG_UBA_LOBBY_ENABLED==='1'};
+  return {rules:RULES,own,rows,enabled:process.env.GG_UBA_COMBAT_ENABLED==='1'&&process.env.GG_UBA_LOBBY_ENABLED==='1',lobbyEnabled:process.env.GG_UBA_LOBBY_ENABLED==='1'};
  }
  // Only the trusted game loop may settle a completed duel. No client score inputs.
  async function settle(matchId,winner,loser){
