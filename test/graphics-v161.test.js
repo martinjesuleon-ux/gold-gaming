@@ -149,3 +149,13 @@ test('distant entity interpolation snaps only outside the warm-up viewport, loca
  const local={x:3000,y:0,a:0,tx:3100,ty:0,ta:0};c.advance(local,.5,camera,w,h,true);assert.equal(local.x,3050);
  const crossing={x:-3000,y:0,a:0,tx:3000,ty:0,ta:0};c.advance(crossing,.5,camera,w,h);assert.equal(crossing.x,0);
 });
+
+test('viewport culling retains objects whose edges intersect the visible map',()=>{
+ const game=read('game.js'),c={};vm.runInNewContext(game.slice(game.indexOf('function intersectsViewport('),game.indexOf('function screen('))+';this.visible=intersectsViewport;',c);
+ assert.equal(c.visible({x:-100,y:250},150,1000,600),true);
+ assert.equal(c.visible({x:-151,y:250},150,1000,600),false);
+ assert.equal(c.visible({x:500,y:751},150,1000,600),false);
+ assert.equal(c.visible({x:500,y:750},150,1000,600),true);
+ assert.equal(c.visible({x:500,y:300},0,1000,600),true);
+ assert.match(game,/near=nearestPortal\(list\)/);
+});
