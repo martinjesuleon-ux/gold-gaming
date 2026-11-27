@@ -13,6 +13,15 @@ socket.on('connect_error',()=>{$('joinStatus').textContent='Conectando… el hos
 $('launch').disabled=true;$('join').addEventListener('submit',e=>{e.preventDefault();profile={name:$('nick').value.trim(),ship:new FormData(e.currentTarget).get('ship')};join();});
 $('exit').onclick=()=>{profile=null;location.reload();};
 socket.on('notice',notice);
+let gateState={inside:false};
+window.gg14GateEnter=()=>new Promise((resolve,reject)=>{
+ if(!joined||!socket.connected){reject(Error('Conéctate primero'));return;}
+ socket.timeout(10000).emit('v14:gateEnter',(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'No se pudo entrar a Alpha'));else resolve(r);});
+});
+window.gg14GateLeave=()=>{if(joined)socket.emit('v14:gateLeave');};
+window.gg14GateState=()=>gateState;
+socket.on('v14:gateState',s=>{gateState=s;entities.clear();selected=null;attacking=false;dest=null;notice(s.inside?'Alpha · Oleada '+s.wave+'/10 · Vidas '+s.lives:'De vuelta al sector');window.dispatchEvent(new CustomEvent('gg14:gateState',{detail:s}));});
+socket.on('disconnect',()=>{gateState={inside:false};});
 let petMode='off',petFuel=null,petPending=false;
 function renderPetPanel(){
  const panel=document.querySelector('.gg-window[data-key="pet"]');if(!panel)return;
