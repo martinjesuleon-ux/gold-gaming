@@ -10,9 +10,9 @@ const RULES={armMs:1000,cooldownMs:60000,triggerRadius:90,blastRadius:180,lifeti
 function mineImpact(v,m,now){
  const result={hp:v.hp,shield:v.shield};
  if(v.godMode||v.gateShielded)return result;
- if(m.effect==='area'){const amount=Math.floor(.2*(v.maxHp+v.maxShield)),absorbed=Math.min(v.shield,amount*(v.absorption??.5));result.shield=v.shield-absorbed;result.hp=Math.max(1,v.hp-(amount-absorbed));}
- if(m.effect==='hull')result.hp=Math.max(1,v.hp-Math.floor(v.maxHp*.2));
- if(m.effect==='shield')result.shield=Math.max(0,v.shield-Math.floor(v.maxShield*.15));
+ if(m.effect==='area'){const amount=Math.floor((m.fraction??.2)*(v.maxHp+v.maxShield)),absorbed=Math.min(v.shield,amount*(v.absorption??.5));result.shield=v.shield-absorbed;result.hp=Math.max(1,v.hp-(amount-absorbed));}
+ if(m.effect==='hull')result.hp=Math.max(1,v.hp-Math.floor(v.maxHp*(m.fraction??.2)));
+ if(m.effect==='shield')result.shield=Math.max(0,v.shield-Math.floor(v.maxShield*(m.fraction??.15)));
  if(m.effect==='slow'){result.mineSlowUntil=Math.max(v.mineSlowUntil||0,now+5000);}
  if(m.effect==='reveal')result.cloaked=false;
  return result;
