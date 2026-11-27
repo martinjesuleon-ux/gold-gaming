@@ -52,3 +52,8 @@ test('social menus retain group and clan permissions and ranking positions when 
  const ui=read('gold-v13.js'),social=ui.slice(ui.indexOf('async function socialGroup()'),ui.indexOf('function faction()')),rank=ui.slice(ui.indexOf('async function rankingMenu()'),ui.indexOf('let auctionBoard'));
  assert.match(social,/capacity.max=8/);assert.match(social,/run\('invite',\{target:p.id\}\)/);assert.match(social,/can\('expulsar'\)/);assert.match(social,/run\('permissions'/);assert.match(social,/run\('diplomacy'/);assert.match(rank,/d.rows.forEach\(\(r,i\)/);assert.match(rank,/\[i\+1,r.name/);assert.match(rank,/search.oninput=list/);
 });
+
+test('economy panels show authoritative auction and mineral data without changing transactions',()=>{
+ const ui=read('gold-v13.js'),auction=ui.slice(ui.indexOf('async function auctionMenu()'),ui.indexOf('async function stationMenu()')),minerals=ui.slice(ui.indexOf('async function mineralMenu('),ui.indexOf('function gateRewardText'));
+ assert.match(auction,/lot.minBid/);assert.match(auction,/window.gg114Bid/);assert.match(auction,/roundStart:d.roundStart/);assert.match(auction,/gg-auction-card/);assert.match(minerals,/cargoMeter.value=data.cargoUsed/);assert.match(minerals,/meter.value=data.metrics.used/);assert.match(minerals,/meter.value=stock/);assert.match(minerals,/data.cargo\[k\]/);assert.match(minerals,/api\('minerals',\{action,/);assert.match(minerals,/window.gg120Sell/);
+});
