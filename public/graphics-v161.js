@@ -173,7 +173,7 @@
   path(c,[[nose*.4,0],[nose*.15,-body*.17],[nose*.02,0]],'#e7faff');
   if(style===3)for(const side of [-1,1])path(c,[[nose*.65,body*.4*side],[nose*.4,body*.78*side],[nose*.12,body*.64*side],[nose*.35,body*.3*side]],color);
  }
- function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind.startsWith('drone'))drone(c,color,kind);else if(kind==='pet')pet(c,color);else if(kind==='streuner-original')streunerHull(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
+ function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),theme=root.ggVisualTheme?.current()||'gold',key=theme+':'+kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind.startsWith('drone'))drone(c,color,kind);else if(kind==='pet')pet(c,color);else if(kind==='streuner-original')streunerHull(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);if(theme==='classic')root.ggClassicArt?.finish(c,kind,color,size);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
  function draw(c,kind,color){const s=sprite(kind,color);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
  function portal(c,color,t){
   const center=c.createRadialGradient(0,0,3,0,0,46);center.addColorStop(0,'#03060d');center.addColorStop(.45,'#0b1625');center.addColorStop(.78,color+'24');center.addColorStop(1,color+'00');c.fillStyle=center;c.beginPath();c.arc(0,0,46,0,Math.PI*2);c.fill();
@@ -185,14 +185,14 @@
  let skyCache=null;
  function sky(c,w,h){
   if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0)return;
-  if(!skyCache||skyCache.w!==w||skyCache.h!==h){
+  const theme=root.ggVisualTheme?.current()||'gold';if(!skyCache||skyCache.w!==w||skyCache.h!==h||skyCache.theme!==theme){
    const canvas=root.document.createElement('canvas');canvas.width=Math.min(1920,Math.ceil(w));canvas.height=Math.min(1080,Math.ceil(h));
    const a=canvas.getContext('2d'),cw=canvas.width,ch=canvas.height;
-   a.fillStyle='#020408';a.fillRect(0,0,cw,ch);
-   for(const [x,y,r,color] of [[.72,.28,.65,'#102037'],[.12,.78,.42,'#0b1927'],[.9,.9,.34,'#151325']]){
+   a.fillStyle=theme==='classic'?'#010204':'#020408';a.fillRect(0,0,cw,ch);
+   for(const [x,y,r,color] of (theme==='classic'?[[.72,.28,.65,'#080f19'],[.12,.78,.42,'#060b10']]:[[.72,.28,.65,'#102037'],[.12,.78,.42,'#0b1927'],[.9,.9,.34,'#151325']])){
     const g=a.createRadialGradient(cw*x,ch*y,0,cw*x,ch*y,Math.max(cw,ch)*r);g.addColorStop(0,color);g.addColorStop(1,'#02040800');a.fillStyle=g;a.fillRect(0,0,cw,ch);
    }
-   skyCache={w,h,canvas};
+   skyCache={w,h,canvas,theme};
   }
   c.drawImage(skyCache.canvas,0,0,w,h);
  }
