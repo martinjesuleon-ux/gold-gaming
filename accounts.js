@@ -30,6 +30,8 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  const routeV13=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){res.status(e.status||(/^[0-9A-Z]{5}$/.test(e.code||'')?503:400)).json({error:e.status?e.message:'No se pudo completar la operación'});}};
  app.get('/api/v13/gates',routeV13(req=>inventory.gateStatus(req.pilotV13.id)));
  app.post('/api/v13/gates/spin',routeV13(req=>inventory.gateSpin(req.pilotV13.id,req.body||{})));
+ app.post('/api/v13/gates/build',routeV13(req=>inventory.gateBuild(req.pilotV13.id,req.body||{})));
+ app.post('/api/v13/gates/life',routeV13(req=>inventory.gateLife(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/catalog',routeV13(async()=>catalogV13));
  app.get('/api/v13/inventory',routeV13(req=>inventory.snapshot(req.pilotV13.id)));
  app.post('/api/v13/purchase',routeV13(req=>inventory.purchase(req.pilotV13.id,req.body||{})));
