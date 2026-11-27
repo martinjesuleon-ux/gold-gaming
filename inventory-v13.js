@@ -1,6 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
-const {bonusLoot}=require('./loot-v14');
+const {bonusLoot,pirateLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
@@ -206,7 +206,33 @@ function createInventory(pool){
   });
  }
  async function saveLocation(id,company,map){if(![1,2,3].includes(company)||!Object.hasOwn(MAPS,map))throw fail('Mapa inválido');return transaction(id,async c=>{await c.query('INSERT INTO gg_v14_location(account_id,company,map) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET map=EXCLUDED.map',[id,company,map]);return {company,map};});}
- async function awardBox(id,map='1-1',level=1){
+ async function awardBox(id,map='1-1',level=1,kind='bonus'){
+   if(kind==='pirate'){
+    if(!Object.hasOwn(MAPS,map))throw fail('Mapa inválido para cofre pirata');
+    return transaction(id,async(c,p)=>{
+     const key=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='green-key' AND quantity>=1 RETURNING quantity",[id])).rows[0];
+     if(!key)throw Object.assign(fail('Necesitas una llave verde',409),{code:'NO_GREEN_KEY'});
+     let loot=pirateLoot(crypto.randomInt(1000),crypto.randomInt(1000000)/1000000,crypto.randomInt(1000000)/1000000);
+     if(loot.category==='drones'){
+      const owned=(await c.query("SELECT code FROM gg_v13_inventory WHERE account_id=$1 AND category='drones'",[id])).rows;
+      // Wiki does not define duplicate special drone compensation; award one matching part.
+      if(owned.length>=10||owned.some(d=>d.code===loot.code))loot={code:loot.code+'-piece',quantity:1,duplicate:true};
+     }
+     if(loot.category==='ship-designs'||loot.category==='cpus'){
+      const owned=(await c.query('SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category=$3',[id,loot.code,loot.category])).rows.length>0;
+      if(owned&&loot.category==='ship-designs')loot={code:'green-key',quantity:1,duplicate:true};
+      else if(owned&&loot.category==='cpus')loot={code:loot.code+'-uses',quantity:10,duplicate:true};
+     }
+     if(loot.category==='booster'){
+      // Duration per booster uses the standard ten-hour award; activation is a separate feature.
+      await c.query('INSERT INTO gg_v16_entitlements(account_id,code,seconds) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET seconds=gg_v16_entitlements.seconds+EXCLUDED.seconds',[id,loot.code,36000]);
+     }else if(loot.category){
+      await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),loot.code,loot.category]);
+      if(loot.category==='cpus')await addStack(c,id,loot.code+'-uses',10);
+     }else await addStack(c,id,loot.code,loot.quantity);
+     return {loot,balance:p,keys:Number(key.quantity)+(loot.code==='green-key'?loot.quantity:0)};
+    });
+   }
   const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
   return transaction(id,async(c,p)=>{
    const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*(loot.code==='uridium'?b.luck:1));let balance=p;

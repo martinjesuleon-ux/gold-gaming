@@ -1,17 +1,19 @@
 'use strict';
-const {test}=require('node:test');const assert=require('node:assert/strict');const {io}=require('socket.io-client');const {createGame,SHIPS}=require('../server');
+const {test}=require('node:test');const assert=require('node:assert/strict');const {io}=require('socket.io-client');const {createGame,SHIPS}=require('../server');const {createAccounts}=require('../accounts');const {randomUUID}=require('node:crypto');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,ms=6500){const deadline=Date.now()+ms;while(Date.now()<deadline){const result=fn();if(result)return result;await sleep(40);}throw Error('Tiempo de espera agotado');}
 const event=(s,name,data)=>s.timeout(3000).emitWithAck(name,data);
-test('dos pilotos, movimiento, administración, combate y desconexión',async t=>{
- const g=createGame({password:'test-only-secret',npcCount:0,boxCount:0});await new Promise(r=>g.server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+g.server.address().port;
+test('dos pilotos, movimiento, administración, combate y desconexión',{skip:process.env.GG_TEST_DB!=='1'||!process.env.DATABASE_URL},async t=>{
+ const accounts=createAccounts(process.env.DATABASE_URL);await accounts.ready();const g=createGame({password:'test-only-secret',npcCount:0,boxCount:0,accounts});await new Promise(r=>g.server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+g.server.address().port;
  const clients=[];t.after(async()=>{for(const c of clients)c.disconnect();await g.close();});
- const connect=async()=>{const s=io(url,{transports:['websocket'],forceNew:true,reconnection:false});clients.push(s);await new Promise((r,j)=>{s.once('connect',r);s.once('connect_error',j);});return s;};
- const a=await connect(),b=await connect();let snapshot,other;a.on('state',s=>snapshot=s);b.on('state',s=>other=s);
+ const connect=async(cookie)=>{const s=io(url,{transports:['websocket'],forceNew:true,reconnection:false,extraHeaders:cookie?{Cookie:cookie}:{}});clients.push(s);await new Promise((r,j)=>{s.once('connect',r);s.once('connect_error',j);});return s;};
+ const register=async(ship)=>{const name='P'+randomUUID().replaceAll('-','').slice(0,12);const res=await fetch(url+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:name,email:name+'@example.test',password:'test-only-password',ship})});assert.equal(res.status,200);return res.headers.get('set-cookie').split(';')[0];};
+ const cookieA=await register('scout'),cookieB=await register('tank');
+ const guest=await connect(),a=await connect(cookieA),b=await connect(cookieB);let snapshot,other;a.on('state',s=>snapshot=s);b.on('state',s=>other=s);
  assert.equal((await fetch(url+'/health')).status,200);assert.equal((await fetch(url+'/admin')).status,200);assert.equal((await fetch(url+'/socket.io/socket.io.js')).status,200);
- assert.equal((await event(a,'join',{name:'<script>',ship:'scout'})).ok,false);
+ assert.equal((await event(guest,'join',{name:'<script>',ship:'scout'})).ok,false);
  assert.equal((await event(a,'join',{name:'Pilot A',ship:'scout'})).ok,true);
- assert.equal((await event(b,'join',{name:'Pilot A',ship:'tank'})).ok,false);
+ const duplicate=await connect(cookieA);assert.equal((await event(duplicate,'join',{})).ok,false);
  assert.equal((await event(b,'join',{name:'Pilot B',ship:'tank'})).ok,true);
  const pilot=()=>snapshot?.players.find(p=>p.id===a.id);await until(()=>snapshot?.players.length===2&&other?.players.length===2);
  assert.equal(pilot().maxHp,SHIPS.scout.hp);assert.equal(snapshot.players.find(p=>p.id===b.id).maxHp,SHIPS.tank.hp);
@@ -19,9 +21,29 @@ test('dos pilotos, movimiento, administración, combate y desconexión',async t=
  a.emit('move',{x:'no',y:0});await sleep(150);assert.ok(Math.abs(pilot().x-initial-150)<3);
  const api=(route,body,pass='test-only-secret')=>fetch(url+'/api/admin/'+route,{method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+pass,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
  assert.equal((await api('players',undefined,'wrong')).status,401);assert.equal((await api('credits',{playerId:a.id,amount:-5})).status,400);assert.equal((await api('credits',{playerId:a.id,amount:1000},'wrong')).status,401);
- a.emit('credits',{amount:999999});await sleep(150);assert.equal(pilot().credits,0);
- assert.equal((await api('credits',{playerId:a.id,amount:1234})).status,200);await until(()=>pilot().credits===1234);assert.equal(other.players.find(p=>p.id===a.id).credits,1234);
- const boss=await (await api('boss',{playerId:a.id})).json();assert.equal(boss.ok,true);const getBoss=()=>snapshot?.npcs.find(n=>n.id===boss.id);await until(getBoss);a.emit('select',boss.id);a.emit('attack',true);await until(()=>getBoss()?.shield<4500);assert.equal(getBoss().hp,8500);a.emit('attack',false);await until(()=>pilot().attack===false);const shield=getBoss().shield;await sleep(700);assert.equal(getBoss().shield,shield);
+ const initialCredits=pilot().credits;a.emit('credits',{amount:999999});await sleep(150);assert.equal(pilot().credits,initialCredits);
+ assert.equal((await api('credits',{playerId:a.id,amount:1234})).status,200);await until(()=>pilot().credits===initialCredits+1234&&other?.players.find(p=>p.id===a.id)?.credits===initialCredits+1234);
+ const boss=await (await api('boss',{playerId:a.id})).json();assert.equal(boss.ok,true);const getBoss=()=>snapshot?.npcs.find(n=>n.id===boss.id);await until(getBoss);a.emit('move',{x:boss.x-300,y:boss.y});await until(()=>Math.hypot(pilot().x-getBoss().x,pilot().y-getBoss().y)<600);a.emit('select',boss.id);a.emit('attack',true);await until(()=>getBoss()?.shield<4500);assert.equal(getBoss().hp,8500);a.emit('attack',false);await until(()=>pilot().attack===false);const shield=getBoss().shield;await sleep(700);assert.equal(getBoss().shield,shield);
  b.disconnect();await until(()=>snapshot.players.length===1);
 });
-test('administración deshabilitada sin contraseña',async t=>{const g=createGame({password:'',npcCount:0,boxCount:0});await new Promise(r=>g.server.listen(0,'127.0.0.1',r));t.after(()=>g.close());const response=await fetch('http://127.0.0.1:'+g.server.address().port+'/api/admin/players');assert.equal(response.status,503);});
+test('administración deshabilitada sin contraseña',{skip:process.env.GG_TEST_DB!=='1'||!process.env.DATABASE_URL},async t=>{const g=createGame({password:'',npcCount:0,boxCount:0});await new Promise(r=>g.server.listen(0,'127.0.0.1',r));t.after(()=>g.close());const response=await fetch('http://127.0.0.1:'+g.server.address().port+'/api/admin/players');assert.equal(response.status,503);});
+
+test('PostgreSQL grants only one pirate reward for one key',{skip:process.env.GG_TEST_DB!=='1'||!process.env.DATABASE_URL},async t=>{
+ const {Pool}=require('pg');const {createAccounts}=require('../accounts');const {createInventory}=require('../inventory-v13');
+ const pool=new Pool({connectionString:process.env.DATABASE_URL});t.after(()=>pool.end());
+ const accounts=createAccounts(process.env.DATABASE_URL);try{await accounts.ready();}finally{await accounts.close();}
+ const inv=createInventory(pool);const name='T'+randomUUID().replaceAll('-','').slice(0,12);
+ const id=(await pool.query('INSERT INTO accounts(username,email,password_hash) VALUES($1,$2,$3) RETURNING id',[name,name+'@example.test','test-fixture'])).rows[0].id;
+ try{
+  await pool.query("INSERT INTO player_progress(account_id,ship) VALUES($1,'scout')",[id]);
+  await pool.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'green-key',1)",[id]);
+  const results=await Promise.allSettled([inv.awardBox(id,'5-1',14,'pirate'),inv.awardBox(id,'5-1',14,'pirate')]);
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(results.find(r=>r.status==='rejected').reason.code,'NO_GREEN_KEY');
+  const key=(await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='green-key'",[id])).rows[0];
+  assert.equal(Number(key.quantity),0);
+  const loot=results.find(r=>r.status==='fulfilled').value.loot;
+  const reward=loot.category==='booster'?await pool.query('SELECT seconds FROM gg_v16_entitlements WHERE account_id=$1 AND code=$2',[id,loot.code]):loot.category?await pool.query('SELECT code FROM gg_v13_inventory WHERE account_id=$1 AND code=$2',[id,loot.code]):await pool.query('SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code=$2',[id,loot.code]);
+  assert.equal(reward.rowCount,1);
+ }finally{await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
+});
