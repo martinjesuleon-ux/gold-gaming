@@ -111,3 +111,21 @@ test('CBS turret damage, range, chance and cooldown use wiki stats',()=>{
  assert.ok(defenseShots(s,[p],new Map(),now,()=>.99).every(x=>x.damage===0));
  assert.equal(defenseShots({...s,modules:modules.map(m=>({...m,hp:0}))},[p],new Map(),now,()=>0).length,0);
 });
+
+test('CBS clan boosts respect ownership, map, health and wiki caps',()=>{
+ const {clanStationEffects}=require('../stations-v113'),now=100000,a=ASTEROIDS[0],clanId=randomUUID();
+ const modules=validateModules(items(),300000).map(m=>({...m,level:16}));
+ const station={asteroid_id:a.id,ready_at:now-1,clan_id:clanId,modules};
+ const p={x:a.x+700,y:a.y};
+ const effects=clanStationEffects([station],clanId,a.map,p,now);
+ assert.equal(effects.safe,true);assert.equal(effects.damage,1.1);assert.equal(effects.xp,1.1);assert.equal(effects.honor,1.1);
+ assert.equal(clanStationEffects([station],clanId,a.map,{x:a.x+701,y:a.y},now).safe,false);
+ assert.equal(clanStationEffects([station],clanId,'1-1',p,now).damage,1);
+ assert.equal(clanStationEffects([station],clanId,'1-1',p,now).xp,1.1);
+ assert.deepEqual(clanStationEffects([station],randomUUID(),a.map,p,now),{safe:false,xp:1,honor:1,damage:1});
+ assert.equal(clanStationEffects(Array(7).fill(station),clanId,a.map,p,now).xp,1.5);
+ assert.equal(clanStationEffects(Array(7).fill(station),clanId,a.map,p,now).honor,1.5);
+ const broken={...station,modules:modules.map(m=>({...m,hp:0}))};
+ assert.equal(clanStationEffects([broken],clanId,a.map,p,now).damage,1);
+ assert.equal(clanStationEffects([{...station,ready_at:now+1}],clanId,a.map,p,now).safe,false);
+});
