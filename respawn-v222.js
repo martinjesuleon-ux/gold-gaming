@@ -14,6 +14,7 @@ function nearestRepairPortal(portals,x,y){
 }
 function createRespawn(pool){
  async function ready(){await pool.query('CREATE TABLE IF NOT EXISTS gg_respawn_receipts_v222(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,death_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,death_id))');}
+ async function options(id){const premium=await premiumRead(pool,id);const stock=(await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='repair-voucher'",[id])).rows[0]?.quantity||0;return Object.keys(BASE_COST).map(mode=>repairQuote(mode,premium,stock));}
  async function charge(id,deathId,mode){
   if(typeof deathId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deathId)||!Object.hasOwn(BASE_COST,mode))throw fail('Solicitud inválida');
   const c=await pool.connect();try{await c.query('BEGIN');
@@ -29,6 +30,6 @@ function createRespawn(pool){
    await c.query('COMMIT');return q;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- return {ready,charge};
+ return {ready,charge,options};
 }
 module.exports={BASE_COST,repairQuote,nearestRepairPortal,createRespawn};
