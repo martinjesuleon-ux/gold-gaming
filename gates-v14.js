@@ -1,7 +1,7 @@
 'use strict';
 const DEFS=Object.freeze(Object.fromEntries([
  ['alpha',34,10],['beta',48,10],['gamma',82,10],['delta',128,10],['epsilon',99,30],['zeta',111,10],['kappa',120,11],['lambda',45,7],['hades',45,3],['kronos',21,13]
-].map(([id,pieces,waves])=>[id,{id,name:id[0].toUpperCase()+id.slice(1),pieces,waves,lives:3,price:100,countdown:['zeta','kappa'].includes(id)?20:id==='hades'?30:15}])));
+].map(([id,pieces,waves])=>[id,{id,name:id[0].toUpperCase()+id.slice(1),pieces,waves,lives:3,price:100,countdown:3}])));
 const GATES=Object.keys(DEFS),ALPHA=DEFS.alpha,SHARED=['alpha','beta','gamma'];
 const KRONOS={alpha:4,beta:3,gamma:1,delta:1,epsilon:4,zeta:1,kappa:2,lambda:5};
 const AMMO=[['LCB-10',100],['MCB-25',100],['MCB-50',100],['UCB-100',100],['SAB-50',100],['PLT-2026',10],['PLT-2021',10],['ECO-10',10],['ACM-01',2]];
