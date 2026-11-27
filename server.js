@@ -314,7 +314,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function shootOrdnance(p,code,ack){
   const special=catalogV13.specialRockets.find(r=>r.id===code),shell=catalogV13.launcherAmmo.find(r=>r.id===code);
   if(!p||(!special&&!shell)||p.deadUntil||p.gatePending||p.gateWaiting||p.shotPending||p.upgradePending||p.reloadPending)return ack({ok:false,error:'Arma no disponible ahora'});
-  if(p.target===ballTarget){if(!spaceballGame||p.zone!=='4-4'){p.target=null;p.attack=false;}else shootBall(p,now);continue;}
+  if(p.target===ballTarget)return ack({ok:false,error:'Spaceball solo admite láseres'});
  const n=npcs.get(p.target)||players.get(p.target),pvp=!!n&&players.get(n.id)===n;
   if(!n||n.gateShielded||!sameZone(p,n)||distance(p,n)>600||(pvp&&!canPvp(p,n)))return ack({ok:false,error:'Selecciona un objetivo válido a menos de 600 unidades'});
   const launcher=catalogV13.launchers.find(l=>l.id===p.launcher);
@@ -694,6 +694,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
  }
  if(!p.gate)for(const b of boxes.values())if(sameZone(p,b)&&distance(p,b)<52)collectBox(p,b);
+ if(p.target===ballTarget){if(!spaceballGame||p.zone!=='4-4'){p.target=null;p.attack=false;}else shootBall(p,now);continue;}
  const n=npcs.get(p.target)||players.get(p.target),pvp=!!n&&players.get(n.id)===n;if(!n||!sameZone(p,n)||(pvp&&!canPvp(p,n)&&!groupMates(p,1800).includes(n))){p.target=null;p.attack=false;}else if(p.attack&&(!pvp||canPvp(p,n))&&!p.reloadPending&&!p.reloadRequested&&distance(p,n)<=(p.v13?600:650)&&now-p.lastShot>=(p.v13?(catalogV13.ammo.find(a=>a.id===p.ammo)?.intervalMs||1000):450)&&!p.shotPending&&!p.upgradePending){
  p.lastShot=now;breakCloak(p);
  const finish=()=>finishCombat(p,n,pvp);
