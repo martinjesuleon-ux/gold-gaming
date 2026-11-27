@@ -5,6 +5,7 @@ const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
+const {assertShipDoesNotUsePet}=require('./pet-equipment-rules-v173');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const {specialGateQuantity}=require('./uridium-event-v157');
@@ -20,6 +21,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    code text NOT NULL, quantity bigint NOT NULL CHECK(quantity>=0),
    PRIMARY KEY(account_id,code));
+   CREATE TABLE IF NOT EXISTS gg_pet_equipment_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,equipment jsonb NOT NULL DEFAULT '{"laser":[],"generator":[]}');
    CREATE TABLE IF NOT EXISTS gg_v13_hangar (
    account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
    ship text NOT NULL DEFAULT 'phoenix', configs jsonb NOT NULL DEFAULT '[[],[]]',
@@ -119,6 +121,8 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(design!==null&&(!catalog.designs.some(d=>d.id===design&&d.ship===ship)||!rows.some(x=>x.category==='ship-designs'&&x.code===design)))throw fail('Diseño no adquirido o incompatible');
    const owned=new Map(rows.filter(x=>['lasers','engines','shields','drones','launchers','cpus','robots'].includes(x.category)).map(x=>[x.instanceId,x]));
    const computed=configurations(ship,configs,owned);
+   const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment;
+   assertShipDoesNotUsePet(configs,petEquipment);
    await c.query('INSERT INTO gg_v13_hangar(account_id,ship,configs,active,design) VALUES($1,$2,$3,$4,$5) ON CONFLICT(account_id) DO UPDATE SET ship=EXCLUDED.ship,configs=EXCLUDED.configs,active=EXCLUDED.active,design=EXCLUDED.design',[id,ship,JSON.stringify(configs),active,design]);
    return {ok:true,stats:computed[active]};
   });
