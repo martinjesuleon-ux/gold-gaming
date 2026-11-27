@@ -188,5 +188,56 @@
   for(const s of [-1,1]){polygon(c,[[5,2*s],[0,y*.8*s],[-7,y*.65*s],[-5,2*s]],coat,color,.55);polygon(c,[[-7,3*s],[-4,3*s],[-4,5*s],[-7,5*s]],'#a9b7b9','#18212a',.4);}
   polygon(c,[[x-2,0],[1,-3],[-4,0],[1,3]],coat,color,.65);polygon(c,[[x-4,0],[1,-1.4],[-1,0],[1,1.4]],color);
  }
- root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien,raider,vant};
+ // Hand-authored half-hull outlines, reflected around the centerline. Nose faces +X.
+ const pilotOutlines={
+  phoenix:[[29,0],[10,7],[-9,9],[-24,15],[-20,7],[-28,3],[-25,0]],
+  yamato:[[31,0],[22,9],[4,13],[-5,22],[-22,20],[-26,8],[-21,0]],
+  defcom:[[31,0],[15,6],[8,19],[-8,25],[-26,15],[-17,7],[-27,0]],
+  liberator:[[34,0],[25,12],[11,15],[-4,25],[-23,24],[-28,11],[-25,0]],
+  piranha:[[39,0],[18,6],[8,15],[-15,23],[-29,18],[-23,7],[-32,0]],
+  nostromo:[[29,0],[23,11],[6,26],[-10,29],[-28,19],[-33,8],[-29,0]],
+  bigboy:[[30,0],[28,17],[14,31],[-15,34],[-32,24],[-34,11],[-28,0]],
+  leonov:[[34,0],[26,5],[18,21],[3,23],[-10,17],[-24,24],[-30,10],[-26,0]],
+  vengeance:[[43,0],[20,5],[8,24],[-14,28],[-32,17],[-22,6],[-34,0]],
+  goliath:[[36,0],[32,11],[22,15],[16,22],[4,32],[-12,26],[-25,18],[-32,6],[-34,0]],
+  spearhead:[[46,0],[27,5],[18,12],[5,13],[-16,22],[-34,14],[-24,5],[-36,0]],
+  aegis:[[32,0],[29,12],[17,28],[-6,34],[-26,26],[-33,11],[-29,0]],
+  citadel:[[35,0],[34,18],[22,31],[-15,35],[-36,26],[-39,11],[-35,0]]
+ };
+ const designModules={Diminisher:'claws',Sentinel:'shield',Solace:'medic',Spectrum:'prism',Venom:'spines',Lightning:'thrust',Bastion:'shield',Enforcer:'cannons',Centaur:'armor',Exalted:'crest',Veteran:'stripes',Goal:'crest',Referee:'stripes',Kick:'thrust',Revenge:'cannons',Avenger:'spines',Saturn:'ring','aegis-veteran':'stripes','aegis-elite':'medic','citadel-veteran':'armor','citadel-elite':'cannons','spearhead-veteran':'stripes','spearhead-elite':'spines'};
+ function mirrored(outline){return outline.concat(outline.slice(1,-1).reverse().map(([x,y])=>[x,-y]));}
+ function pilot(c,kind,color){
+  const [ship,design]=kind.slice('classic-ship-'.length).split(':'),profile=pilotOutlines[ship]||pilotOutlines.phoenix,module=designModules[design];
+  const steel=linear(c,-33,-32,36,32,[[0,'#ccd4d5'],[.14,'#7f9195'],[.34,'#3b494d'],[.53,'#111b23'],[.67,'#58696c'],[.85,'#263239'],[1,'#0a1018']]);
+  const tinted=linear(c,-25,-30,30,30,[[0,color],[.22,'#89998c'],[.4,'#263735'],[.61,'#0d1b21'],[.79,color],[1,'#18292a']]);
+  if(ship==='goliath')goliath(c,color);
+  else{
+   polygon(c,mirrored(profile),steel,'#879ba0',.8);
+   const nose=profile[0][0],rear=Math.min(...profile.map(p=>p[0])),span=Math.max(...profile.map(p=>p[1]));
+   for(const s of [-1,1]){
+    polygon(c,[[nose*.42,5*s],[nose*.15,span*.62*s],[-5,span*.85*s],[rear*.8,span*.62*s],[rear*.5,7*s]],tinted,color,.65);
+    polygon(c,[[nose*.26,8*s],[-5,span*.55*s],[rear*.7,span*.6*s],[rear*.55,10*s]],'#17262c','#60767a',.55);
+    for(let i=0;i<4;i++){const x=rear*.68+i*5;polygon(c,[[x,span*.48*s],[x+3,span*.48*s],[x+6,span*.34*s],[x+3,span*.34*s]],'#91a0a2','#18262d',.35);}
+    polygon(c,[[rear+3,4*s],[rear+9,5*s],[rear+9,10*s],[rear+3,8*s]],'#111b24','#84969b',.65);
+    c.fillStyle=color;c.fillRect(rear+4,6*s-1.1,3,2.2);
+   }
+   polygon(c,[[nose-2,0],[nose*.38,-5],[-12,-7],[rear+6,0],[-12,7],[nose*.38,5]],steel,'#87989c',.65);
+   polygon(c,[[nose*.42,0],[nose*.08,-4],[-6,0],[nose*.08,4]],color,'#cee5e0',.55);
+   if(ship==='aegis')for(const s of [-1,1])polygon(c,[[-9,15*s],[2,15*s],[2,24*s],[-9,24*s]],'#b2d1cb',color,.7);
+   if(ship==='citadel')for(const s of [-1,1])polygon(c,[[22,10*s],[31,15*s],[25,25*s],[15,22*s]],steel,'#92a5a7',.9);
+  }
+  if(!module)return;
+  // The equipped design adds physical details instead of recoloring alone.
+  for(const s of [-1,1]){
+   if(module==='claws'||module==='spines'){polygon(c,[[9,12*s],[28,18*s],[40,12*s],[32,23*s],[13,29*s]],steel,color,.8);polygon(c,[[22,17*s],[36,13*s],[30,21*s]],color);}
+   else if(module==='shield'||module==='armor'){polygon(c,[[-15,15*s],[10,14*s],[23,21*s],[11,33*s],[-18,28*s]],steel,color,.9);polygon(c,[[-8,18*s],[10,18*s],[16,23*s],[7,27*s],[-9,25*s]],tinted,color,.55);}
+   else if(module==='prism'){polygon(c,[[3,12*s],[20,20*s],[8,33*s],[-9,24*s]],tinted,'#d0bce8',.9);polygon(c,[[8,15*s],[17,20*s],[8,25*s]],color);}
+   else if(module==='cannons'){polygon(c,[[9,12*s],[32,13*s],[42,10*s],[42,15*s],[30,18*s],[9,18*s]],steel,'#b1bcbe',.7);c.fillStyle=color;c.fillRect(34,13*s-1,6,2);}
+   else if(module==='thrust'){polygon(c,[[-28,10*s],[-40,18*s],[-40,23*s],[-25,24*s],[-16,15*s]],steel,color,.8);c.fillStyle=color;c.fillRect(-39,20*s-1,9,2);}
+   else if(module==='medic'){polygon(c,[[-16,11*s],[1,11*s],[4,25*s],[-15,27*s]],'#526b69',color,.65);c.fillStyle=color;c.fillRect(-11,18*s-1,9,2);c.fillRect(-7,18*s-4,2,8);}
+   else if(module==='ring'){polygon(c,[[-12,12*s],[7,11*s],[22,22*s],[13,32*s],[-12,28*s]],tinted,color,.65);c.strokeStyle=color;c.lineWidth=.9;c.beginPath();c.arc(0,19*s,5,0,Math.PI*2);c.stroke();}
+   else {polygon(c,[[-14,12*s],[12,10*s],[23,17*s],[5,22*s],[-14,20*s]],tinted,color,.55);for(let i=0;i<3;i++){c.fillStyle=color;c.fillRect(-9+i*6,16*s-1,3,2);}}
+  }
+ }
+ root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien,raider,vant,pilot};
 })(window);
