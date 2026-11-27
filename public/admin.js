@@ -22,7 +22,7 @@ function renderEvents(d){
  const m=$('eventMap'),prev=m.value;m.replaceChildren(...d.maps.map(v=>option(v,v)));if(d.maps.includes(prev))m.value=prev;else if(d.maps.includes('4-5'))m.value='4-5';
  updateEventForm();
 }
-async function refreshEvents(){try{const d=await api('events');if(active)renderEvents(d);}catch(e){eventState=null;updateEventForm();status(e.message);}}
+async function refreshEvents(){try{const d=await api('events');if(active){renderEvents(d);await refreshUridium();}}catch(e){eventState=null;updateEventForm();status(e.message);}}
 function updateEventForm(){const kind=$('eventKind').value,d=eventState?.[kind==='hitac-lottery'?'lottery':kind],a=$('eventAction'),prev=a.value;
  $('eventMap').hidden=$('eventMapLabel').hidden=kind!=='ice';$('eventDifficulty').hidden=$('eventDifficultyLabel').hidden=kind!=='invasion';
  const difficulty=$('eventDifficulty').value,invActive=kind==='invasion'&&[...(d?.lobbies||[]),...(d?.runs||[])].some(x=>x.difficulty===difficulty);const choices=kind==='hitac-lottery'?(d?.state?.bag?[['close','Cerrar bolsa']]:[['open','Abrir bolsa']]):kind==='invasion'?(invActive?[['stop','Cancelar invasión']]:[['start','Abrir inscripción']]):d?.active?[['stop','Finalizar evento']]:[['start','Iniciar evento']];
@@ -33,3 +33,10 @@ $('eventKind').onchange=updateEventForm;$('eventDifficulty').onchange=updateEven
 $('eventForm').onsubmit=async e=>{e.preventDefault();if(eventBusy||$('eventSubmit').disabled)return;const kind=$('eventKind').value,action=$('eventAction').value;
  if(!window.confirm(eventNames[kind]+': '+$('eventAction').selectedOptions[0].textContent+'?'))return;eventBusy=true;updateEventForm();
  try{await api(kind,{action,...(kind==='ice'?{map:$('eventMap').value}:{}),...(kind==='invasion'?{difficulty:$('eventDifficulty').value}:{})});status('Acción confirmada: '+eventNames[kind]);await refreshEvents();}catch(err){status(err.message);}finally{eventBusy=false;updateEventForm();}};
+
+let uridiumBusy=false,uridiumAvailable=false;
+function updateUridiumForm(){const schedule=$('uridiumAction').value==='schedule';$('uridiumSchedule').hidden=!schedule;$('uridiumStart').required=schedule;$('uridiumEnd').required=schedule;$('uridiumSubmit').disabled=!active||!uridiumAvailable||uridiumBusy;}
+function renderUridium(d){uridiumAvailable=true;$('uridiumState').textContent=(d.active?'Activo · x2':'Inactivo · x1')+(d.mode==='scheduled'?' · '+new Date(d.startAt).toLocaleString('es-CL')+' — '+new Date(d.endAt).toLocaleString('es-CL'):'');updateUridiumForm();}
+async function refreshUridium(){try{const d=await api('uridium-x2');if(active)renderUridium(d);}catch{uridiumAvailable=false;$('uridiumState').textContent='Estado no disponible';updateUridiumForm();}}
+$('uridiumAction').onchange=updateUridiumForm;
+$('uridiumForm').onsubmit=async e=>{e.preventDefault();if(!active||uridiumBusy||!uridiumAvailable)return;const action=$('uridiumAction').value,body={action};if(action==='schedule'){const start=new Date($('uridiumStart').value),end=new Date($('uridiumEnd').value);if(!Number.isFinite(+start)||!Number.isFinite(+end)||+start<Date.now()||+end<=+start){status('Inicio futuro y fin posterior requeridos');return;}body.startAt=start.toISOString();body.endAt=end.toISOString();}if(!window.confirm('¿Confirmar cambio global de Uridium x2?'))return;uridiumBusy=true;updateUridiumForm();try{const d=await api('uridium-x2',body);if(active){renderUridium(d);status('Configuración de Uridium x2 guardada');}}catch(err){status(err.message);}finally{uridiumBusy=false;updateUridiumForm();}};
