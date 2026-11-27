@@ -116,7 +116,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function awaitAchievementHades(p){if(!accounts.achievementAdd)return;const job=p.writes.catch(()=>{}).then(()=>accounts.achievementAdd(p.accountId,'alien',1));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>pending.delete(job));}
  function flushFlight(p){if(!accounts.achievementAdd)return;const n=Math.floor(p.flightDistance||0);if(n<1)return;p.flightDistance-=n;const job=p.writes.catch(()=>{}).then(()=>accounts.achievementAdd(p.accountId,'distance',n));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);p.flightDistance+=n;});}
  function move(v,d,dt){if(!d)return;const dx=d.x-v.x,dy=d.y-v.y,len=Math.hypot(dx,dy);if(len<1)return;v.angle=Math.atan2(dy,dx);const step=Math.min(len,v.speed*speedFactor(v,Date.now())*(v.freezeUntil>Date.now()?0:v.mineSlowUntil>Date.now()?.5:v.slowUntil>Date.now()?.7:1)*dt);const x=v.x,y=v.y;v.x=clamp(v.x+dx/len*step,25,WORLD.w-25);v.y=clamp(v.y+dy/len*step,25,WORLD.h-25);if(v.accountId)v.flightDistance=(v.flightDistance||0)+Math.hypot(v.x-x,v.y-y);}
- function laser(a,b){io.to(zoneOf(a)).emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player'});}
+ function laser(a,b){io.to(zoneOf(a)).emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player',...(a.type?{}:{ammo:a.ammo})});}
  const initializedMaps=new Set();
  function spawnMapNPC(name,zone){
   const a=alienStats[name];if(!a)return;
