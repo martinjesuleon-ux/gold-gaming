@@ -24,3 +24,9 @@ test('Ice shared reward rounding is deterministic and excludes zero contributors
  for(const [k,v] of Object.entries(REWARD))assert.equal(result.reduce((n,x)=>n+x[k],0),v);
  assert.ok(result[0].credits>=result[1].credits);
 });
+
+test('Ice pre-debit validation rejects inactive events, other maps and distant targets',()=>{
+ const {validateShot}=require('../ice-v146'),e=createEvent('4-5',0),p={zone:e.map,accountId:'a',x:e.boss.x,y:e.boss.y};
+ assert.throws(()=>validateShot(e,p,e.boss.id,59999));assert.equal(validateShot(e,p,e.boss.id,60000),e.boss);
+ assert.throws(()=>validateShot(e,{...p,x:p.x+601},e.boss.id,60000));assert.throws(()=>validateShot(e,{...p,zone:'1-1'},e.boss.id,60000));assert.equal(e.boss.hp,4000000);
+});
