@@ -135,7 +135,7 @@ function createInventory(pool){
    const config=h?.configs?.[h.active],ids=Array.isArray(config)?config:config?.ship||[];
    const items=(await c.query("SELECT instance_id,code FROM gg_v13_inventory WHERE account_id=$1 AND category='cpus'",[id])).rows;
    if(!items.some(i=>i.code===code&&ids.includes(i.instance_id)))throw fail('Equipa este CPU primero');
-   const costs=['ISH-01','SMB-01'].includes(code)?[['ACM-01',10],['xenomit',100]]:['CLO4K-CPU','CLO4K-XL-CPU'].includes(code)?[[code+'-uses',1]]:null;
+   const costs=code==='AJP-01'?[['jump-voucher',1]]:['ISH-01','SMB-01'].includes(code)?[['ACM-01',10],['xenomit',100]]:['CLO4K-CPU','CLO4K-XL-CPU'].includes(code)?[[code+'-uses',1]]:null;
    if(!costs)throw fail('CPU no activable');
    const remaining={};
    for(const [item,n] of costs){const r=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,item,n])).rows[0];if(!r)throw fail('Necesitas '+n+' '+item);remaining[item]=Number(r.quantity);}
