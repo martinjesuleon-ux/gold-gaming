@@ -138,3 +138,27 @@
 .gg13 .gg-pet-hangar>section:nth-child(2){scrollbar-width:thin}
 @media(max-width:1050px){.gg13 .gg-pet-slot-grid{grid-template-columns:repeat(8,minmax(0,1fr))}}
 @media(max-width:760px){.gg13 .gg-pet-slot-grid{grid-template-columns:repeat(auto-fill,minmax(34px,1fr))}.gg13 .gg-pet-inventory-grid{grid-template-columns:repeat(auto-fill,minmax(46px,1fr))}}
+
+/* V1.76: VANT hangar uses individual drone cards, with the same inventory language as PET. */
+.gg13 .gg13-hangar.gg-vant-hangar{grid-template-columns:minmax(160px,25%) minmax(0,1fr) minmax(160px,20%);gap:5px}
+.gg13 .gg-vant-hangar>section{min-height:0}
+.gg13 .gg-vant-hangar>section:last-child{display:flex;flex-direction:column;overflow:hidden}
+.gg13 .gg-vant-hangar>section:nth-child(2){scrollbar-width:thin}
+.gg13 .gg-vant-cards{display:grid;gap:6px}
+.gg13 .gg-vant-card{margin:0;background:linear-gradient(155deg,#25313b,#111c27 65%,#394450);border:1px solid #65717d}
+.gg13 .gg-vant-card-row{display:grid;grid-template-columns:minmax(62px,1fr) 49px minmax(86px,1.3fr) minmax(77px,1fr);align-items:center;gap:8px;padding:10px 7px;min-height:126px}
+.gg13 .gg-vant-portrait{position:relative;min-width:0;display:grid;place-items:center;border:1px solid #7d8a95;background:radial-gradient(#445d70,#141e28);padding:4px;font-size:10px}
+.gg13 .gg-vant-portrait .gg-item-art{width:100%;height:auto;max-height:80px;object-fit:contain}
+.gg13 .gg-vant-portrait>small{position:absolute;top:3px;left:3px;color:#a9edaa;background:#101820bb;font-size:10px}
+.gg13 .gg-vant-equipment{display:grid;gap:4px;align-content:center}
+.gg13 .gg-vant-equipment .gg-hangar-item,.gg13 .gg-vant-design-cell .gg-hangar-item,.gg13 .gg-vant-square{width:47px;aspect-ratio:1;min-height:0;padding:2px;border-radius:1px;box-sizing:border-box}
+.gg13 .gg-vant-square{display:grid;place-items:center;border:1px solid #81929d;background:repeating-linear-gradient(135deg,#28343e 0 2px,#17232d 2px 5px);color:#aebdca;font-size:18px}
+.gg13 .gg-vant-statistics,.gg13 .gg-vant-design-cell{display:grid;gap:5px;font-size:11px;min-width:0;overflow-wrap:anywhere}
+.gg13 .gg-vant-statistics strong{color:#e6e9ee}
+.gg13 .gg-vant-design-cell small{font-size:10px}
+.gg13 .gg-vant-design-tile .gg-item-art{max-width:100%;height:30px;object-fit:contain}
+.gg13 .gg-vant-inventory .gg-hangar-item[aria-pressed=true]{outline:2px solid #e7c579;outline-offset:-2px}
+.gg13 .gg-vant-hangar>section:last-child>button{margin-top:4px;font-size:11px}
+.gg13 .gg-vant-locked{opacity:.65}
+@media(max-width:1050px){.gg13 .gg-vant-card-row{gap:4px;padding:7px 4px;grid-template-columns:minmax(54px,1fr) 43px minmax(72px,1.1fr) minmax(60px,1fr)}.gg13 .gg-vant-equipment .gg-hangar-item,.gg13 .gg-vant-square,.gg13 .gg-vant-design-cell .gg-hangar-item{width:41px}}
+@media(max-width:760px){.gg13 .gg13-hangar.gg-vant-hangar{grid-template-columns:minmax(110px,30%) minmax(0,1fr);height:auto}.gg13 .gg-vant-hangar>section:last-child{grid-column:1/-1;max-height:250px}.gg13 .gg-vant-card-row{grid-template-columns:1fr 43px 1fr}.gg13 .gg-vant-design-cell{grid-column:1/-1;grid-template-columns:auto auto 1fr;align-items:center}}
