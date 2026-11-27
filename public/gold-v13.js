@@ -753,7 +753,7 @@ async function gates(){
   draw();
  }catch(e){if(modal.open&&mode==='Portales')body.replaceChildren(el('p',e.message));}
 }
-window.gg13Open=open;window.gg16OpenGate=gate=>open('Portales',gate);
+window.addEventListener('gg13:refresh',()=>refresh().catch(()=>{}));window.gg13Open=open;window.gg16OpenGate=gate=>open('Portales',gate);
 document.getElementById('godMenu')?.addEventListener('click',()=>open('Controlador'));
 document.getElementById('gateMenu')?.addEventListener('click',()=>open('Portales'));
 })();
