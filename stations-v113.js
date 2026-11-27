@@ -29,13 +29,45 @@ function stationState(station,now=Date.now()){
  if(now<Number(station.down_until))return 'vulnerable';
  return 'ready'; // Combat and deflector clock are not enabled until the next stage.
 }
+// Charge is measured in milliseconds of equivalent minutes: 1000 units = one minute.
+function deflector(station,now=Date.now()){
+ const ready=Number(station.ready_at),cap=RULES.deflectorCap*1000;
+ let at=Math.max(ready,Number(station.clock_at??ready)),charge=Math.min(cap,Math.max(0,Number(station.charge_units??0))),down=Number(station.down_until);
+ if(now<ready)return {at:ready,charge:0,downUntil:down,mode:'building',protected:false};
+ // Once a full day repeats, skip whole days to keep long-offline calculations bounded.
+ const seen=new Map();
+ while(at<now){
+  const key=[at%86400000,charge,Math.max(0,down-at)].join(':');
+  if(seen.has(key)){const cycle=at-seen.get(key),skip=cycle>0?Math.floor((now-at)/cycle)*cycle:0;if(skip>0){if(down>at)down+=skip;at+=skip;if(at===now)break;}}
+  else seen.set(key,at);
+  if(at<down){
+   const day=Math.floor(at/86400000)*86400000,hour=(at-day)/3600000,peak=hour>=20&&hour<23;
+   const boundary=day+(hour<20?20:hour<23?23:44)*3600000;
+   const end=Math.min(now,down,boundary);
+   charge=Math.min(cap,charge+(end-at)*(peak?RULES.peakCharge:RULES.normalCharge));at=end;
+  }else if(charge>0){
+   const end=Math.min(now,at+Math.ceil(charge/RULES.drain));
+   charge=Math.max(0,charge-(end-at)*RULES.drain);at=end;
+   if(charge===0)down=at+RULES.initialDown;
+  }else down=at+RULES.initialDown;
+ }
+ if(at>=down&&charge===0)down=at+RULES.initialDown;
+ return {at,charge,downUntil:down,mode:now<down?'vulnerable':'protected',protected:now>=down};
+}
+function lowerDeflector(station,minutes,now=Date.now()){
+ if(!Number.isSafeInteger(minutes)||minutes<30||minutes>2880)throw fail('Caída de 30 minutos a 48 horas');
+ const d=deflector(station,now);if(d.mode!=='protected')throw fail('El deflector no está levantado');
+ return {...d,downUntil:now+minutes*60000,mode:'vulnerable',protected:false};
+}
 function createStations(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_cbs_stations(asteroid_id text PRIMARY KEY,clan_id uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,builder uuid NOT NULL REFERENCES accounts(id),ready_at bigint NOT NULL,down_until bigint NOT NULL,modules jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
- CREATE TABLE IF NOT EXISTS gg_cbs_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));`);}
+ CREATE TABLE IF NOT EXISTS gg_cbs_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));
+ ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS clock_at bigint;
+ ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS charge_units bigint;`);}
  async function status(id,map){
-  const stations=(await pool.query('SELECT s.asteroid_id,s.ready_at,s.down_until,c.tag AS clan_tag FROM gg_cbs_stations s JOIN gg_v15_clans c ON c.id=s.clan_id')).rows;
+  const stations=(await pool.query('SELECT s.asteroid_id,s.ready_at,s.down_until,s.clock_at,s.charge_units,c.tag AS clan_tag FROM gg_cbs_stations s JOIN gg_v15_clans c ON c.id=s.clan_id')).rows;
   const inventory=(await pool.query("SELECT instance_id AS \"instanceId\",code,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-modules' ORDER BY code,instance_id",[id])).rows;
-  return {catalog:MODULES,rules:RULES,asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,state:stationState(s)}:null};}),inventory,combatEnabled:false};
+  return {catalog:MODULES,rules:RULES,asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,state:deflector(s).mode,deflector:deflector(s)}:null};}),inventory,combatEnabled:false};
  }
  async function build(id,{asteroidId,moduleIds,minutes,requestId}={},position){
   if(!uuid(requestId)||!Array.isArray(moduleIds)||moduleIds.length!==10||!moduleIds.every(uuid)||new Set(moduleIds).size!==10)throw fail('Solicitud inválida');
@@ -57,6 +89,18 @@ function createStations(pool){
    await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});if(e.code==='23505')throw fail('Asteroide ocupado');throw e;}finally{c.release();}
  }
- return {ready,status,build};
+ async function lower(id,{asteroidId,minutes,requestId}={}){
+  if(!uuid(requestId)||!ASTEROIDS.some(a=>a.id===asteroidId))throw fail('Solicitud inválida');
+  const c=await pool.connect();try{await c.query('BEGIN');
+   await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id]);
+   const old=(await c.query('SELECT response FROM gg_cbs_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){await c.query('COMMIT');return old.response;}
+   const m=(await c.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1 FOR UPDATE OF m,c',[id])).rows[0];
+   if(!m||!(m.leader===id||m.permissions.includes('cbs')))throw fail('Sin permiso CBS');
+   const station=(await c.query('SELECT * FROM gg_cbs_stations WHERE asteroid_id=$1 AND clan_id=$2 FOR UPDATE',[asteroidId,m.id])).rows[0];if(!station)throw fail('Estación no disponible');
+   const d=lowerDeflector(station,minutes);await c.query('UPDATE gg_cbs_stations SET clock_at=$2,charge_units=$3,down_until=$4 WHERE asteroid_id=$1',[asteroidId,d.at,d.charge,d.downUntil]);
+   await c.query('INSERT INTO gg_cbs_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(d)]);await c.query('COMMIT');return d;
+  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
+ }
+ return {ready,status,build,lower};
 }
-module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,createStations};
+module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,createStations};
