@@ -12,7 +12,7 @@ const install=env=>script.runInNewContext(env);
 
 const ID='pilot',KEY='00000000-0000-4000-8000-000000000001';
 const input=(extra={})=>({category:'lasers',code:'LF-1',quantity:2,requestId:KEY,...extra});
-function setup({credits=100000n,receipt=null,failDebit=false,failInsert=false,failQuote=false}={}){
+function setup({credits=100000n,receipt=null,failDebit=false,failInsert=false,failQuote=false,premium=false}={}){
  const calls=[],receipts=new Map(),items=[];if(receipt)receipts.set(KEY,receipt);
  let working,quoteCalls=0;
  const c={release:()=>calls.push('release'),async query(sql,args=[]){
@@ -27,11 +27,12 @@ function setup({credits=100000n,receipt=null,failDebit=false,failInsert=false,fa
   if(sql.startsWith('INSERT INTO gg_v13_purchases')){working.receipts.set(args[1],JSON.parse(args[2]));return {};}
   throw Error('Unexpected SQL: '+sql);
  }};
- const purchase=install({pool:{connect:async()=>c},crypto:{randomUUID:()=>String(Math.random())},fail:(message,status=400)=>Object.assign(Error(message),{status}),quote:(category,code,quantity)=>{quoteCalls++;if(failQuote)throw Error('catalog changed');return {id:code,category,quantity,currency:'credits',total:10000*quantity};}});
+ const purchase=install({premiumRead:async()=>premium,premiumPrice:require('../boosters-v112').premiumPrice,pool:{connect:async()=>c},crypto:{randomUUID:()=>String(Math.random())},fail:(message,status=400)=>Object.assign(Error(message),{status}),quote:(category,code,quantity)=>{quoteCalls++;if(failQuote)throw Error('catalog changed');return {id:code,category,quantity,currency:'credits',total:10000*quantity};}});
  return {purchase,calls,items,receipts,get credits(){return credits},get quoteCalls(){return quoteCalls}};
 }
 async function rejected(fn,msg){try{await fn();return false;}catch(e){return e.message===msg;}}
 const cases=[
+ ['premium purchase charges 5% less and replays exact receipt',async()=>{const s=setup({premium:true});const a=await s.purchase(ID,input()),b=await s.purchase(ID,input());return a.total===19000&&b.total===19000&&a.baseTotal===20000&&s.credits===81000n&&s.items.length===2;}],
  ['valid purchase charges once and grants two articles',async()=>{const s=setup();const r=await s.purchase(ID,input());return r.ok&&s.credits===80000n&&s.items.length===2&&s.receipts.size===1;}],
  ['retry returns receipt without duplicate charge or item',async()=>{const s=setup();const a=await s.purchase(ID,input()),b=await s.purchase(ID,input());return a.balance.credits===b.balance.credits&&s.items.length===2&&s.credits===80000n&&s.quoteCalls===1;}],
  ['receipt survives changed catalog',async()=>{const receipt={ok:true,request:{category:'lasers',code:'LF-1',quantity:2,targetLevel:null}};const s=setup({receipt,failQuote:true});return (await s.purchase(ID,input())).ok&&s.quoteCalls===0&&s.items.length===0;}],
