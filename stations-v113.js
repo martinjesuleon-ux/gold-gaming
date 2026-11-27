@@ -98,14 +98,16 @@ function createStations(pool){
  ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS clock_at bigint;
  ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS charge_units bigint;`);}
  async function status(id,map){
-  const stations=(await pool.query('SELECT s.asteroid_id,s.ready_at,s.down_until,s.clock_at,s.charge_units,c.tag AS clan_tag FROM gg_cbs_stations s JOIN gg_v15_clans c ON c.id=s.clan_id')).rows;
+  const member=(await pool.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1',[id])).rows[0];
+  const canManage=!!member&&(member.leader===id||member.permissions.includes('cbs'));
+  const stations=(await pool.query('SELECT s.clan_id,s.asteroid_id,s.ready_at,s.down_until,s.clock_at,s.charge_units,c.tag AS clan_tag FROM gg_cbs_stations s JOIN gg_v15_clans c ON c.id=s.clan_id')).rows;
   const inventory=(await pool.query("SELECT instance_id AS \"instanceId\",code,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-modules' ORDER BY code,instance_id",[id])).rows;
-  return {catalog:MODULES,rules:RULES,asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,state:deflector(s).mode,deflector:deflector(s)}:null};}),inventory,combatEnabled:false};
+  return {catalog:MODULES,rules:RULES,canManage,constructionEnabled:process.env.GG_CBS_BUILD_ENABLED==='1',asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,owned:member?.id===s.clan_id,state:deflector(s).mode,deflector:deflector(s)}:null};}),inventory,combatEnabled:false};
  }
  async function build(id,{asteroidId,moduleIds,minutes,requestId}={},position){
   if(!uuid(requestId)||!Array.isArray(moduleIds)||moduleIds.length!==10||!moduleIds.every(uuid)||new Set(moduleIds).size!==10)throw fail('Solicitud inválida');
   const a=ASTEROIDS.find(x=>x.id===asteroidId);
-  if(!a||!position||position.zone!==a.map||Math.hypot(position.x-a.x,position.y-a.y)>250)throw fail('Acércate al asteroide');
+  if(!a||!position||position.zone!==a.map||!Number.isFinite(position.x)||!Number.isFinite(position.y)||Math.hypot(position.x-a.x,position.y-a.y)>250)throw fail('Acércate al asteroide');
   const c=await pool.connect();try{await c.query('BEGIN');
    await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id]);
    const prior=(await c.query('SELECT response FROM gg_cbs_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(prior){await c.query('COMMIT');return prior.response;}
