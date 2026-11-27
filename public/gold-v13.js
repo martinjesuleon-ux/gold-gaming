@@ -76,14 +76,18 @@ function cpuMenu(){
  if(state.items.some(i=>i.code==='GEMINEX-XI'&&i.category==='cpus')&&!p.cpus?.includes('GEMINEX-XI'))grid.append(el('p','GEMINEX-XI activo permanentemente: bodega ×2'));
  body.append(grid);
 }
+let auctionBoard='weekly-cbs';
 async function auctionMenu(){
- body.replaceChildren(el('h2','Subasta semanal · CBS'),el('p','Cargando…'));
- try{const d=await api('auction-cbs');if(!modal?.open||mode!=='Subastas')return;
- body.replaceChildren(el('h2','Subasta semanal · módulos CBS'),el('p','Cierre: '+new Date(d.roundEnd).toLocaleString()+' · Créditos: '+fmt(d.credits)),el('p','Puja mínima 500.000 · Incremento 500.000 · Tu propia puja +1.500.000. Sin compra directa.'));
+ body.replaceChildren(el('h2','Casa de subastas'),el('p','Cargando…'));
+ try{const d=await api('auction-cbs?board='+encodeURIComponent(auctionBoard));if(!modal?.open||mode!=='Subastas')return;
+ body.replaceChildren(el('h2','Casa de subastas'));
+ const nav=el('div',null,'gg13-grid');for(const [code,label] of [['hourly','POR HORAS'],['daily','DIARIA'],['weekly-cbs','SEMANAL']]){const b=button(label,()=>{if(!busy){auctionBoard=code;auctionMenu();}});b.disabled=auctionBoard===code;nav.append(b);}body.append(nav,el('p','Cierre: '+new Date(d.roundEnd).toLocaleString()+' · Créditos: '+fmt(d.credits)+' · Uridium: '+fmt(d.uridium)),el('p','Puja mínima 500.000 · Incremento 500.000 · Tu propia puja +1.500.000.'));
  const grid=el('div',null,'gg13-grid');
- for(const lot of d.lots){const tile=el('section',null,'gg13-tile'),input=el('input');input.type='number';input.min=String(lot.minBid);input.step='1';input.value=String(lot.minBid);tile.append(el('h3',lot.code),el('p','Puja actual: '+fmt(lot.amount)+(lot.own?' · Tu puja':'')),input);
- const btn=button('PUJAR',async()=>{if(busy)return;const amount=Number(input.value);if(!Number.isSafeInteger(amount)||amount<lot.minBid){status.textContent='Puja insuficiente';return;}busy=true;try{await window.gg114Bid({code:lot.code,amount,roundStart:d.roundStart,requestId:crypto.randomUUID()});await refresh();await auctionMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}});tile.append(btn);grid.append(tile);}
- body.append(grid,el('p','Tableros por horas y diario: pendientes. Construcción CBS no habilitada todavía.'));status.textContent='Créditos: '+fmt(d.credits);
+ const run=async data=>{if(busy)return;busy=true;try{await window.gg114Bid({...data,board:d.board,roundStart:d.roundStart,requestId:crypto.randomUUID()});await refresh();await auctionMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}};
+ for(const lot of d.lots){const tile=el('section',null,'gg13-tile'),input=el('input');input.type='number';input.min=String(lot.minBid);input.step='1';input.value=String(lot.minBid);tile.append(el('h3',lot.code+' × '+lot.quantity),el('p','Puja actual: '+fmt(lot.amount)+(lot.own?' · Tu puja':'')),input);
+ tile.append(button('PUJAR',()=>{const amount=Number(input.value);if(!Number.isSafeInteger(amount)||amount<lot.minBid){status.textContent='Puja insuficiente';return;}run({action:'bid',code:lot.code,amount});}));
+ if(lot.directPrice!==null)tile.append(button('COMPRA DIRECTA · '+fmt(lot.directPrice)+(lot.currency==='credits'?' C':' U'),()=>run({action:'buy',code:lot.code})));else tile.append(el('p','Solo puja'));grid.append(tile);}
+ body.append(grid,el('p','Tablero por horas en ampliación. Construcción CBS aún no habilitada.'));status.textContent='Créditos: '+fmt(d.credits);
  }catch(e){if(modal?.open&&mode==='Subastas')body.replaceChildren(el('p',e.message));}
 }
 async function stationMenu(){
