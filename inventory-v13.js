@@ -1,6 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
-const {bonusLoot,pirateLoot}=require('./loot-v14');
+const {bonusLoot,pirateLoot,pirateEventsForDay,pirateEventLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
@@ -149,7 +149,7 @@ function createInventory(pool){
   });
  }
  async function consumeAmmo(id,code,count){
-  if(!catalog.ammo.some(a=>a.id===code)||!Number.isSafeInteger(count)||count<1||count>100)throw fail('Munición inválida');
+  if(!(catalog.ammo.some(a=>a.id===code)||(code==='EMP'&&count===1))||!Number.isSafeInteger(count)||count<1||count>100)throw fail('Munición inválida');
   return transaction(id,async c=>{
    const row=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,code,count])).rows[0];
    return row?Number(row.quantity):null;
@@ -212,7 +212,8 @@ function createInventory(pool){
     return transaction(id,async(c,p)=>{
      const key=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='green-key' AND quantity>=1 RETURNING quantity",[id])).rows[0];
      if(!key)throw Object.assign(fail('Necesitas una llave verde',409),{code:'NO_GREEN_KEY'});
-     let loot=pirateLoot(crypto.randomInt(1000),crypto.randomInt(1000000)/1000000,crypto.randomInt(1000000)/1000000);
+     const events=pirateEventsForDay(),roll=()=>crypto.randomInt(1000000)/1000000;
+     let loot=events.helix||events.apisZeus?pirateEventLoot(roll(),roll(),roll(),events):pirateLoot(crypto.randomInt(1000),roll(),roll());
      if(loot.category==='drones'){
       const owned=(await c.query("SELECT code FROM gg_v13_inventory WHERE account_id=$1 AND category='drones'",[id])).rows;
       // Wiki does not define duplicate special drone compensation; award one matching part.

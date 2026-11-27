@@ -31,4 +31,21 @@ function pirateLoot(roll,subRoll=0,amountRoll=0){
  }
  throw Error('Invalid pirate loot table');
 }
-module.exports={BONUS,bonusLoot,PIRATE,pirateLoot};
+// Event target probabilities are exact; other rows share the remaining probability
+// proportionally because the wiki does not specify how to redistribute it.
+function pirateEventWeights({helix=false,apisZeus=false}={}){
+ const boosts={'LF-4':helix?1.5:1,'apis-piece':apisZeus?1.8:1,'zeus-piece':apisZeus?1.2:1,apis:apisZeus?1.5:1,zeus:apisZeus?1.5:1};
+ let fixed=0,original=0;
+ for(const [code,weight] of PIRATE)if((boosts[code]||1)!==1){fixed+=weight*boosts[code];original+=weight;}
+ return PIRATE.map(([code,w])=>(boosts[code]||1)!==1?w*boosts[code]:w*(1000-fixed)/(1000-original));
+}
+function pirateEventsForDay(now=new Date(),env=process.env){
+ const day=now.toISOString().slice(0,10),matches=key=>String(env[key]||'').split(',').map(x=>x.trim()).includes(day);
+ return {helix:matches('GG_HELIX_DATES'),apisZeus:matches('GG_APIS_ZEUS_DATES')};
+}
+function pirateEventLoot(roll,subRoll,amountRoll,events){
+ if(!Number.isFinite(roll)||roll<0||roll>=1)throw Error('Invalid pirate event roll');
+ const weights=pirateEventWeights(events);let remaining=roll*1000,offset=0;
+ for(let i=0;i<PIRATE.length;i++){if(remaining<weights[i]||i===PIRATE.length-1)return pirateLoot(offset,subRoll,amountRoll);remaining-=weights[i];offset+=PIRATE[i][1];}
+}
+module.exports={BONUS,bonusLoot,PIRATE,pirateLoot,pirateEventWeights,pirateEventsForDay,pirateEventLoot};

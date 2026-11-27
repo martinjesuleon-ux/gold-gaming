@@ -874,6 +874,14 @@
       "name": "Llave verde",
       "price": 1500,
       "currency": "uridium"
+    },
+    {
+      "id": "EMP",
+      "name": "EMP-01",
+      "price": 500,
+      "currency": "uridium",
+      "cooldown": 35000,
+      "duration": 3000
     }
   ]
 }
