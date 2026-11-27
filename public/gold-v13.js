@@ -32,7 +32,7 @@ async function gates(){
    body.replaceChildren(el('h2','Generador de puertas galácticas'));
    const nav=el('div',null,'gg13-grid');
    for(const id of data.gates){const b=button(id.toUpperCase(),()=>{});b.disabled=true;nav.append(b);}
-   body.append(nav,el('h3','ALPHA'),el('p','Versión de prueba: construcción de puerta; oleadas aún no disponibles.'));
+   body.append(nav,el('h3','ALPHA'),el('p','Alpha · combate de prueba. Composición de oleadas y premios provisionales.'));
    const a=data.alpha;
    const progress=el('progress');progress.max=a.required;progress.value=a.pieces.length;
    body.append(progress,el('p',a.pieces.length+' / '+a.required+' piezas · Energía extra: '+fmt(data.energy)+' · Multiplicador ×'+a.multiplier));
@@ -46,7 +46,11 @@ async function gates(){
     try{const result=await api('gates/spin',{gate:'alpha',requestId:crypto.randomUUID(),useMultiplier:mult.checked,allowUridium:paid.checked});
      Object.assign(a,{pieces:result.pieces,multiplier:result.multiplier,ready:result.ready});data.energy=result.energy;state.balance=result.balance;draw();status.textContent='Resultado: '+result.reward.code+' ×'+result.reward.quantity+' · '+balance();
     }catch(e){status.textContent=e.message;}finally{busy=false;spin.disabled=a.ready;}
-   });spin.disabled=a.ready;body.append(label,pl,spin);if(a.ready)body.append(el('p','Puerta ensamblada. Acceso al combate pendiente.'));
+   });spin.disabled=a.ready;body.append(label,pl,spin);if(a.ready){
+    body.append(el('p','Oleadas completadas: '+(a.wave||0)+' / 10 · Vidas: '+(a.lives??3)));
+    if(window.gg14GateState?.().inside){body.append(button('VOLVER AL SECTOR',()=>{window.gg14GateLeave();modal.close();}));}
+    else{const enter=button('ENTRAR A ALPHA',async()=>{if(busy)return;busy=true;enter.disabled=true;try{await window.gg14GateEnter();modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;enter.disabled=false;}});body.append(enter);}
+   }
   }
   draw();
  }catch(e){if(modal.open&&mode==='Portales')body.replaceChildren(el('p',e.message));}
