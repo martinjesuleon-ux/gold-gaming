@@ -25,3 +25,10 @@ test('visual ammunition controls retain all twenty slots and expose live stock',
  const g=read('game.js'),css=read('gold-hud.css');assert.match(g,/decorateAmmoSlot\(b,'ammo',code/);assert.match(g,/ammoStock\[code\]/);assert.match(g,/b.dataset.ammoCode!==code/);assert.match(g,/buttons\[i\+7\]/);assert.match(g,/buttons\[i\+11\]/);assert.match(g,/fireRocket\(code\)/);assert.match(g,/fireOrdnance\(code\)/);assert.match(css,/gg-ammo-count/);
  const ui=read('gold-v13.js');assert.match(ui,/gg-ability-card/);assert.match(ui,/info.dataset.phase!==phase/);
 });
+
+test('PET controls retain server actions and use persistent status and actual inventory',()=>{
+ const g=read('game.js'),p=g.slice(g.indexOf('function renderPetPanel()'),g.indexOf('const ammoCodes='));
+ assert.match(p,/if\(!controls\)/);assert.doesNotMatch(p,/controls.replaceChildren/);
+ assert.match(p,/socket.emit\('v14:pet',mode\)/);assert.match(p,/socket.emit\('v16:kamikaze'\)/);
+ assert.match(p,/meter.max=50000/);assert.match(p,/petFuel===null/);assert.match(p,/petGear.has\('G-AL1'\)/);assert.match(p,/petGear.has\('G-KK1'\)/);assert.match(p,/petOwned=e.detail.items.some/);
+});
