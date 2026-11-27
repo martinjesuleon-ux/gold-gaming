@@ -36,7 +36,7 @@ const sharedExtra=i=>['launchers','cpus','robots'].includes(i.category);
 const reservedForPet=id=>['laser','generator'].some(k=>state.petEquipment?.[k]?.includes(id));
 const availableItem=i=>!reservedForPet(i.instanceId)&&!(sharedExtra(i)?[draft.configs[tab]]:draft.configs).some(c=>all(c).some(a=>a.includes(i.instanceId)));
 const itemData=i=>({...cat[i.category]?.find?.(p=>p.id===i.code),id:i.code});
-let filter='',query='',droneSelected=null,droneFilter='',droneQuery='',shipMass=false,petMass=false;
+const petSlotRequests=new Map();function petSlotRequest(type,slot){const key=type+':'+slot;if(!petSlotRequests.has(key))petSlotRequests.set(key,crypto.randomUUID());return petSlotRequests.get(key);}function clearPetSlotRequest(type,slot){petSlotRequests.delete(type+':'+slot);}let filter='',query='',droneSelected=null,droneFilter='',droneQuery='',shipMass=false,petMass=false;
 function modeButtons(mass,onChange){const controls=el('div',null,'gg-equip-mode');for(const [value,label] of [[false,'MANUAL'],[true,'MASIVA']]){const b=button(label,()=>onChange(value));b.setAttribute('aria-pressed',String(mass===value));controls.append(b);}return controls;}
 const categoryText=k=>labels[k]||k;
 function equipmentTile(i,fn,action){const p=itemData(i),b=button('',fn);b.className='gg-hangar-item';b.style.setProperty('--item-color',visual.itemColor(i.category,p));b.title=i.code+' · Nivel '+i.level+' · '+visual.describe(i.category,p)+' · '+action;b.setAttribute('aria-label',b.title);b.append(visual.art(i.category,p),el('strong',i.code),el('small','Nv. '+i.level,'gg-slot-level'));return b;}
@@ -95,11 +95,11 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);layout.classList
     tile.append(el('h3',label),el('strong',p.slots[type]+' / '+p.limits[type]+' ranuras'),el('small',q?'Siguiente ranura: '+fmt(q.price)+' U':p.level===20?'Límite alcanzado':'Más ranuras al subir de nivel'));
     if(q&&!p.purchasesEnabled)tile.append(el('small','Compra pendiente de activación'));
     if(q&&p.purchasesEnabled){
-     const requestId=crypto.randomUUID();
+     const requestId=petSlotRequest(type,q.slot);
      const b=button('COMPRAR RANURA '+q.slot,async()=>{
       if(busy||loading||!confirm('¿Comprar por '+fmt(q.price)+' uridium?'))return;
       busy=true;loading=true;b.disabled=true;
-      try{await api('pet/slots',{type,requestId});await refresh();status.textContent=balance();await readProgression();await readPetEquipment();}
+      try{await api('pet/slots',{type,requestId,expectedSlot:q.slot});clearPetSlotRequest(type,q.slot);await refresh();status.textContent=balance();await readProgression();await readPetEquipment();}
       catch(e){status.textContent=e.message;}
       finally{busy=false;loading=false;if(b.isConnected)b.disabled=false;}
      });b.disabled=Number(p.uridium)<q.price;tile.append(b);
@@ -128,7 +128,7 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);layout.classList
      const item=findItem(id),category=type==='laser'?'lasers':type==='generator'?'shields':'petGear';
      if(!item||item.category!==category){status.textContent='Equipo incompatible';return;}
      const next={laser:[...equipped.laser],generator:[...equipped.generator],gear:[...equipped.gear]};
-     if(remove)next[type]=next[type].filter(x=>x!==id);
+     if(remove)next[type]=next[type].filter(x=>mass?findItem(x)?.code!==item.code:x!==id);
      else{if(isMounted(id)||next[type].length>=p.slots[type]){status.textContent='No hay ranuras disponibles';return;}
       const copies=mass&&type!=='gear'?d.available.filter(x=>x.category===category&&x.code===item.code&&!isMounted(x.instanceId)).sort((a,b)=>b.level-a.level||a.instanceId.localeCompare(b.instanceId)).slice(0,p.slots[type]-next[type].length):[item];
       next[type].push(...copies.map(x=>x.instanceId));}
@@ -140,7 +140,7 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);layout.classList
     async function buy(type,q,requestId){
      if(busy||!p.purchasesEnabled||!q||Number(p.uridium)<q.price||!confirm('¿Desbloquear ranura '+q.slot+' por '+fmt(q.price)+' U?'))return;
      busy=true;layout.inert=true;
-     try{await api('pet/slots',{type,requestId});await refresh();status.textContent=balance();await readProgression();}
+     try{await api('pet/slots',{type,requestId,expectedSlot:q.slot});clearPetSlotRequest(type,q.slot);await refresh();status.textContent=balance();await readProgression();}
      catch(e){status.textContent=e.message;}
      finally{busy=false;layout.inert=false;await readPetEquipment();}
     }
@@ -155,9 +155,9 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);layout.classList
       for(let j=0;j<max;j++){
        const item=j<ids.length?findItem(ids[j]):null;
        let slot;
-       if(item){slot=equipmentTile(item,()=>changeEquipment(type,item.instanceId,true),'Retirar');slot.disabled=!canEdit(type);}
+       if(item){slot=equipmentTile(item,()=>changeEquipment(type,item.instanceId,true,petMass),petMass?'Retirar todas las copias del mismo código':'Retirar');slot.disabled=!canEdit(type);}
        else if(j<purchased){slot=button('+',()=>{if(selectedId)changeEquipment(type,selectedId,false,petMass);else{petFilter=category;drawEquipment();}});slot.className='gg-pet-slot gg-pet-slot-free';slot.title=editable?'Ranura libre · selecciona o arrastra equipo':'Equipamiento aún no integrado';slot.setAttribute('aria-label',label+' · ranura '+(j+1)+' libre');slot.disabled=!canEdit(type);slot.ondragover=e=>{if(canEdit(type))e.preventDefault();};slot.ondrop=e=>{e.preventDefault();changeEquipment(type,e.dataTransfer.getData('text/plain'),false,petMass);};}
-       else{const purchasable=j===purchased&&j<limit&&quote,requestId=purchasable?crypto.randomUUID():null;slot=button('',()=>buy(type,quote,requestId));slot.className='gg-pet-slot gg-pet-slot-locked';slot.append(el('span',null,'gg-pet-lock'));slot.title=purchasable?'Desbloquear por '+fmt(quote.price)+' U':j<limit?'Compra las ranuras anteriores':'Bloqueada por nivel';slot.setAttribute('aria-label',slot.title);slot.disabled=!purchasable||!p.purchasesEnabled||Number(p.uridium)<quote.price;if(purchasable){slot.classList.add('gg-pet-slot-purchasable');slot.append(el('small',fmt(quote.price)+' U'));}}
+       else{const purchasable=j===purchased&&j<limit&&quote,requestId=purchasable?petSlotRequest(type,quote.slot):null;slot=button('',()=>buy(type,quote,requestId));slot.className='gg-pet-slot gg-pet-slot-locked';slot.append(el('span',null,'gg-pet-lock'));slot.title=purchasable?'Desbloquear por '+fmt(quote.price)+' U':j<limit?'Compra las ranuras anteriores':'Bloqueada por nivel';slot.setAttribute('aria-label',slot.title);slot.disabled=!purchasable||!p.purchasesEnabled||Number(p.uridium)<quote.price;if(purchasable){slot.classList.add('gg-pet-slot-purchasable');slot.append(el('small',fmt(quote.price)+' U'));}}
        grid.append(slot);
       }
       if(type==='gear'&&!d.gearEnabled)frame.append(el('small','Asignación de módulos en pruebas.'));if(!editable)frame.append(el('small','Protocolos: equipamiento pendiente.'));
@@ -175,7 +175,7 @@ function draw(){layout.classList.toggle('gg-pet-hangar',petTab);layout.classList
       tile.setAttribute('aria-pressed',String(selectedId===item.instanceId));tile.draggable=d.enabled&&(['lasers','shields'].includes(item.category)||item.category==='petGear'&&d.gearEnabled);tile.ondragstart=e=>e.dataTransfer.setData('text/plain',item.instanceId);bag.append(tile);
      }if(!bag.children.length)bag.append(el('p','Sin equipos disponibles'));}
      search.oninput=()=>{petSearch=search.value;drawBag();};filter.onchange=()=>{petFilter=filter.value;drawBag();};
-     right.append(modeButtons(petMass,v=>{petMass=v;drawEquipment();}),el('small',petMass?'Clic: carga copias del mismo código hasta llenar ranuras.':'Selecciona un artículo y una ranura.'),search,filter,bag,button('COMPRA RÁPIDA',()=>open('Tienda')),button('ACTUALIZAR',()=>readPetEquipment()));drawBag();
+     right.append(modeButtons(petMass,v=>{petMass=v;drawEquipment();}),el('small',petMass?'Clic: equipa copias del mismo código hasta llenar ranuras o retira todas las copias equipadas.':'Selecciona un artículo y una ranura.'),search,filter,bag,button('COMPRA RÁPIDA',()=>open('Tienda')),button('ACTUALIZAR',()=>readPetEquipment()));drawBag();
     }
     drawEquipment();
    }catch(e){if(loadout.isConnected)loadout.replaceChildren(el('p',e.message),button('REINTENTAR',readPetEquipment));}
