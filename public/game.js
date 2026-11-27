@@ -26,6 +26,7 @@ window.gg14GateNext=()=>{if(joined)socket.emit('v14:gateNext');};
 window.gg14GateLeave=()=>{if(joined)socket.emit('v14:gateLeave');};
 window.gg14GateState=()=>gateState;
 window.gg15Pilot=()=>state.players.find(p=>p.id===meId)||null;
+window.gg18Jump=destination=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v18:advancedJump',destination,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Salto no disponible'));else resolve(r);});});
 window.gg18Cpu=code=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v18:cpu',code,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'CPU no disponible'));else resolve(r);});});
 window.gg18Ability=code=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v18:ability',code,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Habilidad no disponible'));else resolve(r.ability);});});
 window.gg18Charge=data=>new Promise((resolve,reject)=>{
