@@ -41,3 +41,16 @@ test('NPC variants use different species silhouettes and preserve blue Boss Kris
  assert.equal(style('unknown','npc').kind,'alien');
  assert.match(read('game.js'),/npcStyle\(o.name,o.type\)/);
 });
+
+test('all catalog ships have their own hull and all catalog designs have a palette',()=>{
+ const window={};vm.runInNewContext(read('graphics-v161.js'),{window});
+ const style=window.ggGraphics161.playerStyle;
+ const catalog=require('../data/catalog-v13.json');
+ const kinds=catalog.ships.map(s=>style(s.id,null,true).kind);
+ assert.equal(new Set(kinds).size,catalog.ships.length);
+ for(const s of catalog.ships)assert.equal(style(s.id,null,true).kind,'ship-'+s.id);
+ for(const d of catalog.designs){const equipped=style(d.ship,d.id,true);assert.match(equipped.color,/^#[0-9a-f]{6}$/i);assert.notEqual(equipped.color,style(d.ship,null,true).color);}
+ assert.equal(style('missing',null,true).kind,'scout');
+ assert.equal(style('tank',null,false).kind,'tank');
+ assert.match(read('game.js'),/playerStyle\(o.ship,o.design,isMe\)/);
+});
