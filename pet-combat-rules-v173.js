@@ -17,4 +17,8 @@ function guardTarget(p,n,now,range){
  if(!p||p.petMode!=='guard'||!eligibleForNpcXp(p,now)||p.cloaked||p.safe||!p.attack||!n||p.target!==n.id||p.zone!==n.zone||n.hp<=0||n.gateShielded||n.accountId||n.godMode||!Number.isFinite(range)||range<=0)return false;
  return Math.hypot(p.petX-n.x,p.petY-n.y)<=range&&Math.hypot(p.x-n.x,p.y-n.y)<=range;
 }
-module.exports={xpPercent,eligibleForNpcXp,petXpFromReward,guardTarget};
+// Experimental NPC retaliation: only the NPC recently hit by this guard PET may target it.
+function npcRetaliatesAgainstPet(p,n,now){
+ return !!p?.petVitals?.enabled&&!p.petVitals.destroyed&&!p.petDamagePending&&p.petLastHitNpc===n?.id&&Number.isFinite(p.petLastAttackAt)&&now>=p.petLastAttackAt&&now-p.petLastAttackAt<=3000&&guardTarget(p,n,now,460);
+}
+module.exports={xpPercent,eligibleForNpcXp,petXpFromReward,guardTarget,npcRetaliatesAgainstPet};
