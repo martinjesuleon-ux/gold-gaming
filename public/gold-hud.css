@@ -92,3 +92,25 @@
 #hud .gg-pet-modes button[aria-pressed=true]{border-color:#75e6bb;color:#a9ffda;background:#244739}
 #hud .pet-controls .gg-pet-kami{color:#f9c98d;border-color:#a77848}
 #hud .pet-controls .gg-pet-shop{color:#8fd6ff}
+
+/* User-controlled HUD layout, stored locally. */
+#hud[data-control-size=compact] .gg-tool{grid-template-columns:repeat(12,36px)}
+#hud[data-control-size=compact] .gg-tool.gg-right{grid-template-columns:repeat(6,36px)}
+#hud[data-control-size=compact] .gg-tool button{height:36px}
+#hud[data-control-size=compact] .gg-tool button svg{width:20px;height:20px}
+#hud[data-control-size=large] .gg-tool{grid-template-columns:repeat(10,58px)}
+#hud[data-control-size=large] .gg-tool.gg-right{grid-template-columns:repeat(6,52px)}
+#hud[data-control-size=large] .gg-tool button{height:56px}
+#hud[data-control-size=large] .gg-tool button svg{width:29px;height:29px}
+#hud[data-control-size=large] .gg-tool button span{font-size:10px}
+#hud[data-control-labels=false] .gg-tool button span{display:none}
+#hud .gg-custom-position{left:var(--gg-custom-x)!important;top:var(--gg-custom-y)!important;right:auto!important;bottom:auto!important;transform:none!important}
+#hud .gg-drag-handle,#hud .gg-finish-layout{display:none}
+#hud[data-layout-editing=true] .gg-drag-handle{display:block;position:absolute;right:3px;top:3px;z-index:12;cursor:grab;touch-action:none;background:#29495e;color:#c9efff;border:1px solid #7ad4f4;font-size:10px;padding:4px 8px;letter-spacing:0}
+#hud[data-layout-editing=true] .gg-drag-handle:active{cursor:grabbing}
+#hud[data-layout-editing=true] .gg-custom-position{z-index:6}
+#hud[data-layout-editing=true] .gg-finish-layout{display:block;position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:30;background:#d5bb7c;color:#12212e;border:1px solid #ffdf98;font-size:13px;padding:9px 14px}
+.gg-layout-settings{width:min(420px,92vw);padding:20px;background:#132331;border:1px solid #52758c;color:#dce9f2;border-radius:5px;box-shadow:0 12px 45px #000a}
+.gg-layout-settings::backdrop{background:#0009}.gg-layout-settings h2{font-size:17px;margin:0 0 14px}.gg-layout-settings label{display:block;margin:10px 0;font-size:12px;color:#c4d8e6;letter-spacing:0}.gg-layout-settings select{display:block;width:100%;margin-top:5px}.gg-layout-settings input[type=checkbox]{width:auto}.gg-layout-settings button{display:block;width:100%;margin-top:8px;background:#243c4e;color:#e4edf6;border-color:#4e7085;font-size:12px;letter-spacing:0}
+@media(max-width:1000px){#hud[data-control-size=large] .gg-tool{grid-template-columns:repeat(9,48px)}#hud[data-control-size=large] .gg-tool.gg-right{grid-template-columns:repeat(3,44px)}#hud[data-control-size=compact] .gg-tool.gg-right{grid-template-columns:repeat(3,36px)}}
+@media(max-width:650px){#hud[data-control-size=large] .gg-tool{grid-template-columns:repeat(6,38px)}#hud[data-control-size=large] .gg-tool.gg-right{grid-template-columns:repeat(2,36px)}#hud[data-control-size=compact] .gg-tool{grid-template-columns:repeat(7,28px)}#hud[data-control-size=compact] .gg-tool.gg-right{grid-template-columns:repeat(2,28px)}#hud[data-control-size=large] .gg-tool button{height:44px}#hud[data-control-size=large] .gg-tool button svg{width:23px;height:23px}#hud[data-control-size=large] .gg-tool button span{font-size:8px}#hud[data-control-size=compact] .gg-tool button span{font-size:7px}}

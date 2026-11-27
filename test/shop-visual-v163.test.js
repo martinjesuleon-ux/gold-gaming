@@ -62,3 +62,12 @@ test('event and station cards preserve actual status and transaction paths',()=>
  const ui=read('gold-v13.js'),station=ui.slice(ui.indexOf('async function stationMenu()'),ui.indexOf('async function boosterMenu()')),boost=ui.slice(ui.indexOf('async function boosterMenu()'),ui.indexOf('function mineMenu()'));
  assert.match(station,/a.station\?\.state/);assert.match(station,/window.gg115CBS/);assert.match(station,/gg-station-card/);assert.match(boost,/d.active\[item.code\]/);assert.match(boost,/d.stock\[item.code\]/);assert.match(boost,/window.gg112Booster/);assert.match(ui,/section.dataset.current=String\(key===d.difficulty\)/);assert.match(ui,/rewardCards\(Object.fromEntries/);
 });
+
+test('HUD layout preferences validate sizes and clamp draggable windows inside viewport',()=>{
+ const hud=read('gold-hud.js'),css=read('gold-hud.css');
+ const src=hud.slice(hud.indexOf('function clampPosition('),hud.indexOf('function applyPositions('));
+ const vm=require('node:vm'),context={window:{innerWidth:800,innerHeight:600}};vm.runInNewContext(src+';this.clamp=clampPosition',context);
+ assert.equal(JSON.stringify(context.clamp(-40,900,200,100)),JSON.stringify({x:0,y:500}));
+ assert.equal(JSON.stringify(context.clamp(90,40,900,700)),JSON.stringify({x:0,y:0}));
+ assert.match(hud,/localStorage.setItem\(preferenceKey/);assert.match(hud,/pointerdown/);assert.match(hud,/preferences=\{size:'normal',labels:true,positions:\{\}\}/);assert.match(css,/gg-custom-position/);assert.match(css,/data-control-size=large/);
+});
