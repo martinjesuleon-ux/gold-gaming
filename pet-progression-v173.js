@@ -73,6 +73,25 @@ function createPetProgression(pool){
    return response;
   });
  }
- return {ready,status,grantInTransaction,buySlot};
+ async function equipmentState(c,id,p,requested){
+  const {EMPTY,validatePetEquipment,shipReservations}=require('./pet-equipment-rules-v173');
+  const configs=(await c.query('SELECT configs FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0]?.configs||[[],[]];
+  const rows=(await c.query("SELECT instance_id AS \"instanceId\",code,category,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('lasers','shields')",[id])).rows;
+  const saved=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||EMPTY();
+  const result=validatePetEquipment(p,requested===undefined?saved:requested,new Map(rows.map(i=>[i.instanceId,i])),configs);
+  const reserved=shipReservations(configs);
+  return {...result,available:rows.filter(i=>!reserved.has(i.instanceId)),enabled:process.env.GG_PET_EQUIPMENT_ENABLED==='1'};
+ }
+ async function equipmentRead(id){return transaction(id,(c,p)=>equipmentState(c,id,p));}
+ async function equipmentSave(id,body){
+  if(process.env.GG_PET_EQUIPMENT_ENABLED!=='1')throw fail('Equipamiento P.E.T. en pruebas',403);
+  if(!body||!Object.hasOwn(body,'equipment'))throw fail('Equipamiento P.E.T. requerido');
+  return transaction(id,async(c,p)=>{
+   const result=await equipmentState(c,id,p,body.equipment);
+   await c.query('INSERT INTO gg_pet_equipment_v173(account_id,equipment) VALUES($1,$2::jsonb) ON CONFLICT(account_id) DO UPDATE SET equipment=EXCLUDED.equipment',[id,JSON.stringify(result.equipment)]);
+   return result;
+  });
+ }
+ return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave};
 }
 module.exports={levelForExperience,profile,quoteSlot,createPetProgression,TYPES,INITIAL};
