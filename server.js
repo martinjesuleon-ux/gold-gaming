@@ -609,6 +609,19 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   try{const r=await job;if(players.get(p.id)!==p)return;applyMineralStats(p,r.upgrades);p.nextGeneratorRound=Date.now()+10000;ack({ok:true,...r});}
   catch(e){ack({ok:false,error:e.status?e.message:'No se pudo cargar el mineral'});}finally{p.upgradePending=false;pending.delete(job);}
  });
+ socket.on('admin:mapList',ack=>{
+  if(typeof ack!=='function'||!allowed())return;
+  const p=players.get(socket.id);if(!p?.godAllowed)return ack({ok:false,error:'Acceso reservado'});
+  ack({ok:true,maps:require('./admin-map-jump').mapList(),current:p.zone});
+ });
+ socket.on('admin:mapJump',(destination,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;
+  const p=players.get(socket.id),error=require('./admin-map-jump').validateAdminJump(p,destination);
+  if(error||closing)return ack({ok:false,error:error||'Servidor cerrando'});
+  p.gatePending=true;p.attack=false;p.dest=null;p.target=null;
+  const job=p.writes.catch(()=>{}).then(()=>accounts.saveLocation(p.accountId,p.company,destination));p.writes=job;pending.add(job);
+  job.then(()=>{if(players.get(p.id)!==p)return;changeMap(p,destination);p.protectedUntil=Date.now()+3000;ack({ok:true,map:p.zone});}).catch(()=>ack({ok:false,error:'No se pudo guardar el salto'})).finally(()=>{p.gatePending=false;pending.delete(job);});
+ });
  socket.on('v17:god',(enabled,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
   const p=players.get(socket.id);

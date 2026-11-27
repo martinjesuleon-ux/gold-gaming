@@ -40,6 +40,14 @@ window.gg17God=enabled=>new Promise((resolve,reject)=>{
  if(!joined||!socket.connected)return reject(Error('Conéctate primero'));
  socket.timeout(8000).emit('v17:god',enabled,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'No se pudo cambiar DIOS'));else resolve(r.enabled);});
 });
+window.ggAdminMapList=()=>new Promise((resolve,reject)=>{
+ if(!joined||!socket.connected)return reject(Error('Conéctate primero'));
+ socket.timeout(8000).emit('admin:mapList',(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'No se pudo cargar los mapas'));else resolve(r);});
+});
+window.ggAdminMapJump=destination=>new Promise((resolve,reject)=>{
+ if(!joined||!socket.connected)return reject(Error('Conéctate primero'));
+ socket.timeout(10000).emit('admin:mapJump',destination,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Salto no disponible'));else resolve(r);});
+});
 let groupState=null;
 window.gg15Group=(action,data={})=>new Promise((resolve,reject)=>{
  if(!joined||!socket.connected){reject(Error('Conéctate primero'));return;}
