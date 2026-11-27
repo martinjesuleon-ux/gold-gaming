@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
+const crypto=require('node:crypto');const {extend:extendBooster}=require('./boosters-v112');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
 const {bonusLoot,pirateLoot,pirateEventsForDay,pirateEventLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
@@ -206,7 +206,7 @@ function createInventory(pool){
   });
  }
  async function saveLocation(id,company,map){if(![1,2,3].includes(company)||!Object.hasOwn(MAPS,map))throw fail('Mapa inválido');return transaction(id,async c=>{await c.query('INSERT INTO gg_v14_location(account_id,company,map) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET map=EXCLUDED.map',[id,company,map]);return {company,map};});}
- async function awardBox(id,map='1-1',level=1,kind='bonus'){
+ async function awardBox(id,map='1-1',level=1,kind='bonus',resourceFactor=1){
    if(kind==='pirate'){
     if(!Object.hasOwn(MAPS,map))throw fail('Mapa inválido para cofre pirata');
     return transaction(id,async(c,p)=>{
@@ -236,7 +236,7 @@ function createInventory(pool){
    }
   const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
   return transaction(id,async(c,p)=>{
-   const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*(loot.code==='uridium'?b.luck:1));let balance=p;
+   const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*Math.max(1,Math.min(2,Number(resourceFactor)||1))*(loot.code==='uridium'?b.luck:1));let balance=p;
    if(['credits','uridium'].includes(loot.code)){
     balance=(await c.query('UPDATE player_progress SET '+loot.code+'='+loot.code+'+$2 WHERE account_id=$1 RETURNING credits,uridium',[id,loot.quantity])).rows[0];
    }else{
@@ -428,8 +428,7 @@ function createInventory(pool){
     const day=new Intl.DateTimeFormat('en-US',{weekday:'short',timeZone:'UTC'}).format(new Date());
     const itemQuantity=item?(day==='Sun'?2:1):0;
     if(item==='MUL-B03'){
-     // Booster activation needs a running-time subsystem; retain award as a redeemable entitlement.
-     await addStack(c,id,item,itemQuantity);
+     await extendBooster(c,id,item,18000*itemQuantity);
     }else if(item){
      const category=item==='LF-4'?'lasers':item==='SG3N-B03'?'shields':['Havoc','Hercules','Spartan'].includes(item)?'drone-designs':'ship-designs';
      for(let i=0;i<itemQuantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,category]);
