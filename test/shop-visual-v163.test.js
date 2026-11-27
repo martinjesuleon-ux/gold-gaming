@@ -57,3 +57,8 @@ test('economy panels show authoritative auction and mineral data without changin
  const ui=read('gold-v13.js'),auction=ui.slice(ui.indexOf('async function auctionMenu()'),ui.indexOf('async function stationMenu()')),minerals=ui.slice(ui.indexOf('async function mineralMenu('),ui.indexOf('function gateRewardText'));
  assert.match(auction,/lot.minBid/);assert.match(auction,/window.gg114Bid/);assert.match(auction,/roundStart:d.roundStart/);assert.match(auction,/gg-auction-card/);assert.match(minerals,/cargoMeter.value=data.cargoUsed/);assert.match(minerals,/meter.value=data.metrics.used/);assert.match(minerals,/meter.value=stock/);assert.match(minerals,/data.cargo\[k\]/);assert.match(minerals,/api\('minerals',\{action,/);assert.match(minerals,/window.gg120Sell/);
 });
+
+test('event and station cards preserve actual status and transaction paths',()=>{
+ const ui=read('gold-v13.js'),station=ui.slice(ui.indexOf('async function stationMenu()'),ui.indexOf('async function boosterMenu()')),boost=ui.slice(ui.indexOf('async function boosterMenu()'),ui.indexOf('function mineMenu()'));
+ assert.match(station,/a.station\?\.state/);assert.match(station,/window.gg115CBS/);assert.match(station,/gg-station-card/);assert.match(boost,/d.active\[item.code\]/);assert.match(boost,/d.stock\[item.code\]/);assert.match(boost,/window.gg112Booster/);assert.match(ui,/section.dataset.current=String\(key===d.difficulty\)/);assert.match(ui,/rewardCards\(Object.fromEntries/);
+});
