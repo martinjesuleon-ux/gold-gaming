@@ -38,6 +38,7 @@ function createInventory(pool){
    completions integer NOT NULL DEFAULT 0 CHECK(completions>=0),
    PRIMARY KEY(account_id,gate));
    ALTER TABLE gg_v14_gates ADD COLUMN IF NOT EXISTS kills jsonb NOT NULL DEFAULT '[]';
+   CREATE TABLE IF NOT EXISTS gg_gate_reward_log(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,gate text NOT NULL,completion integer NOT NULL,payout jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(account_id,gate,completion));
    CREATE TABLE IF NOT EXISTS gg_v14_gate_spins (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    request_id uuid NOT NULL, response jsonb NOT NULL,
@@ -314,7 +315,7 @@ function createInventory(pool){
      for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['green-key',keys]])await addStack(c,id,code,n);
      const item=itemDraw('hades',g.completions===0,crypto.randomInt(1000)),quantity=item?(new Date().getUTCDay()===0?2:1):0;
      for(let i=0;i<quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,'lasers']);
-     g.completions++;payouts[id]={balance,uridium:u,item,itemQuantity:quantity};
+     g.completions++;payouts[id]={balance,uridium:u,xp,honor,ammo,disks,xenomit:0,vouchers:0,keys,item,itemQuantity:quantity};await logGateReward(c,id,'hades',g.completions,payouts[id]);
     }
     g.wave=nextWave;g.lives=lives;if(complete||failed)g.built=false;if(outcome==='clear'||failed)g.kills=[];await saveGateRow(c,id,g);
    }
@@ -349,6 +350,12 @@ function createInventory(pool){
    return {balance};
   });
  }
+ async function gateRewardLog(id){
+  const rows=(await pool.query('SELECT gate,completion,payout,created_at FROM gg_gate_reward_log WHERE account_id=$1 ORDER BY created_at DESC LIMIT 100',[id])).rows;
+  const completed=(await pool.query('SELECT gate,completions FROM gg_v14_gates WHERE account_id=$1 AND completions>0 ORDER BY gate',[id])).rows;
+  return {entries:rows,completed:completed.map(g=>{const [uridium,xp,honor,ammo,disks,xenomit,vouchers,keys]=REWARDS[g.gate]||[];return {...g,baseReward:{uridium,xp,honor,ammo,disks,xenomit,vouchers,keys}};})};
+ }
+ async function logGateReward(c,id,gate,completion,payout){await c.query('INSERT INTO gg_gate_reward_log(account_id,gate,completion,payout) VALUES($1,$2,$3,$4)',[id,gate,completion,JSON.stringify(payout)]);}
  async function gateAdvance(id,expectedWave,outcome,gate='alpha'){
   if(!PLAYABLE.includes(gate)||!Number.isInteger(expectedWave)||expectedWave<0||expectedWave>=DEFS[gate].waves||!['clear','death'].includes(outcome))throw fail('Progreso inválido');
   return transaction(id,async c=>{
@@ -374,7 +381,7 @@ function createInventory(pool){
      const category=item==='LF-4'?'lasers':item==='SG3N-B03'?'shields':['Havoc','Hercules','Spartan'].includes(item)?'drone-designs':'ship-designs';
      for(let i=0;i<itemQuantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,category]);
     }
-    g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance,item,itemQuantity};
+    g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance,item,itemQuantity,...(gate==='kronos'?{extras:{'UBR-100':500,'RSB-75':5000,'gate-energy':250}}:{})};await logGateReward(c,id,gate,g.completions,payout);
    }
    if(complete||failed){g.built=false;g.wave=0;g.lives=0;g.kills=[];}
    else if(outcome==='clear'){g.wave++;g.kills=[];}
@@ -382,6 +389,6 @@ function createInventory(pool){
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
 }
 module.exports={createInventory};
