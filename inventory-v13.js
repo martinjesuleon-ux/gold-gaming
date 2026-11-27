@@ -1,5 +1,5 @@
 'use strict';
-const {rewardFactorRead}=require('./boosters-v112');
+const {rewardFactorRead,premiumPrice,premiumRead}=require('./boosters-v112');
 const crypto=require('node:crypto');const {extend:extendBooster}=require('./boosters-v112');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
 const {bonusLoot,pirateLoot,pirateEventsForDay,pirateEventLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
@@ -105,6 +105,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(category==='designs'&&(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category='ship-designs'",[id,code])).rowCount)throw fail('Diseño ya adquirido');
    if(category==='ships'&&(code==='phoenix'||(await c.query('SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category=$3',[id,code,category])).rowCount))throw fail('Nave ya disponible');
    if(!q||!['credits','uridium'].includes(q.currency)||!Number.isSafeInteger(q.total)||q.total<0||!Number.isSafeInteger(q.quantity)||q.quantity<1)throw fail('Cotización inválida');
+   const premium=await premiumRead(c,id);q={...q,baseTotal:q.total,total:premiumPrice(q.total,premium),premiumDiscount:premium};
    if(BigInt(p[q.currency])<BigInt(q.total))throw fail('Saldo insuficiente',409);
    const column=q.currency==='credits'?'credits':'uridium';
    const balance=(await c.query('UPDATE player_progress SET '+column+'='+column+'-$2 WHERE account_id=$1 AND '+column+'>=$2 RETURNING credits,uridium',[id,q.total])).rows[0];
@@ -131,7 +132,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
    const petProgress=items.some(i=>i.category==='pet')?(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0]:null;
-   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id),petGearLevelsEnabled:require('./pet-gear-levels-v177').levelRulesEnabled(id),petRepairGearEnabled:require('./pet-support-gears-v178').repairEnabled(id),petResourceGearEnabled:require('./pet-support-gears-v178').resourceEnabled(id),petLocatorGearEnabled:require('./pet-support-gears-v178').locatorEnabled(id),petComboGearEnabled:require('./pet-combos-v180').comboEnabled(id),petTraderEnabled:require('./pet-trader-v181').traderEnabled(id),petLevel:require('./pet-progression-v173').levelForExperience(Number(petProgress?.experience||0)).level};
+   return {balance:p,hangar,items,ammo,premium:await premiumRead(c,id),petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id),petGearLevelsEnabled:require('./pet-gear-levels-v177').levelRulesEnabled(id),petRepairGearEnabled:require('./pet-support-gears-v178').repairEnabled(id),petResourceGearEnabled:require('./pet-support-gears-v178').resourceEnabled(id),petLocatorGearEnabled:require('./pet-support-gears-v178').locatorEnabled(id),petComboGearEnabled:require('./pet-combos-v180').comboEnabled(id),petTraderEnabled:require('./pet-trader-v181').traderEnabled(id),petLevel:require('./pet-progression-v173').levelForExperience(Number(petProgress?.experience||0)).level};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
@@ -326,7 +327,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   const energy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
   const balance=(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1',[id])).rows[0];
   const states=Object.fromEntries(GATES.map(g=>[g,{...DEFS[g],...rows[g],required:DEFS[g].pieces,ready:rows[g].built,canBuild:!rows[g].built&&rows[g].pieces.length===DEFS[g].pieces,combatAvailable:PLAYABLE.includes(g),provisional:PROVISIONAL[g]||null}]));
-  return {gates:GATES,states,alpha:states.alpha,energy,balance};
+  const premium=await premiumRead(c,id);return {gates:GATES,states,alpha:states.alpha,energy,balance,premium,spinPrice:premiumPrice(100,premium),lifePrice:premiumPrice(25000,premium)};
  }
  async function gateStatus(id){return transaction(id,async c=>gateView(c,id,await gateRows(c,id)));}
  async function gateAction(id,body,action){
@@ -344,11 +345,11 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     if(![1,10,100,1000].includes(count))throw fail('Cantidad de tiradas inválida');
     const availableEnergy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
     const availableUri=Number(p.uridium);
-    const totals=new Map();let spins=0,energyUsed=0,uridiumUsed=0;
+    const spinPrice=premiumPrice(100,await premiumRead(c,id));const totals=new Map();let spins=0,energyUsed=0,uridiumUsed=0;
     for(let i=0;i<count;i++){
      if(!pool.some(k=>(!SHARED.includes(gate)||!rows[k].built)&&rows[k].pieces.length<DEFS[k].pieces))break;
      if(energyUsed<availableEnergy)energyUsed++;
-     else if(allowUridium&&availableUri-uridiumUsed>=100)uridiumUsed+=100;
+     else if(allowUridium&&availableUri-uridiumUsed>=spinPrice)uridiumUsed+=spinPrice;
      else break;
      const next=spinGate(rows,gate,crypto.randomInt(100),n=>crypto.randomInt(n),useMultiplier);
      if(next.target)rows[next.target].pieces=next.pieces;
@@ -357,7 +358,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
      const key=reward.code+(reward.gate?':'+reward.gate:'');const old=totals.get(key);
      totals.set(key,{...reward,quantity:(old?.quantity||0)+reward.quantity});
     }
-    if(!spins)throw fail('Autoriza el gasto de 100 uridium o consigue energía');
+    if(!spins)throw fail('Autoriza el gasto de '+spinPrice+' uridium o consigue energía');
     if(energyUsed)await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='gate-energy'",[id,energyUsed]);
     if(uridiumUsed)await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1',[id,uridiumUsed]);
     for(const k of pool)await saveGateRow(c,id,rows[k]);
@@ -371,8 +372,8 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     g.built=true;g.pieces=[];g.wave=0;g.lives=3;g.kills=[];await saveGateRow(c,id,g);
    }else if(action==='life'){
     if(!g.built||g.lives>=10)throw fail('No se pueden comprar más vidas');
-    if(!allowUridium||Number(p.uridium)<25000)throw fail('Se necesitan 25.000 uridium y autorización');
-    await c.query('UPDATE player_progress SET uridium=uridium-25000 WHERE account_id=$1',[id]);g.lives++;await saveGateRow(c,id,g);
+    const lifePrice=premiumPrice(25000,await premiumRead(c,id));if(!allowUridium||Number(p.uridium)<lifePrice)throw fail('Se necesitan '+lifePrice+' uridium y autorización');
+    await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1',[id,lifePrice]);g.lives++;await saveGateRow(c,id,g);
    }else throw fail('Acción inválida');
    const result={...await gateView(c,id,rows),reward,batch,request:{action,gate,count:body.count??1,useMultiplier,allowUridium}};
    await c.query('INSERT INTO gg_v14_gate_spins(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);return result;
