@@ -73,10 +73,11 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     q={id:code,category,quantity,currency:'uridium',total:quantity/4};
    }
    if(category==='petGear'){
-    if(!['G-AL1','G-KK1','G-REP1','G-AR1','G-RL1','G-EL1'].includes(code)||quantity!==1)throw fail('Engranaje inválido');
+    if(!['G-AL1','G-KK1','G-REP1','G-AR1','G-RL1','G-EL1','CSR-02','CGM-02'].includes(code)||quantity!==1)throw fail('Engranaje inválido');
     const rows=(await c.query("SELECT instance_id AS \"instanceId\",category,code,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
     if(!rows.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
     const existing=rows.find(x=>x.category==='petGear'&&x.code===code),rules=require('./pet-gear-levels-v177');
+    if(['CSR-02','CGM-02'].includes(code)&&!require('./pet-combos-v180').comboEnabled(id))throw fail('Combos P.E.T. en pruebas',403);
     if(['G-RL1','G-EL1'].includes(code)&&!require('./pet-support-gears-v178').locatorEnabled(id))throw fail('Localizadores P.E.T. en pruebas',403);
     if(code==='G-AR1'&&!require('./pet-support-gears-v178').resourceEnabled(id))throw fail('Auto-recurso P.E.T. en pruebas',403);
     if(code==='G-REP1'&&!require('./pet-support-gears-v178').repairEnabled(id))throw fail('Reparación de casco P.E.T. en pruebas',403);
@@ -121,7 +122,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
    const petProgress=items.some(i=>i.category==='pet')?(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0]:null;
-   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id),petGearLevelsEnabled:require('./pet-gear-levels-v177').levelRulesEnabled(id),petRepairGearEnabled:require('./pet-support-gears-v178').repairEnabled(id),petResourceGearEnabled:require('./pet-support-gears-v178').resourceEnabled(id),petLocatorGearEnabled:require('./pet-support-gears-v178').locatorEnabled(id),petLevel:require('./pet-progression-v173').levelForExperience(Number(petProgress?.experience||0)).level};
+   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id),petGearLevelsEnabled:require('./pet-gear-levels-v177').levelRulesEnabled(id),petRepairGearEnabled:require('./pet-support-gears-v178').repairEnabled(id),petResourceGearEnabled:require('./pet-support-gears-v178').resourceEnabled(id),petLocatorGearEnabled:require('./pet-support-gears-v178').locatorEnabled(id),petComboGearEnabled:require('./pet-combos-v180').comboEnabled(id),petLevel:require('./pet-progression-v173').levelForExperience(Number(petProgress?.experience||0)).level};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
@@ -200,7 +201,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   });
  }
  async function petInterval(id,mode){
-  if(!['passive','guard','loot','repair','resource','locate-resource','locate-enemy'].includes(mode))throw fail('Modo inválido');
+  if(!['passive','guard','loot','repair','resource','locate-resource','locate-enemy','combo-guard'].includes(mode))throw fail('Modo inválido');
   return transaction(id,async c=>{
    const owned=(await c.query("SELECT instance_id AS \"instanceId\",category,code,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
@@ -220,9 +221,10 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     const row=(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0];
     cost=require('./pet-progression-v173').levelForExperience(Number(row?.experience||0)).fuel;
    }
+   let guardLevel=null;if(mode==='combo-guard'){const combos=require('./pet-combos-v180');if(!combos.comboEnabled(id))throw fail('Combo guardia en pruebas');const item=await requireMountedGear(c,id,owned,'CGM-02');if(!item)throw fail('Equipa CGM-02');guardLevel=item.level;cost=combos.comboGuardFuel(cost,guardLevel);}
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=$2 RETURNING quantity",[id,cost])).rows[0];
    if(!r)throw fail('Combustible insuficiente');
-   return {fuel:Number(r.quantity),lootRange};
+   return {fuel:Number(r.quantity),lootRange,guardLevel};
   });
  }
  async function location(id){return transaction(id,async c=>{const r=(await c.query('SELECT company,map,company_chosen FROM gg_v14_location WHERE account_id=$1',[id])).rows[0];return r&&MAPS[r.map]?r:{company:1,map:'1-1',company_chosen:false};});}
