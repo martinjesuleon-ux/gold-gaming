@@ -50,3 +50,11 @@
 .gg13 .gg-mineral-art span{display:block;width:23px;height:34px;background:linear-gradient(145deg,#d8e8f3,var(--mineral-color) 40%,#203749);clip-path:polygon(47% 0,90% 22%,100% 67%,59% 100%,7% 78%,0 35%);transform:rotate(-16deg)}
 .gg13 .gg-mineral-art span:nth-child(2){height:47px;width:30px;transform:rotate(8deg)}.gg13 .gg-mineral-art span:nth-child(3){height:27px;transform:rotate(26deg)}
 .gg13 .gg-mineral-card progress{width:100%;height:8px;accent-color:#76d9ee}.gg13 .gg-mineral-card[data-enabled=false] .gg-mineral-art{opacity:.45}
+
+.gg13 .gg-booster-grid,.gg13 .gg-station-grid,.gg13 .gg-event-cards{grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;margin:10px 0}
+.gg13 .gg-booster-card,.gg13 .gg-station-card,.gg13 .gg-event-card{align-items:stretch;justify-content:flex-start;text-align:left;gap:5px;padding:10px}
+.gg13 .gg-booster-card h3,.gg13 .gg-station-card h3,.gg13 .gg-event-card h3,.gg13 .gg-booster-card p,.gg13 .gg-station-card p,.gg13 .gg-event-card p{margin:3px 0;line-height:1.35}
+.gg13 .gg-booster-icon,.gg13 .gg-station-icon{height:52px;display:grid;place-items:center;font-size:32px;border:1px solid #365267;background:radial-gradient(ellipse,#29495e,#0d1824);color:#8ed5ef}
+.gg13 .gg-booster-time{background:#101e2b;border:1px solid #365267;padding:7px;font-size:12px}.gg13 .gg-booster-time strong{color:#98adbc}.gg13 .gg-booster-card[data-active=true]{border-color:#6bd7a5}.gg13 .gg-booster-card[data-active=true] .gg-booster-time strong{color:#76e5ae}
+.gg13 .gg-station-card[hidden]{display:none!important}.gg13 .gg-station-card[data-phase=free] .gg-station-icon{color:#aabac9}.gg13 .gg-station-card[data-phase=building] .gg-station-icon{color:#e9c779}.gg13 .gg-station-card[data-phase=protected] .gg-station-icon{color:#76d9ee}.gg13 .gg-station-card[data-phase=vulnerable] .gg-station-icon{color:#f68a7a}
+.gg13 .gg-event-card[data-current=true]{border-color:#76d9ee}.gg13 .gg-event-card p{font-size:12px}.gg13 .gg-station-card details{width:100%;overflow-wrap:anywhere}.gg13 .gg-station-card select{max-width:100%}
