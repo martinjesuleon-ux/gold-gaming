@@ -30,9 +30,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }
   io.to(p.id).emit('v14:gateState',{inside:true,wave:p.gate.wave+1,lives:p.gate.lives});
  }
- function returnFromGate(p){
+ function returnFromGate(p,repair=false){
+  const old={hp:p.hp,shield:p.shield,lastHit:p.lastHit};const home=p.gateReturn;
   clearGateNPCs(p);const sock=io.sockets.sockets.get(p.id);
-  sock?.leave(p.zone);p.zone='world';sock?.join('world');p.gate=null;p.attack=false;p.target=null;spawnPlayer(p);setPetMode(p,'off');
+  sock?.leave(p.zone);p.zone='world';sock?.join('world');p.gate=null;p.gateReturn=null;p.attack=false;p.target=null;spawnPlayer(p);if(!repair){p.hp=Math.max(1,old.hp);p.shield=old.shield;p.lastHit=old.lastHit;if(home){p.x=home.x;p.y=home.y;}}setPetMode(p,'off');
  }
  function saveGate(p,outcome){
   if(!p.gate||p.gatePending)return;
@@ -40,9 +41,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const wave=p.gate.wave;
   const job=p.writes.catch(()=>{}).then(()=>accounts.gateAdvance(p.accountId,wave,outcome)).then(r=>{
    if(players.get(p.id)!==p)return;
-   if(outcome==='death'||r.complete||r.failed){returnFromGate(p);io.to(p.id).emit('v14:gateState',{inside:false,...r});io.to(p.id).emit('notice',r.complete?'Alpha completada · recompensa de prueba pendiente':r.failed?'Alpha perdida':'Vida perdida · vuelve a entrar desde Portales');}
+   if(outcome==='death'||r.complete||r.failed){returnFromGate(p,outcome==='death');io.to(p.id).emit('v14:gateState',{inside:false,...r});io.to(p.id).emit('notice',r.complete?'Alpha completada · recompensa de prueba pendiente':r.failed?'Alpha perdida':'Vida perdida · vuelve a entrar desde Portales');}
    else{p.gate={wave:r.wave,lives:r.lives};gateWave(p);}
-  }).catch(()=>{if(players.get(p.id)===p){returnFromGate(p);io.to(p.id).emit('notice','No se pudo guardar la puerta. Vuelve a entrar.');}}).finally(()=>{p.gatePending=false;pending.delete(job);});
+  }).catch(()=>{if(players.get(p.id)===p){returnFromGate(p,outcome==='death');io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice','No se pudo guardar la puerta. Vuelve a entrar.');}}).finally(()=>{p.gatePending=false;pending.delete(job);});
   p.writes=job;pending.add(job);
  }
  const publicPlayer=p=>({id:p.id,name:p.name,ship:p.ship,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil,pet:p.petUntil>Date.now()&&p.petMode!=='off'&&!p.deadUntil?{mode:p.petMode,x:p.petX,y:p.petY}:null});
@@ -77,7 +78,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const p=players.get(socket.id);if(typeof ack!=='function'||!allowed()||!p||p.gatePending||p.gate||p.deadUntil||p.attack||p.shotPending||p.reloadPending)return;
   p.gatePending=true;
   try{const checkpoint=await accounts.gateCheckpoint(p.accountId);if(players.get(p.id)!==p||p.deadUntil||p.attack||p.shotPending)return ack({ok:false,error:'No se puede entrar ahora'});
-   socket.leave('world');p.zone='alpha:'+p.id;socket.join(p.zone);p.gate=checkpoint;spawnPlayer(p);setPetMode(p,'off');gateWave(p);ack({ok:true});
+   const old={hp:p.hp,shield:p.shield,lastHit:p.lastHit};p.gateReturn={x:p.x,y:p.y};socket.leave('world');p.zone='alpha:'+p.id;socket.join(p.zone);p.gate=checkpoint;spawnPlayer(p);Object.assign(p,old);setPetMode(p,'off');gateWave(p);ack({ok:true});
   }catch(e){ack({ok:false,error:e.status?e.message:'No se pudo abrir Alpha'});}finally{p.gatePending=false;}
  });
  socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&!p.gatePending&&!p.shotPending&&!p.deadUntil){returnFromGate(p);socket.emit('v14:gateState',{inside:false});}});
