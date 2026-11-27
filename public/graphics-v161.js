@@ -39,7 +39,18 @@
   path(c,[[7,0],[0,-3],[-5,0],[0,3]],core,color,.6);
   path(c,[[5,0],[0,-1.5],[-2,0],[0,1.5]],color);
  }
- function pet(c,color){engine(c,-10,0,color);for(const side of [-1,1])path(c,[[12,4*side],[-2,12*side],[-13,8*side],[-7,3*side]],'#213c54',color);path(c,[[18,0],[4,-6],[-10,-4],[-13,0],[-10,4],[4,6]],gradient(c,8,[[0,'#9db5cc'],[.5,'#19364b'],[1,'#344e62']]),color);path(c,[[9,0],[1,-3],[-4,0],[1,3]],'#f7ce70');}
+ function pet(c,color){
+  const metal=gradient(c,13,[[0,'#a8c0d1'],[.28,'#486579'],[.56,'#122232'],[1,'#627b8e']]);
+  for(const side of [-1,1]){
+   engine(c,-10,7*side,color);
+   path(c,[[13,4*side],[2,13*side],[-9,13*side],[-17,7*side],[-7,3*side]],metal,'#82a2b4',.8);
+   path(c,[[8,6*side],[1,10*side],[-9,10*side],[-12,7*side]],'#1a384a',color,.65);
+   path(c,[[-10,5*side],[-6,5*side],[-6,9*side],[-10,9*side]],color);
+  }
+  path(c,[[21,0],[8,-7],[-8,-6],[-15,-3],[-15,3],[-8,6],[8,7]],metal,'#b3cad9',.9);
+  path(c,[[15,0],[4,-4],[-5,-3],[-9,0],[-5,3],[4,4]],'#16374d',color,.7);
+  path(c,[[9,0],[2,-2.5],[-3,0],[2,2.5]],'#f7ce70','#fff2ba',.5);
+ }
  function npcStyle(name,type){
   const raw=String(name||'').toLowerCase().trim(),tier=/^uber[- ]/.test(raw)?'uber':/^emperor[- ]/.test(raw)?'emperor':/^boss\b/.test(raw)||type==='boss'?'boss':'normal';
   const n=raw.replace(/^(boss|uber|emperor)[- ]+/,'');
@@ -135,6 +146,20 @@
  }
  const droneColors=Object.freeze({Havoc:'#ff3838',Hercules:'#398dff',Spartan:'#ff8a24'});
  function droneColor(design){return Object.hasOwn(droneColors,design)?droneColors[design]:'#aab4bd';}
+ let skyCache=null;
+ function sky(c,w,h){
+  if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0)return;
+  if(!skyCache||skyCache.w!==w||skyCache.h!==h){
+   const canvas=root.document.createElement('canvas');canvas.width=Math.min(1920,Math.ceil(w));canvas.height=Math.min(1080,Math.ceil(h));
+   const a=canvas.getContext('2d'),cw=canvas.width,ch=canvas.height;
+   a.fillStyle='#020408';a.fillRect(0,0,cw,ch);
+   for(const [x,y,r,color] of [[.72,.28,.65,'#102037'],[.12,.78,.42,'#0b1927'],[.9,.9,.34,'#151325']]){
+    const g=a.createRadialGradient(cw*x,ch*y,0,cw*x,ch*y,Math.max(cw,ch)*r);g.addColorStop(0,color);g.addColorStop(1,'#02040800');a.fillStyle=g;a.fillRect(0,0,cw,ch);
+   }
+   skyCache={w,h,canvas};
+  }
+  c.drawImage(skyCache.canvas,0,0,w,h);
+ }
  function formationOffsets(count,formation){
   const n=Math.min(10,Math.max(0,Math.floor(Number(count)||0))),f=formation||'normal',out=[];
   for(let i=0;i<n;i++){
@@ -158,5 +183,5 @@
   return {top:Math.ceil(above+14),name:Math.ceil(below+15),width:o.type==='boss'?90:58,ring:Math.ceil(base*scale+4)};
  }
  function safeRatio(value,max){return Number.isFinite(value)&&Number.isFinite(max)&&max>0?Math.max(0,Math.min(1,value/max)):0;}
- root.ggGraphics161={draw,portal,droneColor,droneKind,npcStyle,playerStyle,formationOffsets,labelLayout,safeRatio};
+ root.ggGraphics161={draw,portal,droneColor,droneKind,npcStyle,playerStyle,formationOffsets,labelLayout,safeRatio,sky};
 })(window);

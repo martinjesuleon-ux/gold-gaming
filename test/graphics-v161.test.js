@@ -105,3 +105,13 @@ test('adaptive labels clear ten drone formations at all rotations, bars stay bou
  assert.equal(g.safeRatio(1,0),0);assert.equal(g.safeRatio(12,10),1);assert.equal(g.safeRatio(-1,10),0);assert.equal(g.safeRatio(5,10),.5);
  const boss=g.labelLayout({type:'boss'},g.npcStyle('Boss Kristallin','boss'),true,1.7);assert.ok(boss.top>75);
 });
+
+test('dark-space background cache regenerates only when viewport dimensions change',()=>{
+ let canvases=0,draws=0;const gradient={addColorStop(){}};
+ const context=()=>new Proxy({createRadialGradient:()=>gradient,drawImage(){draws++;}},{get:(t,k)=>k in t?t[k]:()=>{}});
+ const window={document:{createElement(){canvases++;return {getContext:()=>context()};}}};
+ vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161,c=context();
+ g.sky(c,1280,720);g.sky(c,1280,720);assert.equal(canvases,1);assert.equal(draws,2);
+ g.sky(c,1920,1080);assert.equal(canvases,2);g.sky(c,0,0);assert.equal(canvases,2);
+ g.draw(c,'pet','#5ae5ff');g.draw(c,'pet','#5ae5ff');assert.equal(canvases,3);
+});
