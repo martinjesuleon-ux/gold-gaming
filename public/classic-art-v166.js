@@ -78,6 +78,13 @@
   polygon(c,[[4,-5],[19,-4],[24,0],[19,4],[4,5],[10,0]],color,'#bdd3b9',.5);
   polygon(c,[[28,-3],[33,0],[28,3],[23,0]],'#a9b6a9','#293e31',.45);
   for(const y of [-6,6]){c.fillStyle='#a6b9a5';c.fillRect(-19,y-.5,7,1);}
+  const armor=linear(c,-24,-24,20,24,[[0,'#aabbb6'],[.23,'#536b63'],[.5,'#1d302c'],[.78,'#758980'],[1,'#263a32']]);
+  for(const s of [-1,1]){
+   polygon(c,[[-17,13*s],[-8,25*s],[4,28*s],[10,22*s],[-5,17*s]],armor,'#8da198',.55);
+   polygon(c,[[17,9*s],[29,9*s],[31,11*s],[23,13*s]],'#243a32','#98aca0',.5);
+   for(let i=0;i<3;i++){c.fillStyle='#101b1b';c.fillRect(-9+i*4,21*s-1,2,2);c.fillStyle=color;c.fillRect(-9+i*4,21*s-1,2,.65);}
+  }
+  polygon(c,[[19,0],[14,-2.8],[8,-2.8],[5,0],[8,2.8],[14,2.8]],linear(c,5,-3,19,3,[[0,'#0e252e'],[.45,'#76b5c2'],[1,'#203e47']]),'#b2c5c0',.5);
  }
  function alien(c,kind,color){
   const green=kind==='classic-lordakia',steel=linear(c,-25,-25,29,26,[[0,green?'#8ea991':'#9eacb9'],[.25,green?'#3b5b3b':'#35404d'],[.5,'#11191f'],[.75,green?'#25462a':'#25303e'],[1,'#0b1016']]);
@@ -276,6 +283,13 @@
   for(const s of [-1,1]){polygon(c,[[-20,5*s],[-13,14*s],[2,17*s],[13,9*s],[19,5*s],[4,4*s]],metal,'#91adb8',.65);polygon(c,[[-14,8*s],[-5,13*s],[5,11*s],[0,7*s]],'#203b45',color,.6);c.fillStyle=color;c.fillRect(-9,10*s-1,5,2);}
   polygon(c,[[22,0],[11,-7],[-6,-8],[-19,-4],[-19,4],[-6,8],[11,7]],metal,'#b1c4cd',.8);polygon(c,[[13,0],[4,-4],[-6,0],[4,4]],color,'#d6fbff',.65);
   c.fillStyle='#0b1d29';c.fillRect(-16,-2,7,4);c.fillStyle=color;c.fillRect(-15,-1,3,2);
+  const shell=linear(c,-17,-15,16,15,[[0,'#e0ebf0'],[.28,'#728e9e'],[.55,'#243946'],[1,'#111e2b']]);
+  for(const s of [-1,1]){
+   polygon(c,[[-13,8*s],[-6,14*s],[2,14*s],[8,9*s],[-3,10*s]],shell,'#a6bbc6',.5);
+   polygon(c,[[-18,5*s],[-12,6*s],[-11,9*s],[-16,8*s]],'#14232e','#7696a6',.5);
+   c.fillStyle=color;c.fillRect(-16,7*s-.7,3,1.4);
+  }
+  polygon(c,[[12,0],[5,-3],[-3,-2],[-5,0],[-3,2],[5,3]],linear(c,-5,-3,12,3,[[0,'#142c38'],[.45,'#c1edf4'],[1,color]]),'#d1e5ee',.45);
  }
  function portalArt(c,color){
   const metal=linear(c,-43,-42,43,42,[[0,'#c5d6dd'],[.18,'#627987'],[.4,'#202f3b'],[.65,'#526570'],[1,'#0c1620']]);
