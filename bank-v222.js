@@ -11,12 +11,13 @@ const stackCodes=new Set([...['ammo','rockets','specialRockets','launcherAmmo','
 const itemCategories=['lasers','shields','engines','launchers','cpus','robots'];
 function normalizeCode(v){rule(typeof v==='string'&&/^[A-Z0-9][A-Z0-9_-]{3,63}$/.test(v.trim().toUpperCase()),'Código inválido');return v.trim().toUpperCase();}
 function normalizeReward(v){
- rule(record(v)&&Object.keys(v).every(k=>['credits','uridium','xp','honor','premiumDays','stacks','items'].includes(k)),'Premio inválido');
+ rule(record(v)&&Object.keys(v).every(k=>['credits','uridium','xp','honor','premiumDays','packs','stacks','items'].includes(k)),'Premio inválido');
  const out={};
  for(const k of ['credits','uridium','xp','honor','premiumDays'])if(Object.hasOwn(v,k)){rule(integer(v[k],k==='premiumDays'?365:1000000000),'Cantidad inválida');out[k]=v[k];}
+ if(Object.hasOwn(v,'packs')){rule(record(v.packs)&&Object.keys(v.packs).length>0,'Paquetes inválidos');out.packs={};for(const [code,n] of Object.entries(v.packs)){rule(['NBX-B01','QR-01'].includes(code)&&integer(n,52),'Paquete inválido');out.packs[code]=n;}}
  if(Object.hasOwn(v,'stacks')){rule(record(v.stacks)&&Object.keys(v.stacks).length<=50,'Munición inválida');out.stacks={};for(const [code,n] of Object.entries(v.stacks)){rule(stackCodes.has(code)&&integer(n),'Munición inválida');out.stacks[code]=n;}}
  if(Object.hasOwn(v,'items')){rule(Array.isArray(v.items)&&v.items.length<=20,'Objetos inválidos');out.items=v.items.map(i=>{rule(record(i)&&itemCategories.includes(i.category)&&catalog[i.category].some(x=>x.id===i.code)&&integer(i.quantity,100),'Objeto inválido');return {category:i.category,code:i.code,quantity:i.quantity};});rule(out.items.reduce((n,i)=>n+i.quantity,0)<=1000,'Demasiados objetos');}
- rule(Object.keys(out).some(k=>k==='stacks'?Object.keys(out.stacks).length:k==='items'?out.items.length:out[k]),'Premio vacío');
+ rule(Object.keys(out).some(k=>k==='stacks'?Object.keys(out.stacks).length:k==='items'?out.items.length:k==='packs'?Object.keys(out.packs).length:out[k]),'Premio vacío');
  return out;
 }
 function eligibility(row,previous){
@@ -51,6 +52,7 @@ function createBank(pool){
    await c.query('UPDATE player_progress SET credits=credits+$2,uridium=uridium+$3,experience=experience+$4,honor=honor+$5,level=CASE WHEN experience+$4<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$4)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1',[id,reward.credits||0,reward.uridium||0,reward.xp||0,reward.honor||0]);
    for(const [key,n] of Object.entries(reward.stacks||{}))await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,key,n]);
    for(const i of reward.items||[])for(let n=0;n<i.quantity;n++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),i.code,i.category]);
+   for(const [pack,n] of Object.entries(reward.packs||{}))await c.query('INSERT INTO gg_v16_entitlements(account_id,code,seconds) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET seconds=gg_v16_entitlements.seconds+EXCLUDED.seconds',[id,pack,n*604800]);
    if(reward.premiumDays)await c.query("INSERT INTO gg_v16_entitlements(account_id,code,seconds) VALUES($1,'premium-seconds',$2) ON CONFLICT(account_id,code) DO UPDATE SET seconds=gg_v16_entitlements.seconds+EXCLUDED.seconds",[id,reward.premiumDays*86400]);
    await c.query('UPDATE gg_bank_codes_v222 SET used=used+1 WHERE code=$1',[code]);
    await c.query('INSERT INTO gg_bank_redemptions_v222(account_id,request_id,code,reward) VALUES($1,$2,$3,$4)',[id,requestId,code,JSON.stringify(reward)]);
