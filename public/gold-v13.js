@@ -683,8 +683,8 @@ async function clanMenu(){
  let data=await api('clan');
  function draw(){
   if(!modal.open||mode!=='Clan')return;
-  body.replaceChildren(el('h2','Clanes'));
-  async function run(action,fields={}){if(busy)return;busy=true;try{data=await api('clan',{action,...fields});await refresh();status.textContent='Operación confirmada · '+balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}}
+  body.replaceChildren(el('h2','Clanes'),button('ACTUALIZAR CLAN',()=>run('status')));
+  async function run(action,fields={}){if(busy)return;busy=true;try{if(action==='status'){data=await api('clan');status.textContent='Clan actualizado';}else{data=await api('clan',{action,...fields});status.textContent='Operación confirmada';try{await refresh();status.textContent='Operación confirmada · '+balance();}catch{status.textContent='Operación confirmada; inventario pendiente de actualizar';}}draw();}catch(e){status.textContent=e.message;}finally{busy=false;}}
   if(!data.clan){
    const name=el('input'),tag=el('input');name.placeholder='Nombre del clan';name.maxLength=32;tag.placeholder='Etiqueta';tag.maxLength=6;
    const create=el('section',null,'gg-social-summary');create.append(el('h3','Fundar clan'),el('p','Coste: 500.000 créditos'),name,tag,button('FUNDAR CLAN',()=>run('create',{name:name.value,tag:tag.value})));body.append(create,el('h3','Buscar clan'));const search=el('input'),list=el('div',null,'gg-social-list');search.type='search';search.placeholder='Nombre o etiqueta…';function clans(){list.replaceChildren();for(const c of data.list.filter(c=>('['+c.tag+'] '+c.name).toLowerCase().includes(search.value.toLowerCase()))){const row=el('div',null,'gg-social-row');row.append(el('strong','['+c.tag+'] '+c.name),button(data.applications?.includes(c.id)?'Cancelar solicitud':'Solicitar ingreso',()=>run(data.applications?.includes(c.id)?'cancel':'apply',{target:c.id})));list.append(row);}if(!list.children.length)list.append(el('p','No hay clanes que coincidan.'));}search.oninput=clans;body.append(search,list);clans();
