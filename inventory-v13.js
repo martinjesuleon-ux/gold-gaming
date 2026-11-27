@@ -1,5 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');
+const {bonusLoot}=require('./loot-v14');
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -122,6 +123,18 @@ function createInventory(pool){
    return {fuel:Number(r.quantity)};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval};
+ async function awardBox(id){
+  const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);
+  return transaction(id,async(c,p)=>{
+   let balance=p;
+   if(['credits','uridium'].includes(loot.code)){
+    balance=(await c.query('UPDATE player_progress SET '+loot.code+'='+loot.code+'+$2 WHERE account_id=$1 RETURNING credits,uridium',[id,loot.quantity])).rows[0];
+   }else{
+    await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,loot.code,loot.quantity]);
+   }
+   return {loot,balance};
+  });
+ }
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox};
 }
 module.exports={createInventory};
