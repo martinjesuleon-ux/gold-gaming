@@ -35,10 +35,15 @@ function createInventory(pool){
  }
  async function purchase(id,{category,code,quantity,requestId}){
   if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Identificador de compra inválido');
-  let q=category==='drones'?null:quote(category,code,quantity);
+  let q=category==='drones'||category==='pet'?null:quote(category,code,quantity);
   return transaction(id,async(c,p)=>{
    const previous=(await c.query('SELECT response FROM gg_v13_purchases WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
    if(previous)return previous.response;
+   if(category==='pet'){
+    if(code!=='pet-10'||quantity!==1)throw fail('P.E.T. inválido');
+    if((await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='pet'",[id])).rowCount)throw fail('Ya tienes un P.E.T.');
+    q={id:code,category,quantity,currency:'uridium',total:50000};
+   }
    if(category==='drones'){const d=catalog.drones[code];if(!['flax','iris'].includes(code)||!d||!Number.isSafeInteger(quantity)||quantity<1||quantity>8)throw fail('Dron o cantidad inválida');const n=Number((await c.query("SELECT count(*) AS n FROM gg_v13_inventory WHERE account_id=$1 AND category='drones' AND code IN ('flax','iris')",[id])).rows[0].n);if(n+quantity>8)throw fail('Límite de ocho VANT normales');q={id:code,category,quantity,currency:d.currency,total:d.prices.slice(n,n+quantity).reduce((a,b)=>a+b,0)};}
    if(category==='ships'&&(code==='phoenix'||(await c.query('SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category=$3',[id,code,category])).rowCount))throw fail('Nave ya disponible');
    if(Number(p[q.currency])<q.total)throw fail('Saldo insuficiente',409);
