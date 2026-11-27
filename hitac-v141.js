@@ -51,5 +51,5 @@ function effects(c,pilots,now=Date.now()){
 }
 function explosionTargets(c,explosion,pilots){if(!explosion)return [];return pilots.filter(p=>pilotValid(c,p)&&dist(p,explosion)<=explosion.radius).map(p=>({pilotId:p.id,damage:explosion.damage}));}
 function view(c){return {id:c.id,phase:c.phase,map:c.map,routeIndex:c.routeIndex,units:[...c.units.values()].map(({id,name,x,y,hp,maxHp,shield,maxShield,protected:immune})=>({id,name,x,y,hp,maxHp,shield,maxShield,immune}))};}
-function preview(){return {route:ROUTE,rules:RULES,boss:NPCS['Hitac Mothership'],guard:NPCS['Hitac Minion'],enabled:process.env.GG_HITAC_ENABLED==='1'};}
+function preview(){return {route:ROUTE,rules:RULES,boss:NPCS['Hitac Mothership'],guard:NPCS['Hitac Minion'],enabled:process.env.GG_HITAC_ENABLED==='1',rewardsEnabled:process.env.GG_HITAC_ENABLED==='1'&&process.env.GG_HITAC_REWARDS_ENABLED==='1'};}
 module.exports={ROUTE,RULES,createConvoy,advance,hit,effects,explosionTargets,view,preview,validateShot};
