@@ -204,6 +204,13 @@ function createInventory(pool){
  const gateSpin=(id,body)=>gateAction(id,body,'spin');
  const gateBuild=(id,body)=>gateAction(id,body,'build');
  const gateLife=(id,body)=>gateAction(id,body,'life');
+ async function hadesEligibility(id){
+  return transaction(id,async c=>{
+   const g=(await gateRows(c,id)).hades;
+   if(!g.built||g.lives<1||g.wave>=DEFS.hades.waves)throw fail('Construye Hades antes de formar un grupo');
+   return {wave:g.wave,lives:g.lives};
+  });
+ }
  async function gateCheckpoint(id,gate='alpha'){
   if(!PLAYABLE.includes(gate))throw fail('Combate de esta puerta aún en desarrollo');
   return transaction(id,async c=>{
@@ -258,6 +265,6 @@ function createInventory(pool){
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateBuild,gateLife,gateCheckpoint,gateKill,gateAdvance};
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,gateCheckpoint,gateKill,gateAdvance};
 }
 module.exports={createInventory};
