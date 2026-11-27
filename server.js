@@ -29,7 +29,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  socket.on('v13:ammo',code=>{const p=players.get(socket.id);if(allowed()&&p&&catalogV13.ammo.some(a=>a.id===code))p.ammo=code;});
  socket.on('v13:reload',async()=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||p.shotPending||p.attack||p.reloadPending||Date.now()-p.lastHit<6500)return;p.reloadPending=true;try{const l=await accounts.combatLoadout?.(p.accountId);if(players.get(socket.id)===p&&!p.deadUntil&&!p.attack&&Date.now()-p.lastHit>=6500)applyLoadout(p,l);}catch{socket.emit('notice','No se pudo actualizar equipamiento');}finally{p.reloadPending=false;}});
  function setPetMode(p,mode){
-  p.petMode=mode;p.petUntil=0;p.petGeneration=(p.petGeneration||0)+1;
+  p.petMode=mode;p.petUntil=0;p.petX=null;p.petY=null;p.petGeneration=(p.petGeneration||0)+1;
   io.to(p.id).emit('v14:petState',{mode:'off',fuel:p.petFuel??null,pending:mode!=='off'});
  }
  socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','loot'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
@@ -41,7 +41,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const job=accounts.petInterval(p.accountId,mode).then(result=>{
    if(closing||players.get(p.id)!==p||p.deadUntil||p.petGeneration!==generation)return;
    p.petFuel=result.fuel;p.petUntil=Date.now()+10000;
-   p.petX=p.x-55*Math.cos(p.angle);p.petY=p.y-55*Math.sin(p.angle);
+   if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)||Math.hypot(p.petX-p.x,p.petY-p.y)>850){p.petX=p.x-55*Math.cos(p.angle);p.petY=p.y-55*Math.sin(p.angle);}
    io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false});
   }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});pending.add(job);
  }
@@ -69,7 +69,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  const result=salvo(p,n,ammo,stock+count,Math.random());p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);Object.assign(n,result.target);if(result.attackerShield!==undefined)p.shield=result.attackerShield;finish();
  }).catch(()=>{p.attack=false;io.to(p.id).emit('notice','No se pudo confirmar el consumo de munición');}).finally(()=>{p.shotPending=false;pending.delete(job);});pending.add(job);}
  }}
- for(const n of npcs.values()){let target=players.get(n.target);if(!target||target.deadUntil||distance(n,target)>1000){target=null;let best=n.type==='boss'?850:310;for(const p of players.values()){const d=distance(n,p);if(!p.deadUntil&&d<best){target=p;best=d;}}n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100){n.lastShot=now;laser(n,target);damage(target,n.damage);if(target.hp<=0){target.deadUntil=now+4000;target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else{if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
+ for(const n of npcs.values()){let target=players.get(n.target);if(!target||target.deadUntil||distance(n,target)>1000){target=null;let best=n.type==='boss'?850:310;for(const p of players.values()){const d=distance(n,p);if(!p.deadUntil&&d<best){target=p;best=d;}}n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100){n.lastShot=now;laser(n,target);damage(target,n.damage);if(target.hp<=0){target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else{if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
  if(++tick%2===0&&players.size)io.to('world').volatile.emit('state',{time:now,players:[...players.values()].map(publicPlayer),npcs:[...npcs.values()].map(({dest,lastShot,damage,reward,speed,lastHit,target,...n})=>n),boxes:[...boxes.values()].map(({id,x,y})=>({id,x,y}))});},50);
  async function close(){closing=true;clearInterval(loop);for(const t of timers)clearTimeout(t);await new Promise(resolve=>io.close(resolve));await Promise.allSettled([...pending]);await accounts.close();}return{app,server,io,close};}
  if(require.main===module){const accounts=createAccounts(process.env.DATABASE_URL);accounts.ready().then(()=>{const game=createGame({accounts}),PORT=process.env.PORT||3000;game.server.listen(PORT,'0.0.0.0',()=>console.log(`GOLD GAMING escuchando en ${PORT}`));for(const sig of ['SIGTERM','SIGINT'])process.once(sig,()=>game.close().then(()=>process.exit(0)));}).catch(async e=>{console.error('No se pudo conectar a PostgreSQL:',e.code||e.message);await accounts.close();process.exitCode=1;});}module.exports={createGame,WORLD,SHIPS};
