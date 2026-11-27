@@ -21,9 +21,11 @@ test('CBS construction consumes owned modules once and rejects occupied asteroid
   const inv=[items(),items()];for(let i=0;i<2;i++)for(const m of inv[i])await pool.query("INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,'cbs-modules')",[ids[i],m.instanceId,m.code]);
   const service=createStations(pool),request={asteroidId:asteroid.id,moduleIds:inv[0].map(x=>x.instanceId),minutes:5,requestId:randomUUID()};
   await assert.rejects(service.build(ids[0],request,{...position,x:0}),/Acércate/);
+  await assert.rejects(service.build(ids[0],request,{...position,x:NaN}),/Acércate/);
+  assert.equal((await service.status(ids[0])).canManage,true);
   const first=await service.build(ids[0],request,position),second=await service.build(ids[0],request,position);
   assert.equal(first.readyAt,second.readyAt);assert.equal(first.downUntil-first.readyAt,1800000);
-  assert.equal((await service.status(ids[0])).inventory.length,0);
+  const built=await service.status(ids[0]);assert.equal(built.inventory.length,0);assert.equal(built.asteroids.find(a=>a.id===asteroid.id).station.owned,true);assert.equal((await service.status(ids[1])).asteroids.find(a=>a.id===asteroid.id).station.owned,false);
   await assert.rejects(service.build(ids[1],{...request,moduleIds:inv[1].map(x=>x.instanceId),requestId:randomUUID()},position),/ocupado/);
   assert.equal((await service.status(ids[1])).inventory.length,10);
  }finally{for(const clan of clans)await pool.query('DELETE FROM gg_v15_clans WHERE id=$1',[clan]);for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
