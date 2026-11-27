@@ -73,10 +73,11 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     q={id:code,category,quantity,currency:'uridium',total:quantity/4};
    }
    if(category==='petGear'){
-    if(!['G-AL1','G-KK1','G-REP1','G-AR1','G-RL1','G-EL1','CSR-02','CGM-02'].includes(code)||quantity!==1)throw fail('Engranaje inválido');
+    if(!['G-AL1','G-KK1','G-REP1','G-AR1','G-RL1','G-EL1','CSR-02','CGM-02','G-TRA1'].includes(code)||quantity!==1)throw fail('Engranaje inválido');
     const rows=(await c.query("SELECT instance_id AS \"instanceId\",category,code,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
     if(!rows.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
     const existing=rows.find(x=>x.category==='petGear'&&x.code===code),rules=require('./pet-gear-levels-v177');
+    if(code==='G-TRA1'&&!require('./pet-trader-v181').traderEnabled(id))throw fail('Comerciante P.E.T. en pruebas',403);
     if(['CSR-02','CGM-02'].includes(code)&&!require('./pet-combos-v180').comboEnabled(id))throw fail('Combos P.E.T. en pruebas',403);
     if(['G-RL1','G-EL1'].includes(code)&&!require('./pet-support-gears-v178').locatorEnabled(id))throw fail('Localizadores P.E.T. en pruebas',403);
     if(code==='G-AR1'&&!require('./pet-support-gears-v178').resourceEnabled(id))throw fail('Auto-recurso P.E.T. en pruebas',403);
@@ -122,7 +123,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
    const petProgress=items.some(i=>i.category==='pet')?(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0]:null;
-   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id),petGearLevelsEnabled:require('./pet-gear-levels-v177').levelRulesEnabled(id),petRepairGearEnabled:require('./pet-support-gears-v178').repairEnabled(id),petResourceGearEnabled:require('./pet-support-gears-v178').resourceEnabled(id),petLocatorGearEnabled:require('./pet-support-gears-v178').locatorEnabled(id),petComboGearEnabled:require('./pet-combos-v180').comboEnabled(id),petLevel:require('./pet-progression-v173').levelForExperience(Number(petProgress?.experience||0)).level};
+   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:require('./pet-test-kit-v175').gearEnabled(id),petGearLevelsEnabled:require('./pet-gear-levels-v177').levelRulesEnabled(id),petRepairGearEnabled:require('./pet-support-gears-v178').repairEnabled(id),petResourceGearEnabled:require('./pet-support-gears-v178').resourceEnabled(id),petLocatorGearEnabled:require('./pet-support-gears-v178').locatorEnabled(id),petComboGearEnabled:require('./pet-combos-v180').comboEnabled(id),petTraderEnabled:require('./pet-trader-v181').traderEnabled(id),petLevel:require('./pet-progression-v173').levelForExperience(Number(petProgress?.experience||0)).level};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
