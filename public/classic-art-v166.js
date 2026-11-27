@@ -153,5 +153,40 @@
    for(const side of [-1,1]){c.fillStyle=color;c.fillRect(side*28-1,14,2,3);}
   }
  }
- root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien};
+ // Independent organic/mechanical profiles for the remaining common families and pirate ships.
+ const raiderProfiles={
+  sibelon:[39,34,31,16,3],sibelonit:[32,24,22,11,1],lordakium:[33,37,30,15,4],
+  interceptor:[40,17,28,7,0],vagrant:[28,20,24,11,1],marauder:[34,28,30,13,2],
+  barracuda:[43,19,30,9,0],saboteur:[30,32,21,10,4],annihilator:[35,34,34,17,3],'deadly-battleray':[42,36,35,18,2]
+ };
+ function raider(c,kind,color){
+  const id=kind.slice(8).replace(/-(boss|uber|emperor)$/,''),elite=kind!==('classic-'+id),[nose,wing,back,body,shape]=raiderProfiles[id]||raiderProfiles.vagrant;
+  const steel=linear(c,-back,-wing,nose,wing,[[0,'#c0c9c8'],[.18,'#6a7b82'],[.35,'#293a42'],[.55,'#0b1721'],[.75,'#4b5b60'],[1,'#13202a']]);
+  const plating=linear(c,-20,-wing,25,wing,[[0,color],[.27,'#515e62'],[.49,'#141e26'],[.7,'#48575c'],[1,color]]);
+  for(const s of [-1,1]){
+   const tip=shape===0?nose*.5:shape===1?-back*.75:shape===2?body*.5:shape===3?-back*.35:nose*.15;
+   const edge=shape===4?[[nose*.34,body*.6],[tip,wing],[-back*.5,wing*.75],[-back,wing*.42],[-body,body*.35]]:[[nose*.45,body*.65],[tip,wing],[-back,wing*.8],[-back*.8,body*.65],[-body,body*.35]];
+   polygon(c,edge.map(([x,y])=>[x,y*s]),steel,'#80939d',.7);
+   polygon(c,[[nose*.32,body*.7*s],[tip,wing*.8*s],[-back*.78,wing*.65*s],[-body,body*.7*s]],plating,color,.65);
+   for(let i=0;i<3;i++){const x=-back*.75+i*back*.25;polygon(c,[[x,wing*.52*s],[x+3,wing*.57*s],[x+7,wing*.34*s],[x+4,wing*.3*s]],'#71838b','#17242b',.35);}
+   polygon(c,[[-back,body*.5*s],[-back+6,body*.42*s],[-back+6,body*.78*s],[-back,body*.84*s]],'#0a141b','#a0aeb3',.5);
+   c.fillStyle=color;c.fillRect(-back+1,body*.61*s-1,4,2);
+   if(shape===4||elite){polygon(c,[[nose*.2,wing*.45*s],[nose*.48,wing*.72*s],[nose*.15,wing*.94*s],[-body*.3,wing*.7*s]],steel,color,.65);}
+   if(shape===3){polygon(c,[[nose*.3,body*.8*s],[nose*.65,wing*.43*s],[nose*.23,wing*.65*s],[-back*.35,wing*.48*s]],steel,'#9babb0',.65);}
+  }
+  polygon(c,[[nose,0],[nose*.45,-body*.7],[-body,-body],[-back,-body*.48],[-back,body*.48],[-body,body],[nose*.45,body*.7]],steel,'#a0b0b6',.85);
+  polygon(c,[[nose*.78,0],[nose*.25,-body*.44],[-body*.6,-body*.5],[-back*.6,0],[-body*.6,body*.5],[nose*.25,body*.44]],plating,color,.6);
+  polygon(c,[[nose*.48,0],[nose*.1,-body*.27],[-body*.4,0],[nose*.1,body*.27]],'#17232a',color,.6);
+  polygon(c,[[nose*.38,0],[nose*.08,-body*.14],[-body*.12,0],[nose*.08,body*.14]],color);
+ }
+ function vant(c,kind,color){
+  const id=kind.slice(6),sizes={flax:[9,5,0],iris:[11,8,1],apis:[12,10,2],zeus:[13,11,3]},[x,y,style]=sizes[id]||sizes.iris;
+  const steel=linear(c,-x,-y,x,y,[[0,'#e3e6e3'],[.2,'#85949a'],[.45,'#27353f'],[.65,'#566570'],[1,'#0b1420']]);
+  const coat=linear(c,-x,-y,x,y,[[0,color],[.35,'#384b55'],[.65,'#17232b'],[1,color]]);
+  const pts=style===0?[[x,0],[3,-y],[-7,-y],[-x,0],[-7,y],[3,y]]:style===1?[[x,0],[4,-y],[-6,-y],[-x,-4],[-6,0],[-x,4],[-6,y],[4,y]]:style===2?[[x,0],[5,-y*.55],[0,-y],[-8,-y*.8],[-x,-3],[-7,0],[-x,3],[-8,y*.8],[0,y],[5,y*.55]]:[[x,0],[6,-y*.55],[1,-y],[-9,-y],[-x,-4],[-8,0],[-x,4],[-9,y],[1,y],[6,y*.55]];
+  polygon(c,pts,steel,'#97a7ad',.7);
+  for(const s of [-1,1]){polygon(c,[[5,2*s],[0,y*.8*s],[-7,y*.65*s],[-5,2*s]],coat,color,.55);polygon(c,[[-7,3*s],[-4,3*s],[-4,5*s],[-7,5*s]],'#a9b7b9','#18212a',.4);}
+  polygon(c,[[x-2,0],[1,-3],[-4,0],[1,3]],coat,color,.65);polygon(c,[[x-4,0],[1,-1.4],[-1,0],[1,1.4]],color);
+ }
+ root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien,raider,vant};
 })(window);
