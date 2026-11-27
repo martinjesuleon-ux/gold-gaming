@@ -6,7 +6,19 @@ const RECRUIT=Object.freeze({'green-key':5,'log-disk':5,'UCB-100':5000,'RSB-75':
 const REFERRER=Object.freeze({'green-key':10,'log-disk':20,'gate-energy':50,'UCB-100':8000,'RSB-75':3500});
 const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
 function qualifies(level){return Number.isSafeInteger(Number(level))&&Number(level)>=LEVEL;}
-function ipFingerprint(ip,secret){if(typeof secret!=='string'||secret.length<32||typeof ip!=='string')return null;ip=ip.toLowerCase().replace(/^::ffff:(?=\d+\.)/,'');if(!net.isIP(ip))return null;return crypto.createHmac('sha256',secret).update(ip).digest('hex');}
+function canonicalIP(ip){
+ if(typeof ip!=='string'||ip.includes('%'))return null;
+ const family=net.isIP(ip);if(family===4)return ip;if(family!==6)return null;
+ const normalized=new URL('http://['+ip+']/').hostname.slice(1,-1);
+ const mapped=/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(normalized);
+ if(mapped){const a=parseInt(mapped[1],16),b=parseInt(mapped[2],16);return [a>>8,a&255,b>>8,b&255].join('.');}
+ return normalized;
+}
+function ipFingerprint(ip,secret){if(typeof secret!=='string'||secret.length<32)return null;const canonical=canonicalIP(ip);return canonical?crypto.createHmac('sha256',secret).update(canonical).digest('hex'):null;}
+function createInviteLimiter({perIP=20,global=240,windowMs=60000}={}){
+ let started=null,total=0;const counts=new Map();
+ return (hash,now=Date.now())=>{if(!hash)return false;if(started===null||now-started>=windowMs){started=now;total=0;counts.clear();}const count=counts.get(hash)||0;if(total>=global||count>=perIP)return false;counts.set(hash,count+1);total++;return true;};
+}
 function validInvite(invite,now=Date.now()){return uuid(invite?.referrer)&&Number.isSafeInteger(invite?.issuedAt)&&invite.issuedAt<=now&&now-invite.issuedAt<TTL;}
 function signInvite(referrer,secret,now=Date.now()){
  if(!uuid(referrer)||typeof secret!=='string'||secret.length<32) return null;
@@ -89,4 +101,4 @@ function createReferrals(pool){
  }
  return {ready,register,loginIP,qualify,status,claim,settleDue};
 }
-module.exports={LEVEL,TTL,RECRUIT,REFERRER,qualifies,ipFingerprint,validInvite,signInvite,parseInvite,cookieInvite,referralConfig,createReferrals};
+module.exports={LEVEL,TTL,RECRUIT,REFERRER,qualifies,canonicalIP,ipFingerprint,createInviteLimiter,validInvite,signInvite,parseInvite,cookieInvite,referralConfig,createReferrals};
