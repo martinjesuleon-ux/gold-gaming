@@ -17,6 +17,29 @@ function cargoUsed(cargo){return MINERALS.filter(k=>k!=='xenomit').reduce((a,k)=
 // Only Cubikon quantities are explicit in the wiki; other alien drops are provisional.
 function npcCargo(name,credits=0){if(name==='Cubikon')return {prometium:1200,endurium:1200,terbium:1200};const n=Math.max(1,Math.min(300,Math.floor(credits/800)));return {prometium:n*2,endurium:n,terbium:n};}
 function fitCargo(contents,space){const taken={};for(const k of ['xenomit','seprom','promerium','duranium','prometid','terbium','endurium','prometium','paladio']){const n=Math.max(0,Math.floor(Number(contents[k])||0)),q=k==='xenomit'?n:Math.min(n,Math.max(0,space));if(q){taken[k]=q;if(k!=='xenomit')space-=q;}}return taken;}
+// Transport is reserved at dispatch and settled exactly once under the pilot lock.
+function transportDuration(quantity,premium=false){
+ if(!Number.isSafeInteger(quantity)||quantity<1||quantity>1000000)throw Error('Cantidad inválida');
+ return Math.ceil(quantity/100)*(premium?6:12)*60000;
+}
+function autoRefinePlan(contents,credits){
+ const stock={...contents};let available=BigInt(credits),fee=0n;const conversions={};
+ for(const code of ['prometid','duranium','promerium','seprom']){
+  const recipe=RECIPES[code];const n=Math.min(1000000,Number(available/BigInt(recipe.fee)),...Object.entries(recipe.inputs).map(([k,v])=>Math.floor((stock[k]||0)/v)));
+  if(n<1)continue;
+  for(const [k,v] of Object.entries(recipe.inputs))stock[k]-=n*v;
+  stock[code]=(stock[code]||0)+n;const cost=BigInt(n)*BigInt(recipe.fee);available-=cost;fee+=cost;conversions[code]=n;
+ }
+ return {contents:Object.fromEntries(Object.entries(stock).filter(([,n])=>n>0)),fee:Number(fee),conversions};
+}
+function transportPlan(shipment,cargo,limit,credits,premium,now){
+ if(!shipment||now<shipment.readyAt)return null;
+ // Only the delivered minerals are refined; existing cargo is never silently consumed.
+ const raw={[shipment.code]:shipment.quantity};
+ const refined=shipment.autoRefine&&premium?autoRefinePlan(raw,credits):{contents:raw,fee:0,conversions:{}};
+ if(cargoUsed(cargo)+cargoUsed(refined.contents)>limit&&cargoUsed(refined.contents)>0)return {blocked:true};
+ return {...refined,blocked:false};
+}
 function initial(now){return {levels:Object.fromEntries(MODULES.map(k=>[k,1])),enabled:Object.fromEntries(PRODUCTION.map(k=>[k,RAW.includes(k)])),stock:{},fraction:{},at:now};}
 // Intermediate storage capacities use collector-rate ×48. Production uses a continuous,
 // capped simulation, in at most one-hour increments, to preserve dependencies.
@@ -54,7 +77,8 @@ function createMinerals(pool){
  async function maxCargo(c,id){const row=(await c.query('SELECT ship FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];const owned=(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='cpus' AND code='GEMINEX-XI' LIMIT 1",[id])).rowCount;const skills=(await c.query('SELECT skills FROM gg_v19_pilot WHERE account_id=$1',[id])).rows[0]?.skills||{};return premiumCargo(catalog.ships.find(s=>s.id===(row?.ship||'phoenix'))?.cargo||100,!!owned,pilotBonus(skills).capacity,await premiumRead(c,id));}
  async function add(c,id,k,n){if(!n)return;await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,k,n]);}
  async function take(c,id,k,n){const r=await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,k,n]);if(!r.rowCount)throw fail('Mineral insuficiente: '+k);}
- async function view(c,id,p,lab){const metrics=tick(lab,Date.now());await save(c,id,lab);const b=await cargo(c,id),limit=await maxCargo(c,id);return {lab,metrics,cargo:b,cargoUsed:cargoUsed(b),capacity:limit,limits:Object.fromEntries(MINERALS.filter(k=>k!=='paladio').map(k=>[k,capacity(lab.levels.storage,k)])),rates:Object.fromEntries(PRODUCTION.map(k=>[k,RATES[lab.levels[k]]/(RECIPES[k]?20:1)])),prices:PRICES,recipes:RECIPES,balance:{credits:p.credits,uridium:p.uridium},honor:Number(p.honor),provisional:true};}
+ async function settleTransport(c,id,p,lab){const shipment=lab.shipment;if(!shipment||Date.now()<shipment.readyAt)return;const plan=transportPlan(shipment,await cargo(c,id),await maxCargo(c,id),p.credits,await premiumRead(c,id),Date.now());if(!plan)return;if(plan.blocked){shipment.blocked=true;return;}if(plan.fee){const debit=await c.query('UPDATE player_progress SET credits=credits-$2 WHERE account_id=$1 AND credits>=$2 RETURNING credits',[id,plan.fee]);if(!debit.rows[0])throw fail('Créditos insuficientes');p.credits=debit.rows[0].credits;}for(const [k,n] of Object.entries(plan.contents))await add(c,id,k,n);lab.lastDelivery={code:shipment.code,quantity:shipment.quantity,contents:plan.contents,fee:plan.fee,deliveredAt:Date.now()};delete lab.shipment;}
+ async function view(c,id,p,lab){const metrics=tick(lab,Date.now());await settleTransport(c,id,p,lab);await save(c,id,lab);const b=await cargo(c,id),limit=await maxCargo(c,id);return {lab,metrics,cargo:b,cargoUsed:cargoUsed(b),capacity:limit,premium:await premiumRead(c,id),limits:Object.fromEntries(MINERALS.filter(k=>k!=='paladio').map(k=>[k,capacity(lab.levels.storage,k)])),rates:Object.fromEntries(PRODUCTION.map(k=>[k,RATES[lab.levels[k]]/(RECIPES[k]?20:1)])),prices:PRICES,recipes:RECIPES,balance:{credits:p.credits,uridium:p.uridium},honor:Number(p.honor),provisional:true};}
  async function collect(id,contents,owner){
  return tx(id,async(c,p)=>{
   const b=await cargo(c,id),limit=await maxCargo(c,id),taken=fitCargo(contents,limit-cargoUsed(b));
@@ -97,14 +121,16 @@ function createMinerals(pool){
  if(d.action==='cbs-sell'&&(!position||typeof position.zone!=='string'||!Number.isFinite(position.x)||!Number.isFinite(position.y)))throw fail('Acércate a tu estación CBS');
  return tx(id,async(c,p)=>{
  const prior=(await c.query('SELECT response FROM gg_v17_mineral_requests WHERE account_id=$1 AND request_id=$2',[id,d.requestId])).rows[0];if(prior)return prior.response;
- const lab=await labRow(c,id);tick(lab,Date.now());const b=await cargo(c,id),limit=await maxCargo(c,id),k=d.code,n=d.quantity;
+ const lab=await labRow(c,id);tick(lab,Date.now());await settleTransport(c,id,p,lab);const b=await cargo(c,id),limit=await maxCargo(c,id),k=d.code,n=d.quantity;
  if(d.action==='toggle'){if(!PRODUCTION.includes(k)||typeof d.enabled!=='boolean')throw fail('Módulo inválido');lab.enabled[k]=d.enabled;}
  else{
  if(!MINERALS.includes(k)||!Number.isSafeInteger(n)||n<1||n>1000000)throw fail('Cantidad inválida');
  if(d.action==='transfer'){
  if(k==='paladio'||(lab.stock[k]||0)<n)throw fail('Existencia insuficiente en Skylab');
+ if(lab.shipment)throw fail('Ya hay un transporte pendiente');
+ const premium=await premiumRead(c,id);if(d.autoRefine!==undefined&&typeof d.autoRefine!=='boolean')throw fail('Autorrefinado inválido');if(d.autoRefine&&!premium)throw fail('Autorrefinado requiere Premium');
  if(k!=='xenomit'&&cargoUsed(b)+n>limit)throw fail('Bodega insuficiente');
- lab.stock[k]-=n;await add(c,id,k,n);
+ const now=Date.now();lab.stock[k]-=n;lab.shipment={code:k,quantity:n,startedAt:now,readyAt:now+transportDuration(n,premium),autoRefine:!!d.autoRefine};
  }else if(d.action==='refine'){
  const r=RECIPES[k];if(!r||k==='xenomit'||r.premium)throw fail('Refinado no disponible');
  if(Number(p.credits)<r.fee*n)throw fail('Créditos insuficientes');
@@ -130,4 +156,4 @@ function createMinerals(pool){
  },d.action==='cbs-sell');}
  return {ready,status,action,collect,petTrade,petTradeStatus};
 }
-module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,supply,demand,capacity,cargoUsed,saleValue,npcCargo,fitCargo,createMinerals};
+module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,supply,demand,capacity,cargoUsed,saleValue,npcCargo,fitCargo,transportDuration,autoRefinePlan,transportPlan,createMinerals};
