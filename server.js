@@ -722,7 +722,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const valid=()=>!closing&&players.get(p.id)===p&&p.zone===zone&&!p.deadUntil&&!p.gatePending&&!p.gateWaiting&&p.petGeneration===generation&&p.petMode!=='off'&&!p.petVitals?.destroyed&&!p.petTradePending;
   const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petKamikaze(p.accountId):null).then(r=>{
    if(!r)return;p.kamiUntil=r.readyAt??0;p.petFuel=r.fuel;
-   if(players.get(p.id)!==p||p.zone!==zone||p.deadUntil||p.gatePending||p.gateWaiting||p.petGeneration!==generation)return;
+   if(!valid())return;
    const center={x:p.petX,y:p.petY};if(!Number.isFinite(center.x)||!Number.isFinite(center.y))return;
    const kami=testKami?TEST_KAMIKAZE:(r.kamikaze||KAMIKAZE);p.petFuel=r.fuel;p.kamiUntil=testKami?0:(r.readyAt??Date.now()+kami.cooldown);if(!testKami)setPetMode(p,'off');
    const targets=[...npcs.values()].filter(n=>sameZone(p,n)&&!n.gateShielded&&distance(center,n)<=kami.radius);
