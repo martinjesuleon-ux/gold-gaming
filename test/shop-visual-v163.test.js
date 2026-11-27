@@ -69,5 +69,9 @@ test('HUD layout preferences validate sizes and clamp draggable windows inside v
  const vm=require('node:vm'),context={window:{innerWidth:800,innerHeight:600}};vm.runInNewContext(src+';this.clamp=clampPosition',context);
  assert.equal(JSON.stringify(context.clamp(-40,900,200,100)),JSON.stringify({x:0,y:500}));
  assert.equal(JSON.stringify(context.clamp(90,40,900,700)),JSON.stringify({x:0,y:0}));
- assert.match(hud,/localStorage.setItem\(preferenceKey/);assert.match(hud,/pointerdown/);assert.match(hud,/preferences=\{size:'normal',labels:true,positions:\{\}\}/);assert.match(css,/gg-custom-position/);assert.match(css,/data-control-size=large/);
+ assert.match(hud,/localStorage.setItem\(preferenceKey/);assert.match(hud,/pointerdown/);assert.match(hud,/preferences=\{size:'normal',labels:true,opacity:95,focus:false,positions:\{\}\}/);assert.match(css,/gg-custom-position/);assert.match(css,/data-control-size=large/);
+});
+
+test('HUD transparency and combat focus remain local and preserve essential controls',()=>{
+ const hud=read('gold-hud.js'),css=read('gold-hud.css');assert.match(hud,/Math.max\(45,Math.min\(100,raw.opacity\)\)/);assert.match(hud,/--gg-panel-opacity/);assert.match(hud,/--gg-right-top/);assert.match(hud,/--gg-target-top/);assert.match(css,/data-focus-mode=true/);assert.match(css,/rgb\(23 38 49 \/ var\(--gg-panel-opacity/);assert.doesNotMatch(css,/data-focus-mode=true[^{}]*\.arsenal\s*\{/);
 });
