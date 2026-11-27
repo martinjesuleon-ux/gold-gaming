@@ -125,6 +125,25 @@ function defenseShots(station,players,cooldowns,now=Date.now(),random=Math.rando
  }
  return shots;
 }
+// Station boosts are capped for honor/XP and apply only to live modules.
+function clanStationEffects(stations,clanId,zone,position,now=Date.now()){
+ const out={xp:1,honor:1,damage:1,safe:false};
+ if(!clanId)return out;
+ for(const s of stations){
+  if(s.clan_id!==clanId||now<Number(s.ready_at))continue;
+  const a=ASTEROIDS.find(x=>x.id===s.asteroid_id);if(!a)continue;
+  if(a.map===zone&&position&&Math.hypot(position.x-a.x,position.y-a.y)<=700)out.safe=true;
+  for(const m of s.modules){
+   if(m.hp<=0)continue;
+   // Linear module bonus scaling; max upgrade gives the wiki's 10%.
+   const bonus=.1*(1+(m.level-1)*.02)/1.3;
+   if(m.code==='HONM-1')out.honor+=bonus;
+   if(m.code==='XPM-1')out.xp+=bonus;
+   if(m.code==='DMGM-1'&&a.map===zone)out.damage+=bonus;
+  }
+ }
+ out.honor=Math.min(1.5,out.honor);out.xp=Math.min(1.5,out.xp);return out;
+}
 function createStations(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_cbs_stations(asteroid_id text PRIMARY KEY,clan_id uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,builder uuid NOT NULL REFERENCES accounts(id),ready_at bigint NOT NULL,down_until bigint NOT NULL,modules jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS gg_cbs_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));
@@ -228,15 +247,16 @@ function createStations(pool){
    await c.query('INSERT INTO gg_cbs_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- async function defenseSnapshot(){
+ async function defenseSnapshot(ids=[]){
   const now=Date.now();
-  const rows=(await pool.query(`SELECT s.asteroid_id,s.ready_at,s.modules,
+  const rows=(await pool.query(`SELECT s.asteroid_id,s.clan_id,s.ready_at,s.modules,
    ARRAY(SELECT h.account_id FROM gg_cbs_hits h LEFT JOIN gg_v15_clan_members m ON m.account_id=h.account_id
     WHERE h.asteroid_id=s.asteroid_id AND h.at_ms>=$1 AND h.account_id<>s.builder
     AND (m.clan_id IS NULL OR (m.clan_id<>s.clan_id AND NOT EXISTS(SELECT 1 FROM gg_v15_clan_diplomacy d WHERE d.state='alliance' AND ((d.source=m.clan_id AND d.target=s.clan_id) OR (d.source=s.clan_id AND d.target=m.clan_id)))))) AS attackers
    FROM gg_cbs_stations s WHERE s.ready_at<=$2`,[now-600000,now])).rows;
-  return {at:now,stations:rows};
+  const members=ids.length?(await pool.query('SELECT account_id,clan_id FROM gg_v15_clan_members WHERE account_id=ANY($1::uuid[])',[ids])).rows:[];
+  return {at:now,stations:rows,members};
  }
  return {ready,status,build,lower,hit,emergency,defenseSnapshot};
 }
-module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,MODULE_REWARDS,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,repairState,destructionShares,defenseShots,createStations};
+module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,MODULE_REWARDS,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,repairState,destructionShares,defenseShots,clanStationEffects,createStations};
