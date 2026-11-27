@@ -501,7 +501,7 @@ async function boosterMenu(){
    const time=el('section',null,'gg-booster-time');time.append(el('strong',remaining>0?'ACTIVO':'INACTIVO'),el('p','Tiempo activo: '+duration(remaining)),el('p','Tiempo disponible: '+duration(stock)));tile.append(time);
    const run=async action=>{if(busy)return;busy=true;try{await window.gg112Booster({action,code:item.code,requestId:crypto.randomUUID()});await refresh();await boosterMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}};
    if(item.price)tile.append(button('COMPRAR '+fmt(item.price)+' U',()=>run('buy')));
-   const activate=button('ACTIVAR TIEMPO',()=>run('activate'));activate.disabled=stock<=0;tile.append(activate);grid.append(tile);
+   const activate=button('ACTIVAR TIEMPO',()=>run('activate'));activate.disabled=stock<=0||!!item.premium;if(item.premium)activate.textContent='TIEMPO RESERVADO';tile.append(activate);grid.append(tile);
   }body.append(grid);status.textContent='Uridium: '+fmt(d.balance.uridium);
  }catch(e){if(modal?.open&&mode==='Boosters')body.replaceChildren(el('p',e.message));}
 }
