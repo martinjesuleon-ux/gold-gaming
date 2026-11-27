@@ -42,7 +42,7 @@ function configurations(shipId,configs,owned){
   const drones=Array.isArray(config)?[]:config.drones??[];
   requireRule(Array.isArray(drones)&&drones.length<=10,'VANT inválidos');
   for(const d of drones){const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1});}
-  return stats(shipId,ids.map(take),droneItems);
+  return {...stats(shipId,ids.map(take),droneItems),droneCount:drones.length};
  });
 }
 function hit(target,amount,absorption=.5){
