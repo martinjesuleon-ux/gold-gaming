@@ -163,7 +163,7 @@ function createInventory(pool){
  async function gateView(c,id,rows){
   const energy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
   const balance=(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1',[id])).rows[0];
-  const states=Object.fromEntries(GATES.map(g=>[g,{...DEFS[g],...rows[g],required:DEFS[g].pieces,ready:rows[g].built,canBuild:!rows[g].built&&rows[g].pieces.length===DEFS[g].pieces,combatAvailable:g==='alpha'}]));
+  const states=Object.fromEntries(GATES.map(g=>[g,{...DEFS[g],...rows[g],required:DEFS[g].pieces,ready:rows[g].built,canBuild:!rows[g].built&&rows[g].pieces.length===DEFS[g].pieces,combatAvailable:SHARED.includes(g)}]));
   return {gates:GATES,states,alpha:states.alpha,energy,balance};
  }
  async function gateStatus(id){return transaction(id,async c=>gateView(c,id,await gateRows(c,id)));}
@@ -176,7 +176,7 @@ function createInventory(pool){
    if(action==='spin'){
     if(gate==='kronos')throw fail('Kronos se construye completando otras puertas');
     const pool=SHARED.includes(gate)?SHARED:[gate];
-    if(!pool.some(k=>!rows[k].built&&rows[k].pieces.length<DEFS[k].pieces))throw fail('No hay puertas disponibles para recibir piezas');
+    if(!pool.some(k=>(!SHARED.includes(gate)||!rows[k].built)&&rows[k].pieces.length<DEFS[k].pieces))throw fail('No hay puertas disponibles para recibir piezas');
     const next=spinGate(rows,gate,crypto.randomInt(100),n=>crypto.randomInt(n),useMultiplier);
     const energy=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='gate-energy' AND quantity>=1 RETURNING quantity",[id])).rows[0];
     if(!energy){
@@ -204,14 +204,14 @@ function createInventory(pool){
  const gateBuild=(id,body)=>gateAction(id,body,'build');
  const gateLife=(id,body)=>gateAction(id,body,'life');
  async function gateCheckpoint(id,gate='alpha'){
-  if(gate!=='alpha')throw fail('Combate de esta puerta aún en desarrollo');
+  if(!SHARED.includes(gate))throw fail('Combate de esta puerta aún en desarrollo');
   return transaction(id,async c=>{
    const g=(await gateRows(c,id))[gate];if(!g.built||g.lives<1||g.wave>=DEFS[gate].waves)throw fail('Puerta no disponible');
    return {gate,wave:g.wave,lives:g.lives,completions:g.completions};
   });
  }
  async function gateAdvance(id,expectedWave,outcome,gate='alpha'){
-  if(gate!=='alpha'||!Number.isInteger(expectedWave)||expectedWave<0||expectedWave>=DEFS[gate].waves||!['clear','death'].includes(outcome))throw fail('Progreso inválido');
+  if(!SHARED.includes(gate)||!Number.isInteger(expectedWave)||expectedWave<0||expectedWave>=DEFS[gate].waves||!['clear','death'].includes(outcome))throw fail('Progreso inválido');
   return transaction(id,async c=>{
    const rows=await gateRows(c,id),g=rows[gate];
    if(!g.built||g.wave!==expectedWave||g.lives<1)throw fail('La puerta cambió; vuelve a entrar');
@@ -221,7 +221,7 @@ function createInventory(pool){
     const [uridium,xp,honor,ammo,disks,xenomit,vouchers,keys]=REWARDS[gate];
     const balance=(await c.query('UPDATE player_progress SET uridium=uridium+$2,experience=experience+$3,honor=honor+$4,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium,experience,level,honor',[id,uridium,xp,honor])).rows[0];
     for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['xenomit',xenomit],['repair-voucher',vouchers],['green-key',keys]])await addStack(c,id,code,n);
-    const k=rows.kronos;if(!k.built&&g.completions<KRONOS[gate]&&k.pieces.length<21){k.pieces.push(k.pieces.length+1);await saveGateRow(c,id,k);}
+    const k=rows.kronos;if(!k.built&&KRONOS[gate]){const offset=Object.keys(KRONOS).slice(0,Object.keys(KRONOS).indexOf(gate)).reduce((sum,key)=>sum+KRONOS[key],0);for(let n=offset+1;n<=offset+KRONOS[gate];n++){if(!k.pieces.includes(n)){k.pieces.push(n);await saveGateRow(c,id,k);break;}}}
     g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance};
    }
    if(complete||failed){g.built=false;g.wave=0;g.lives=0;}
