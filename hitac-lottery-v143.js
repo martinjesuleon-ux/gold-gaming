@@ -40,6 +40,7 @@ function createLottery(pool){
  const result={bagId:bag.id,prize:{id:p.id,code:p.code,quantity:p.quantity,level:p.level||null,premiumPending:!!p.entitlement}};
  await c.query('INSERT INTO gg_hitac_draws(account_id,request_id,bag_id,result) VALUES($1,$2,$3,$4)',[id,requestId,bag.id,JSON.stringify(result)]);return result;
  });}
- return {ready,open,close,status,draw,grant};
+ async function adminStatus(){const bag=(await pool.query('SELECT id,stock,created_at FROM gg_hitac_bags WHERE open')).rows[0]||null;return {bag,limited:LIMITED};}
+ return {ready,open,close,status,draw,grant,adminStatus};
 }
 module.exports={UNLIMITED,LIMITED,available,choose,createLottery};
