@@ -310,6 +310,23 @@ window.gg171TravelSector=destination=>{
  sendMove(portal.x,portal.y);notice('Portal a '+destination+' · Pulsa J al llegar');return 'Navegando al portal de '+destination+' · Pulsa J al llegar';
 };
 function nearestPortal(list=visiblePortals()){const me=entities.get('p'+meId);if(!me)return null;let best=null,min=Infinity;for(const p of list){const d=distance(me,p);if(d<=portalRange(p)&&d<min){min=d;best=p;}}return best;}
+let respawnOffer=null,respawnBusy=false,respawnGeneration=0;
+function clearRespawn(){respawnGeneration++;respawnOffer=null;respawnBusy=false;document.getElementById('gg-respawn-choice')?.remove();}
+function renderRespawn(){
+ const offer=respawnOffer;if(!offer||!joined)return;
+ let root=document.getElementById('gg-respawn-choice');if(!root){root=document.createElement('section');root.id='gg-respawn-choice';root.className='gg-respawn-choice';root.setAttribute('role','dialog');root.setAttribute('aria-label','Nave destruida');document.body.append(root);}
+ root.replaceChildren();const title=document.createElement('h2');title.textContent='NAVE DESTRUIDA';root.append(title);
+ const info=document.createElement('p');info.textContent='Selecciona dónde reaparecer. La base es gratuita.';root.append(info);
+ const names={base:'Base de tu compañía',portal:'Portal más cercano',position:'Lugar de destrucción'};
+ for(const option of offer.options){if(!names[option.mode])continue;const b=document.createElement('button');b.type='button';b.textContent=names[option.mode]+' · '+(option.vouchers?'1 vale de reparación':option.uridium?fmt(option.uridium)+' U':'Gratis');b.disabled=respawnBusy||(offer.retryMode&&offer.retryMode!==option.mode);b.onclick=()=>requestRespawn(option.mode);root.append(b);}
+ const status=document.createElement('p');status.setAttribute('role','status');status.textContent=offer.message||'';root.append(status);
+}
+function requestRespawn(mode){if(respawnBusy||!respawnOffer||!joined)return;const offer=respawnOffer,generation=respawnGeneration;respawnBusy=true;offer.message='Confirmando reaparición…';renderRespawn();
+ socket.timeout(8000).emit('v222:respawn',{deathId:offer.deathId,mode},(err,r)=>{if(generation!==respawnGeneration||respawnOffer!==offer)return;respawnBusy=false;if(r?.ok){clearRespawn();return;}offer.message=err?'Sin confirmación. Reintenta la misma opción.':r?.error||'No se pudo reaparecer';offer.retryMode=err||r?.retrySame?mode:null;renderRespawn();});
+}
+socket.on('v222:respawnOffer',offer=>{if(!joined||!offer?.deathId||!Array.isArray(offer.options))return;clearRespawn();respawnOffer=offer;renderRespawn();});
+socket.on('v222:respawnDone',clearRespawn);
+socket.on('disconnect',clearRespawn);
 socket.on('v14:map',s=>{dragging=false;resetCombatSync();entities.clear();selected=null;attacking=false;dest=null;lasers=[];damageNumbers=[];notice('Sector '+s.map);window.dispatchEvent(new CustomEvent('gg171:sectorChanged',{detail:{map:s.map}}));});
 $('fire').onclick=toggleAttack;window.ggArsenalCanUse=()=>joined&&socket.connected;addEventListener('keydown',e=>{if(joined&&e.key==='Escape')select(null);if(joined&&e.key.toLowerCase()==='j'&&!e.repeat&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){const portal=nearestPortal();if(portal)jumpPortal(portal);else notice('Acércate a un portal para saltar');}});
 function clickedLoot(boxes,x,y,project){let best=null,dist=22;for(const b of boxes||[]){const p=project(b.x,b.y),d=Math.hypot(p.x-x,p.y-y);if(d<dist){dist=d;best=b;}}return best;}
