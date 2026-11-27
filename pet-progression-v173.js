@@ -18,7 +18,7 @@ function profile(experience=0,slots=INITIAL){
   purchased[type]=count;
  }
  const next=levels[current.level+1]||null;
- return {experience,level:current.level,nextExperience:next?.experience??null,limits:Object.fromEntries(TYPES.map(k=>[k,current[k]])),slots:purchased,maxHp:current.maxHp,hpUpgrade:current.hpUpgrade,repair:current.repair,fuel:current.fuel,damageBonus:current.damageBonus,shieldBonus:current.shieldBonus,equipmentTier:current.equipmentTier};
+ return {experience,level:current.level,levelStartExperience:current.experience,nextExperience:next?.experience??null,limits:Object.fromEntries(TYPES.map(k=>[k,current[k]])),slots:purchased,maxHp:current.maxHp,hpUpgrade:current.hpUpgrade,repair:current.repair,fuel:current.fuel,damageBonus:current.damageBonus,shieldBonus:current.shieldBonus,equipmentTier:current.equipmentTier};
 }
 function quoteSlot(state,type){
  if(!TYPES.includes(type))throw fail('Tipo de ranura P.E.T. inválido');
@@ -55,7 +55,7 @@ function createPetProgression(pool){
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
  async function status(id){return transaction(id,async(_c,p,balance)=>({
-  ...p,uridium:String(balance.uridium),purchasesEnabled:process.env.GG_PET_PROGRESSION_ENABLED==='1',
+  ...p,xpSharePercent:require('./pet-combat-rules-v173').xpPercent(process.env.GG_PET_XP_PERCENT),uridium:String(balance.uridium),purchasesEnabled:process.env.GG_PET_PROGRESSION_ENABLED==='1',
   nextHull:p.hullPurchasesEnabled?require('./pet-hull-upgrade-v173').hullUpgradeQuote(p.level,p.paidHullTier):null,
   nextSlots:Object.fromEntries(TYPES.map(type=>[type,p.slots[type]<p.limits[type]?quoteSlot(p,type):null]))
  }));}
