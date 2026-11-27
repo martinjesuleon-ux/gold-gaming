@@ -236,10 +236,32 @@
   interceptor:[40,17,28,7,0],vagrant:[28,20,24,11,1],marauder:[34,28,30,13,2],
   barracuda:[43,19,30,9,0],saboteur:[30,32,21,10,4],annihilator:[35,34,34,17,3],'deadly-battleray':[42,36,35,18,2]
  };
+ // Compact Sibelonit: original artwork informed by IMG_5846.
+ function sibelonit(c,tier,color){
+  const green=radial(c,-9,-10,38,[[0,'#85d887'],[.26,'#32984a'],[.52,'#176b37'],[.79,'#17412d'],[1,'#081c19']]);
+  const steel=linear(c,-33,-21,34,25,[[0,'#b6c7c9'],[.21,'#74858a'],[.47,'#26363c'],[.72,'#52656b'],[1,'#111c23']]);
+  // An asymmetrical cluster with two metallic forks and an offset upper core.
+  polygon(c,[[-38,14],[-28,7],[-16,4],[-10,13],[-17,26],[-35,26],[-40,21]],steel,'#667b80',.85);
+  polygon(c,[[17,-13],[30,-11],[42,1],[39,11],[27,8],[13,0]],steel,'#91a1a3',.7);
+  for(let i=0;i<4;i++){
+   polygon(c,[[-37+i*4,20],[-25+i*3,17],[-16+i*2,20],[-32+i*3,24]],i%2?'#75898e':'#3d5158','#17292c',.55);
+   polygon(c,[[24+i*3,-8+i*2],[34+i*2,2+i*3],[38+i,5+i*3],[35+i,7+i*3]],i%2?'#b9c8c9':'#788e90','#24363d',.5);
+  }
+  polygon(c,[[-29,9],[-20,-5],[-19,-21],[-9,-28],[6,-23],[12,-14],[25,-17],[34,-11],[22,-4],[15,6],[4,20],[-13,20],[-24,16]],green,'#457c51',1);
+  for(const pts of [[[-25,12],[-16,4],[-9,-8],[-5,-5],[-11,8],[-18,16]],[[1,-15],[12,-12],[29,-14],[21,-8],[7,-4]],[[0,0],[13,2],[10,12],[1,19],[-5,11]]]){
+   polygon(c,pts,green,'#64af6b',.65);
+  }
+  const rand=seeded(5846);
+  for(let i=0;i<24;i++){const x=(rand()-.5)*36,y=(rand()-.5)*31;if(x*x/324+y*y/240<1){c.fillStyle=i%3===0?'#8cce8c80':'#0d3e2690';c.fillRect(x,y,.9+rand()*1.2,.8);}}
+  c.fillStyle=radial(c,-3,-14,13,[[0,'#fff8b7'],[.31,'#efce6f'],[.56,'#ab792c'],[.76,'#664719'],[1,'#d0a55300']]);c.fillRect(-16,-27,26,26);
+  c.beginPath();c.arc(-3,-14,6.3,0,Math.PI*2);c.strokeStyle='#eac77b';c.lineWidth=.8;c.stroke();
+  if(tier!=='normal'){c.strokeStyle=tier==='uber'?'#e9d6ff':color;c.lineWidth=1.2;c.beginPath();c.arc(-3,-14,8.5,0,Math.PI*2);c.stroke();}
+ }
  function raider(c,kind,color){
   const id=kind.slice(8).replace(/-(boss|uber|emperor)$/,''),elite=kind!==('classic-'+id);
   if(id==='lordakium'){radialAlien(c,true,elite,color);return;}
   if(id==='sibelon'){largeAlien(c,kind,color);return;}
+  if(id==='sibelonit'){sibelonit(c,elite?kind.split('-').at(-1):'normal',color);return;}
   const [nose,wing,back,body,shape]=raiderProfiles[id]||raiderProfiles.vagrant;
   const steel=linear(c,-back,-wing,nose,wing,[[0,'#c0c9c8'],[.18,'#6a7b82'],[.35,'#293a42'],[.55,'#0b1721'],[.75,'#4b5b60'],[1,'#13202a']]);
   const plating=linear(c,-20,-wing,25,wing,[[0,color],[.27,'#515e62'],[.49,'#141e26'],[.7,'#48575c'],[1,color]]);
