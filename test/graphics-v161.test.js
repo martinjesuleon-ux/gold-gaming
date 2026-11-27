@@ -139,3 +139,13 @@ test('HUD values are only written when changed and radar grid is cached',()=>{
  assert.match(game,/if\(!radarGrid\|\|radarGrid.width!==w\|\|radarGrid.height!==h\)/);
  assert.match(game,/if\(!mini.closest\('\[hidden\]'\)\)radar\(\)/);
 });
+
+test('distant entity interpolation snaps only outside the warm-up viewport, local pilot stays smooth',()=>{
+ const game=read('game.js'),c={};vm.runInNewContext(game.slice(game.indexOf('function advanceVisual('),game.indexOf('function frame('))+';this.advance=advanceVisual;',c);
+ const camera={x:0,y:0},w=1000,h=800;
+ const far={x:3000,y:0,a:0,tx:3100,ty:50,ta:1};c.advance(far,.5,camera,w,h);assert.equal(far.x,3100);assert.equal(far.y,50);assert.equal(far.a,1);
+ const close={x:100,y:0,a:0,tx:200,ty:50,ta:1};c.advance(close,.5,camera,w,h);assert.equal(close.x,150);assert.equal(close.y,25);assert.equal(close.a,.5);
+ const incoming={x:1500,y:0,a:0,tx:1100,ty:0,ta:0};c.advance(incoming,.5,camera,w,h);assert.equal(incoming.x,1300);
+ const local={x:3000,y:0,a:0,tx:3100,ty:0,ta:0};c.advance(local,.5,camera,w,h,true);assert.equal(local.x,3050);
+ const crossing={x:-3000,y:0,a:0,tx:3000,ty:0,ta:0};c.advance(crossing,.5,camera,w,h);assert.equal(crossing.x,0);
+});
