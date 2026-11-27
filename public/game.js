@@ -169,6 +169,7 @@ function drawPortals(t){
 let mineEffects=[];
 socket.on('v18:mineBlast',e=>mineEffects.push({...e,born:performance.now()}));
 let empPending=false;
+window.gg120Sell=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v120:cbsSell',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Comercio no disponible'));else resolve(r);});});
 window.gg116Shot=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v116:cbsShot',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Disparo no disponible'));else{cbsPoll=0;resolve(r);}});});
 window.gg115CBS=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v115:cbs',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Estación no disponible'));else resolve(r);});});
 window.gg115Map=()=>state.map;
