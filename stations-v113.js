@@ -32,7 +32,7 @@ function stationState(station,now=Date.now()){
 }
 // Charge is measured in milliseconds of equivalent minutes: 1000 units = one minute.
 function deflector(station,now=Date.now()){
- const ready=Number(station.ready_at),cap=RULES.deflectorCap*1000;
+ const ready=Number(station.ready_at),cap=RULES.deflectorCap*60000;
  let at=Math.max(ready,Number(station.clock_at??ready)),charge=Math.min(cap,Math.max(0,Number(station.charge_units??0))),down=Number(station.down_until);
  if(now<ready)return {at:ready,charge:0,downUntil:down,mode:'building',protected:false};
  // Once a full day repeats, skip whole days to keep long-offline calculations bounded.
