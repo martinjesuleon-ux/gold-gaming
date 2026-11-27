@@ -6,6 +6,8 @@ const GEARS=Object.freeze({
  'G-AR1':SUPPORT['G-AR1'],
  'G-RL1':SUPPORT['G-RL1'],
  'G-EL1':SUPPORT['G-EL1'],
+ 'CSR-02':SUPPORT['CSR-02'],
+ 'CGM-02':SUPPORT['CGM-02'],
  'G-AL1':Object.freeze([{price:7500,range:700},{price:17500,range:1500},{price:50000,range:2500}]),
  'G-KK1':Object.freeze([{price:7500,damage:25000,radius:250,cooldown:120000},{price:17500,damage:45000,radius:350,cooldown:60000},{price:65000,damage:75000,radius:450,cooldown:30000}])
 });
