@@ -104,7 +104,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.gatePending=true;
   try{const checkpoint=await accounts.gateCheckpoint(p.accountId,gate);if(players.get(p.id)!==p||p.deadUntil||p.attack||p.shotPending)return ack({ok:false,error:'No se puede entrar ahora'});
    const old={hp:p.hp,shield:p.shield,lastHit:p.lastHit};p.gateReturn={x:p.x,y:p.y};socket.leave('world');p.zone='gate:'+p.id;socket.join(p.zone);p.gate=checkpoint;spawnPlayer(p);Object.assign(p,old);setPetMode(p,'off');gateWave(p,true);ack({ok:true});
-  }catch(e){ack({ok:false,error:e.status?e.message:'No se pudo abrir Alpha'});}finally{p.gatePending=false;}
+  }catch(e){ack({ok:false,error:e.status?e.message:'No se pudo abrir la puerta'});}finally{p.gatePending=false;}
  });
  socket.on('v14:gateNext',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending)gateWave(p);});
  socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&!p.shotPending&&!p.deadUntil){returnFromGate(p);socket.emit('v14:gateState',{inside:false});}});
@@ -133,8 +133,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  const n=npcs.get(p.target);if(!n||!sameZone(p,n)){p.target=null;p.attack=false;}else if(p.attack&&!p.reloadPending&&!p.reloadRequested&&distance(p,n)<=(p.v13?600:650)&&now-p.lastShot>=(p.v13?(catalogV13.ammo.find(a=>a.id===p.ammo)?.intervalMs||1000):450)&&!p.shotPending){
  p.lastShot=now;
  const finish=()=>{n.target=p.id;if(n.hp<=0&&npcs.get(n.id)===n){npcs.delete(n.id);p.target=null;p.attack=false;if(p.gate){award(p,n.reward,n.xpReward,n.name+' eliminado · +'+n.uridiumReward+' uridium',n.uridiumReward,n.honorReward).catch(()=>{});if(![...npcs.values()].some(x=>sameZone(p,x)&&!x.gateShielded))nextGateGroup(p);return;}award(p,n.reward,n.type==='boss'?500:50,n.name+' eliminado · +'+n.reward+' créditos').catch(()=>{});if(n.type!=='boss')later(()=>spawnNPC(),5000);}};
- if(!p.v13){p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);damage(n,p.damage);finish();}
- else if(n.gateShielded){p.attack=false;io.to(p.id).emit('notice','El jefe está protegido: elimina los demás alienígenas');}
+ if(n.gateShielded){p.attack=false;io.to(p.id).emit('notice','El jefe está protegido: elimina los demás alienígenas');}
+ else if(!p.v13){p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);damage(n,p.damage);finish();}
  else if(!p.lasers){p.attack=false;io.to(p.id).emit('notice','Equipa un láser en el hangar');}
  else{p.shotPending=true;const ammo=p.ammo,count=p.lasers;const job=accounts.consumeAmmo(p.accountId,ammo,count).then(stock=>{
  if(stock===null){p.attack=false;io.to(p.id).emit('notice','Munición insuficiente');return;}
