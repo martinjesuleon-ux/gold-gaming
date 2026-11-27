@@ -8,7 +8,7 @@ function button(text,fn){const b=el('button',text);b.type='button';b.onclick=fn;
 function balance(){return 'Créditos: '+fmt(state.balance.credits)+'   |   Uridium: '+fmt(state.balance.uridium);}
 async function refresh(){state=await api('inventory');window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:state}));}
 async function open(which){if(busy)return;if(modal?.open){modal.close();return;}mode=which; if(!modal){modal=el('dialog',null,'gg13');const head=el('header');head.append(el('strong','GOLD GAMING • V1.4'),button('Cerrar',()=>{if(!busy)modal.close();}));body=el('main');status=el('footer');status.setAttribute('role','status');modal.append(head,body,status);modal.addEventListener('cancel',e=>{if(busy)e.preventDefault();});document.body.append(modal);}modal.showModal();body.replaceChildren(el('p','Cargando…'));status.textContent='';busy=true;try{cat=await api('catalog');await refresh();render();}catch(e){body.replaceChildren(el('p',e.message));}finally{busy=false;}}
-function render(){body.replaceChildren();status.textContent=balance();if(mode==='Portales'){gates();return;}if(mode==='Facción'){faction();return;}if(mode==='Tienda')shop();else if(mode==='Hangar')hangar();else inventory();}
+function render(){body.replaceChildren();status.textContent=balance();if(mode==='Portales'){gates();return;}if(mode==='Facción'){faction();return;}if(mode==='Grupo'){socialGroup();return;}if(mode==='Clan'){clanMenu();return;}if(mode==='Tienda')shop();else if(mode==='Hangar')hangar();else inventory();}
 function shop(){const layout=el('div',null,'gg13-shop'),nav=el('aside'),grid=el('section',null,'gg13-grid'),detail=el('section',null,'gg13-detail');layout.append(nav,grid,detail);body.append(layout);
 function list(category){grid.replaceChildren();detail.replaceChildren(el('p','Selecciona un objeto'));for(const p of (category==='petGear'?[{id:'G-AL1',name:'G-AL1 Auto-botín',price:state.items.some(i=>i.category==='pet')&&!state.items.some(i=>i.code==='G-AL1')?7500:null,currency:'uridium'}]:category==='fuel'?[{id:'pet-fuel',name:'Combustible P.E.T.',price:state.items.some(i=>i.category==='pet')?.25:null,currency:'uridium'}]:category==='pet'?[{id:'pet-10',name:'P.E.T. 10',hp:50000,price:state.items.some(i=>i.category==='pet')?null:50000,currency:'uridium'}]:category==='drones'?['flax','iris'].map(id=>({id,name:id.toUpperCase(),...cat.drones[id],price:cat.drones[id].prices[state.items.filter(i=>i.category==='drones'&&['flax','iris'].includes(i.code)).length]??null})):cat[category])){const card=button('',()=>select(category,p));card.append(el('span',category==='ships'?'◇':category==='lasers'?'╱╱':category==='ammo'?'•••':category==='shields'?'◈':'»','gg13-symbol'),el('strong',p.name||p.id),el('small',p.price==null?'Recompensa':fmt(p.price)+' '+p.currency));grid.append(card);}}
 function select(category,p){detail.replaceChildren(el('h3',p.name||p.id));for(const k of ['hp','speed','damage','shield','absorption','lasers','generators','multiplier'])if(p[k]!=null)detail.append(el('p',k+': '+p[k]));if(p.price==null||p.id==='phoenix'){detail.append(el('p','No disponible para compra'));return;}const qty=el('input');qty.type='number';qty.min='1';qty.max=category==='petGear'?'1':category==='pet'?'1':category==='drones'?'1':category==='ships'?'1':category==='ammo'?'100000':'100';qty.value=category==='fuel'?'1000':'1';if(category==='fuel'){qty.min='4';qty.max=String(50000-Number(state.ammo.find(a=>a.code==='pet-fuel')?.quantity||0));qty.step='4';}const total=el('p');const buy=button('COMPRAR',async()=>{if(busy||!qty.checkValidity())return;busy=true;buy.disabled=true;const requestId=crypto.randomUUID();try{await api('purchase',{category,code:p.id,quantity:Number(qty.value),requestId});await refresh();status.textContent='Compra confirmada • '+balance();if(['drones','pet','petGear','fuel'].includes(category))list(category);}catch(e){status.textContent=e.message;}finally{busy=false;buy.disabled=false;}});const update=()=>{total.textContent='Total: '+fmt(Number(qty.value)*p.price)+' '+p.currency;};qty.oninput=update;update();detail.append(qty,total,buy);}
@@ -24,6 +24,56 @@ else{const n=dest.filter(x=>(items.find(y=>y.instanceId===x)?.category==='lasers
 for(const c of draft.configs)for(const a of all(c)){const pos=a.indexOf(id);if(pos>=0)a.splice(pos,1);}dest.push(id);draw();}
 function draw(){middle.replaceChildren(el('h3','Equipamiento'));for(let t=0;t<2;t++){const b=button('Configuración '+(t+1),()=>{tab=t;destination='ship';draw();});b.disabled=tab===t;middle.append(b);}const ship=cat.ships.find(s=>s.id===draft.ship);middle.append(el('p','Láseres: '+ship.lasers+' | Generadores: '+ship.generators));const pick=el('select');for(const [id,label] of [['ship','NAVE'],...drones.map((d,i)=>[d.instanceId,d.code.toUpperCase()+' '+(i+1)])]){const o=el('option',label);o.value=id;pick.append(o);}pick.value=destination;pick.onchange=()=>{destination=pick.value;draw();};middle.append(pick);const slots=el('div',null,'gg13-grid');slots.ondragover=e=>e.preventDefault();slots.ondrop=e=>{e.preventDefault();move(e.dataTransfer.getData('text/plain'));};for(const id of current()){const i=items.find(x=>x.instanceId===id);if(i)slots.append(button(i.code+' ×',()=>{const a=current();a.splice(a.indexOf(id),1);draw();}));}slots.append(el('p','Arrastra o selecciona equipo'));middle.append(slots);right.replaceChildren(el('h3','Inventario'));const bag=el('div',null,'gg13-grid');for(const i of items.filter(i=>!draft.configs.some(c=>all(c).some(a=>a.includes(i.instanceId)))&&(destination==='ship'||i.category!=='engines'))){const b=button(i.code+' · N'+i.level,()=>move(i.instanceId));b.draggable=true;b.ondragstart=e=>e.dataTransfer.setData('text/plain',i.instanceId);bag.append(b);}right.append(bag);}
 draw();}
+async function socialGroup(){
+ body.replaceChildren(el('h2','Grupo'));
+ try{
+  let data=await window.gg15Group('status');
+  function draw(){
+   if(!modal.open||mode!=='Grupo')return;
+   body.replaceChildren(el('h2','Grupo · máximo 8 pilotos'));
+   const run=async(action,fields={})=>{if(busy)return;busy=true;try{data=await window.gg15Group(action,fields);draw();}catch(e){status.textContent=e.message;}finally{busy=false;}};
+   const me=window.gg15Pilot?.();
+   if(data.invite)body.append(el('p','Invitación pendiente'),button('ACEPTAR INVITACIÓN',()=>run('accept',{from:data.invite.from})));
+   if(!data.group)body.append(button('CREAR GRUPO',()=>run('create')));
+   else{
+    body.append(el('p',data.group.members.length+'/8 pilotos'));
+    for(const m of data.group.members){body.append(el('p',m.name+(m.id===data.group.leader?' · Líder':'')+' · '+m.map));if(me?.id===data.group.leader&&m.id!==me.id)body.append(button('Expulsar '+m.name,()=>run('kick',{target:m.id})));}
+    if(me?.id===data.group.leader)for(const p of data.pilots.filter(x=>!data.group.members.some(m=>m.id===x.id)))body.append(button('Invitar '+p.name,()=>run('invite',{target:p.id})));
+    body.append(button('SALIR DEL GRUPO',()=>run('leave')));
+   }
+   body.append(button('ACTUALIZAR',()=>run('status')));
+  }
+  draw();
+ }catch(e){body.append(el('p',e.message));}
+}
+async function clanMenu(){
+ body.replaceChildren(el('h2','Clan'));
+ try{
+ let data=await api('clan');
+ function draw(){
+  if(!modal.open||mode!=='Clan')return;
+  body.replaceChildren(el('h2','Clanes'));
+  async function run(action,fields={}){if(busy)return;busy=true;try{data=await api('clan',{action,...fields});await refresh();status.textContent='Operación confirmada · '+balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}}
+  if(!data.clan){
+   const name=el('input'),tag=el('input');name.placeholder='Nombre del clan';name.maxLength=32;tag.placeholder='Etiqueta';tag.maxLength=6;
+   body.append(el('p','Fundación: 500.000 créditos'),name,tag,button('FUNDAR CLAN',()=>run('create',{name:name.value,tag:tag.value})));
+   for(const c of data.list)body.append(button('Solicitar ingreso a ['+c.tag+'] '+c.name,()=>run('apply',{target:c.id})));
+  }else{
+   const c=data.clan,leader=c.leader===data.self,can=k=>leader||c.permissions.includes(k);
+   body.append(el('h3','['+c.tag+'] '+c.name),el('p','Banco: '+fmt(c.credits)+' créditos · '+fmt(c.uridium)+' uridium'));
+   for(const m of data.members){body.append(el('p',m.username+(m.account_id===c.leader?' · Líder':'')));
+    if(can('expulsar')&&m.account_id!==c.leader&&m.account_id!==data.self)body.append(button('Expulsar '+m.username,()=>run('kick',{target:m.account_id})));
+    if(leader&&m.account_id!==data.self){const picks=['expulsar','reclutar','diplomacia','cbs'].map(k=>{const input=el('input');input.type='checkbox';input.checked=m.permissions.includes(k);const label=el('label',' '+k+' ');label.prepend(input);body.append(label);return [k,input];});body.append(button('Guardar permisos',()=>run('permissions',{target:m.account_id,permissions:picks.filter(x=>x[1].checked).map(x=>x[0])})));}
+   }
+   if(can('reclutar'))for(const q of data.requests)body.append(button('Aceptar '+q.username,()=>run('accept',{target:q.account_id})));
+   if(can('diplomacia'))for(const other of data.list.filter(x=>x.id!==c.id)){body.append(el('p','['+other.tag+'] '+other.name+' · '+(data.diplomacy.find(x=>x.target===other.id)?.state||'neutral')));for(const [state,label] of [['war','Guerra'],['alliance','Alianza'],['neutral','Neutral']])body.append(button(label,()=>run('diplomacy',{target:other.id,state})));}
+   if(leader){const credit=el('select'),uridium=el('select');for(let i=0;i<=5;i++){const o=el('option',i+' % diario');o.value=i;credit.append(o);}for(let i=0;i<=3;i++){const o=el('option',i/10+' % semanal');o.value=i;uridium.append(o);}credit.value=c.credit_tax;uridium.value=c.uridium_tax;body.append(el('p','Impuestos: configuración (cobro automático pendiente)'),credit,uridium,button('Guardar impuestos',()=>run('tax',{credit:Number(credit.value),uridium:Number(uridium.value)})));}
+   else body.append(button('ABANDONAR CLAN',()=>run('leave')));
+  }
+ }
+ draw();
+ }catch(e){body.append(el('p',e.message));}
+}
 function faction(){
  const pilot=window.gg15Pilot?.();
  body.append(el('h2','Compañías'),el('p','MMO · EIC · VRU'));
