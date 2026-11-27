@@ -861,5 +861,19 @@
       "price": 20000,
       "currency": "uridium"
     }
+  ],
+  "consumables": [
+    {
+      "id": "log-disk",
+      "name": "Disco de registro",
+      "price": 300,
+      "currency": "uridium"
+    },
+    {
+      "id": "green-key",
+      "name": "Llave verde",
+      "price": 1500,
+      "currency": "uridium"
+    }
   ]
 }
