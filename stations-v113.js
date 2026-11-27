@@ -60,6 +60,7 @@ function lowerDeflector(station,minutes,now=Date.now()){
  return {...d,downUntil:now+minutes*60000,mode:'vulnerable',protected:false};
 }
 const DESTRUCTION_REWARD=Object.freeze({credits:50000000,xp:10000000,honor:500000,uridium:0});
+const MODULE_REWARDS=Object.freeze({'RAM-LA':2000,'RAM-MA':1800,'LTM-LR':1600,'LTM-MR':1300,'LTM-HR':1000,'REPM-1':700,'HONM-1':500,'XPM-1':500,'DMGM-1':500});
 const EMERGENCY=Object.freeze({price:500,rate:7500,duration:20000});
 function moduleLimits(m){
  const d=MODULES[m.code];if(!d||!Number.isInteger(m.level)||m.level<1||m.level>16)throw fail('Módulo inválido');
@@ -96,7 +97,9 @@ function createStations(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_cbs_stations(asteroid_id text PRIMARY KEY,clan_id uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,builder uuid NOT NULL REFERENCES accounts(id),ready_at bigint NOT NULL,down_until bigint NOT NULL,modules jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS gg_cbs_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,request_id));
  ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS clock_at bigint;
- ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS charge_units bigint;`);}
+ ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS charge_units bigint;
+ ALTER TABLE gg_cbs_stations ADD COLUMN IF NOT EXISTS last_hit bigint NOT NULL DEFAULT 0;
+ CREATE TABLE IF NOT EXISTS gg_cbs_hits(asteroid_id text NOT NULL REFERENCES gg_cbs_stations(asteroid_id) ON DELETE CASCADE,account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,at_ms bigint NOT NULL,damage bigint NOT NULL CHECK(damage>0),PRIMARY KEY(asteroid_id,account_id));`);}
  async function status(id,map){
   const member=(await pool.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1',[id])).rows[0];
   const canManage=!!member&&(member.leader===id||member.permissions.includes('cbs'));
@@ -108,7 +111,7 @@ function createStations(pool){
   if(!uuid(requestId)||!Array.isArray(moduleIds)||moduleIds.length!==10||!moduleIds.every(uuid)||new Set(moduleIds).size!==10)throw fail('Solicitud inválida');
   const a=ASTEROIDS.find(x=>x.id===asteroidId);
   if(!a||!position||position.zone!==a.map||!Number.isFinite(position.x)||!Number.isFinite(position.y)||Math.hypot(position.x-a.x,position.y-a.y)>250)throw fail('Acércate al asteroide');
-  const c=await pool.connect();try{await c.query('BEGIN');
+  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413003)');
    await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id]);
    const prior=(await c.query('SELECT response FROM gg_cbs_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(prior){await c.query('COMMIT');return prior.response;}
    const m=(await c.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1 FOR UPDATE OF m,c',[id])).rows[0];
@@ -126,7 +129,7 @@ function createStations(pool){
  }
  async function lower(id,{asteroidId,minutes,requestId}={}){
   if(!uuid(requestId)||!ASTEROIDS.some(a=>a.id===asteroidId))throw fail('Solicitud inválida');
-  const c=await pool.connect();try{await c.query('BEGIN');
+  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413003)');
    await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id]);
    const old=(await c.query('SELECT response FROM gg_cbs_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){await c.query('COMMIT');return old.response;}
    const m=(await c.query('SELECT c.id,c.leader,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1 FOR UPDATE OF m,c',[id])).rows[0];
@@ -136,6 +139,39 @@ function createStations(pool){
    await c.query('INSERT INTO gg_cbs_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(d)]);await c.query('COMMIT');return d;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- return {ready,status,build,lower};
+ // Internal trusted game-server entrypoint. No HTTP/socket accepts a client damage amount.
+ async function hit(id,{asteroidId,slot,damage,requestId}={},position){
+  const a=ASTEROIDS.find(x=>x.id===asteroidId);
+  if(!uuid(requestId)||!a||!position||position.zone!==a.map||!Number.isFinite(position.x)||!Number.isFinite(position.y)||Math.hypot(position.x-a.x,position.y-a.y)>600||!Number.isSafeInteger(damage)||damage<1||!Number.isInteger(slot)||slot<0||slot>9)throw fail('Ataque inválido');
+  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413003)');
+   const old=(await c.query('SELECT response FROM gg_cbs_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){await c.query('COMMIT');return old.response;}
+   const station=(await c.query('SELECT * FROM gg_cbs_stations WHERE asteroid_id=$1 FOR UPDATE',[asteroidId])).rows[0];if(!station)throw fail('Estación inexistente');
+   const member=(await c.query('SELECT clan_id FROM gg_v15_clan_members WHERE account_id=$1',[id])).rows[0];
+   if(member?.clan_id===station.clan_id||station.builder===id)throw fail('No puedes atacar tu propia estación');
+   if(member&&(await c.query("SELECT 1 FROM gg_v15_clan_diplomacy WHERE state='alliance' AND ((source=$1 AND target=$2) OR (source=$2 AND target=$1))",[member.clan_id,station.clan_id])).rowCount)throw fail('Estación aliada');
+   const now=Date.now(),result=stationHit(station,slot,damage,now);
+   if(!result.applied)throw fail('Módulo protegido o destruido');
+   await c.query('INSERT INTO gg_cbs_hits(asteroid_id,account_id,at_ms,damage) VALUES($1,$2,$3,$4) ON CONFLICT(asteroid_id,account_id) DO UPDATE SET at_ms=EXCLUDED.at_ms,damage=EXCLUDED.damage',[asteroidId,id,now,result.applied]);
+   let shares=[],uridium=0;
+   if(result.destroyed){
+    const target=result.modules.find(m=>m.slot===slot);
+    // Original instance and upgrade level return to its contributing owner as broken.
+    await c.query("INSERT INTO gg_v13_inventory(account_id,instance_id,code,category,level) VALUES($1,$2,$3,'cbs-broken',$4)",[station.builder,target.instanceId,target.code,target.level]);
+    uridium=MODULE_REWARDS[target.code]||0;
+   }
+   if(result.stationDestroyed){
+    const rows=(await c.query('SELECT account_id AS "accountId",at_ms AS at,damage FROM gg_cbs_hits WHERE asteroid_id=$1 AND at_ms>=$2',[asteroidId,now-600000])).rows;
+    shares=destructionShares(rows.map(r=>({...r,at:Number(r.at),damage:Number(r.damage)})),now);
+   }
+   // Update balances in deterministic account order; last hitter receives module uridium provisionally.
+   const payouts=new Map(shares.map(r=>[r.accountId,{...r}]));if(uridium){const p=payouts.get(id)||{accountId:id,credits:0,xp:0,honor:0,uridium:0};p.uridium+=uridium;payouts.set(id,p);}
+   for(const [accountId,p] of [...payouts].sort(([a],[b])=>a.localeCompare(b)))await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,honor=honor+$4,uridium=uridium+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1',[accountId,p.credits,p.xp,p.honor,p.uridium]);
+   if(result.stationDestroyed)await c.query('DELETE FROM gg_cbs_stations WHERE asteroid_id=$1',[asteroidId]);
+   else await c.query('UPDATE gg_cbs_stations SET modules=$2,last_hit=$3 WHERE asteroid_id=$1',[asteroidId,JSON.stringify(result.modules),now]);
+   const response={applied:result.applied,destroyed:result.destroyed,stationDestroyed:result.stationDestroyed,uridium,shares};
+   await c.query('INSERT INTO gg_cbs_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(response)]);await c.query('COMMIT');return response;
+  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
+ }
+ return {ready,status,build,lower,hit};
 }
-module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,destructionShares,createStations};
+module.exports={MODULES,ASTEROIDS,RULES,validateModules,stationState,deflector,lowerDeflector,DESTRUCTION_REWARD,MODULE_REWARDS,EMERGENCY,moduleLimits,stationHit,repairModule,passiveRepairRate,destructionShares,createStations};
