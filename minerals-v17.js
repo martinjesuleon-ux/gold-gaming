@@ -70,7 +70,7 @@ function createMinerals(pool){
   if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Solicitud inválida');
   return tx(id,async(c,p)=>{
    const prior=(await c.query('SELECT response FROM gg_pet_trade_receipts_v181 WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
-   if(prior)return prior.response;
+   if(prior){const away=(await c.query('SELECT away_until FROM gg_pet_trade_v181 WHERE account_id=$1',[id])).rows[0];return {...prior.response,duplicate:true,until:Number(away?.away_until||0),balance:{credits:p.credits},cargo:await cargo(c,id)};}
    const now=Date.now(),away=(await c.query('SELECT away_until FROM gg_pet_trade_v181 WHERE account_id=$1',[id])).rows[0];
    if(Number(away?.away_until||0)>now)throw fail('El P.E.T. sigue comerciando');
    const owned=(await c.query("SELECT instance_id AS \"instanceId\",category,code,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
