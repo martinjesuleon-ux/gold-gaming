@@ -5,7 +5,7 @@ const fail=message=>Object.assign(Error(message),{status:400});
 const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
 function scoreResult(winner,loser){return {winner:Math.max(RULES.minScore,winner)+(winner-loser>=RULES.weakGap?RULES.weakWinPoints:RULES.winPoints),loser:Math.max(RULES.minScore,loser-RULES.lossPoints)};}
 function createMatch(a,b,now=Date.now()){
- if(!a||!b||a.id===b.id||a.level<RULES.minLevel||b.level<RULES.minLevel)throw fail('Pilotos no elegibles');
+ if(!a||!b||a.id===b.id||!Number.isInteger(a.level)||!Number.isInteger(b.level)||a.level<RULES.minLevel||b.level<RULES.minLevel)throw fail('Pilotos no elegibles');
  return {id:crypto.randomUUID(),players:[a.id,b.id],round:1,score:[0,0],accepted:[],phase:'offer',until:now+RULES.acceptMs,winner:null};
 }
 function accept(m,id,now=Date.now()){
@@ -16,7 +16,8 @@ function accept(m,id,now=Date.now()){
 function advance(m,now=Date.now()){
  if(now<m.until)return m;
  if(m.phase==='offer'){m.phase='cancelled';m.until=0;}
- else if(m.phase==='countdown'){m.phase='fight';m.until+=RULES.roundMs;}
+ else if(m.phase==='countdown'){m.phase='fight';m.until=now+RULES.roundMs;}
+ else if(m.phase==='fight')finishRound(m,null,now);
  return m;
 }
 function finishRound(m,winner,now=Date.now()){
@@ -29,7 +30,7 @@ function finishRound(m,winner,now=Date.now()){
 function createLobby(){
  const waiting=new Map(),matches=new Map();
  function enqueue(p,now=Date.now()){
-  if(!p||p.level<RULES.minLevel)throw fail('Nivel 14 requerido');
+  if(!p||!Number.isInteger(p.level)||p.level<RULES.minLevel)throw fail('Nivel 14 requerido');
   if(matches.has(p.id))return matches.get(p.id);
   if(waiting.has(p.id))return null;
   const opponent=[...waiting.values()].find(q=>q.id!==p.id);
