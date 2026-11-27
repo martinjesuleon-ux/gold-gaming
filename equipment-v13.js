@@ -18,7 +18,7 @@ function stats(shipId,items,droneItems=[]){
   requireRule(item&&typeof item.instanceId==='string'&&item.instanceId.length&&!seen.has(item.instanceId),'Objeto duplicado o inválido');
   seen.add(item.instanceId);
   const level=item.level??1;
-  requireRule(Number.isInteger(level)&&level>=1&&level<=16,'Nivel inválido');
+  requireRule(Number.isInteger(level)&&level>=1&&(level<=16||(level===20&&['LF-4','SG3N-B03'].includes(item.code))),'Nivel inválido');
   const laser=lookup(catalog.lasers,item.code),gen=lookup(catalog.shields,item.code),engine=lookup(catalog.engines,item.code);
   if(laser){requireRule(laser.id!=='LF-P01','Láser exclusivo P.E.T.');lasers++;damage+=laser.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep);}
   else if(gen){generators++;shield+=gen.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep);absorption=Math.max(absorption,gen.absorption);}
@@ -28,7 +28,7 @@ function stats(shipId,items,droneItems=[]){
  }
  const extras=extraStats(ship,items);launcher=extras.launcher;
  requireRule(lasers<=ship.lasers&&generators<=ship.generators,'Espacios de equipamiento excedidos');
- for(const item of droneItems){const l=lookup(catalog.lasers,item.code),g=lookup(catalog.shields,item.code);requireRule((l&&l.id!=='LF-P01')||g,'Equipo VANT inválido');const level=item.level??1;requireRule(Number.isInteger(level)&&level>=1&&level<=16,'Nivel inválido');const droneLevel=item.droneLevel??1;requireRule(Number.isInteger(droneLevel)&&droneLevel>=1&&droneLevel<=16,'Nivel VANT inválido');if(l){lasers++;damage+=l.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.laserUpgradePerStep)*designBonus(item.droneDesign).damage;}else{shield+=g.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.shieldUpgradePerStep)*designBonus(item.droneDesign).shield;absorption=Math.max(absorption,g.absorption);}}
+ for(const item of droneItems){const l=lookup(catalog.lasers,item.code),g=lookup(catalog.shields,item.code);requireRule((l&&l.id!=='LF-P01')||g,'Equipo VANT inválido');const level=item.level??1;requireRule(Number.isInteger(level)&&level>=1&&(level<=16||(level===20&&['LF-4','SG3N-B03'].includes(item.code))),'Nivel inválido');const droneLevel=item.droneLevel??1;requireRule(Number.isInteger(droneLevel)&&droneLevel>=1&&droneLevel<=16,'Nivel VANT inválido');if(l){lasers++;damage+=l.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.laserUpgradePerStep)*designBonus(item.droneDesign).damage;}else{shield+=g.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.shieldUpgradePerStep)*designBonus(item.droneDesign).shield;absorption=Math.max(absorption,g.absorption);}}
  return {hp:ship.hp,shield:Math.round(shield),speed,damage:Math.round(damage),absorption:shield?absorption:.5,lasers,generators,...(launcher?{launcher}:{}),...(extras.used?{cpus:extras.cpus,robot:extras.robot,extrasUsed:extras.used,extraSlots:ship.extras+extras.slots}:{})};
 }
 function configurations(shipId,configs,owned){
