@@ -162,3 +162,5 @@
 .gg13 .gg-vant-locked{opacity:.65}
 @media(max-width:1050px){.gg13 .gg-vant-card-row{gap:4px;padding:7px 4px;grid-template-columns:minmax(54px,1fr) 43px minmax(72px,1.1fr) minmax(60px,1fr)}.gg13 .gg-vant-equipment .gg-hangar-item,.gg13 .gg-vant-square,.gg13 .gg-vant-design-cell .gg-hangar-item{width:41px}}
 @media(max-width:760px){.gg13 .gg13-hangar.gg-vant-hangar{grid-template-columns:minmax(110px,30%) minmax(0,1fr);height:auto}.gg13 .gg-vant-hangar>section:last-child{grid-column:1/-1;max-height:250px}.gg13 .gg-vant-card-row{grid-template-columns:1fr 43px 1fr}.gg13 .gg-vant-design-cell{grid-column:1/-1;grid-template-columns:auto auto 1fr;align-items:center}}
+
+.gg13 .gg-equip-mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:5px 0}.gg13 .gg-equip-mode button{padding:6px 3px;font-size:11px}.gg13 .gg-equip-mode button[aria-pressed=true]{border-color:#d9b963;color:#ffe5a0;background:linear-gradient(#594520,#241d11)}
