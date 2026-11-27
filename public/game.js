@@ -169,6 +169,7 @@ function drawPortals(t){
 let mineEffects=[];
 socket.on('v18:mineBlast',e=>mineEffects.push({...e,born:performance.now()}));
 let empPending=false;
+window.gg114Bid=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v114:bid',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Puja no disponible'));else resolve(r);});});
 window.gg112Booster=data=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v112:booster',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Booster no disponible'));else resolve(r);});});
 window.gg110Emp=()=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));if(empPending)return reject(Error('EMP pendiente'));empPending=true;socket.timeout(8000).emit('v110:emp',(err,r)=>{empPending=false;if(err||!r?.ok)reject(Error(r?.error||'EMP no disponible'));else resolve(r);});});
 addEventListener('keydown',e=>{if(joined&&e.key.toLowerCase()==='e'&&!e.repeat&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))window.gg110Emp().catch(e=>notice(e.message));});
