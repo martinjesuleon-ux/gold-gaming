@@ -105,7 +105,8 @@ function createStations(pool){
   const canManage=!!member&&(member.leader===id||member.permissions.includes('cbs'));
   const stations=(await pool.query('SELECT s.clan_id,s.asteroid_id,s.ready_at,s.down_until,s.clock_at,s.charge_units,c.tag AS clan_tag FROM gg_cbs_stations s JOIN gg_v15_clans c ON c.id=s.clan_id')).rows;
   const inventory=(await pool.query("SELECT instance_id AS \"instanceId\",code,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-modules' ORDER BY code,instance_id",[id])).rows;
-  return {catalog:MODULES,rules:RULES,canManage,constructionEnabled:process.env.GG_CBS_BUILD_ENABLED==='1',asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,owned:member?.id===s.clan_id,state:deflector(s).mode,deflector:deflector(s)}:null};}),inventory,combatEnabled:false};
+  const broken=(await pool.query("SELECT instance_id AS \"instanceId\",code,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-broken' ORDER BY code,instance_id",[id])).rows;
+  return {catalog:MODULES,rules:RULES,broken,canManage,constructionEnabled:process.env.GG_CBS_BUILD_ENABLED==='1',asteroids:ASTEROIDS.filter(a=>!map||a.map===map).map(a=>{const s=stations.find(x=>x.asteroid_id===a.id);return {...a,station:s?{...s,owned:member?.id===s.clan_id,state:deflector(s).mode,deflector:deflector(s)}:null};}),inventory,combatEnabled:false};
  }
  async function build(id,{asteroidId,moduleIds,minutes,requestId}={},position){
   if(!uuid(requestId)||!Array.isArray(moduleIds)||moduleIds.length!==10||!moduleIds.every(uuid)||new Set(moduleIds).size!==10)throw fail('Solicitud inválida');
