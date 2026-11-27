@@ -370,32 +370,33 @@ async function activityMenu(){
  for(const r of (window.gg17Activity?.()||[]))body.append(el('p',new Date(r.at).toLocaleTimeString('es-CL')+' · '+r.message));
  }catch(e){body.append(el('p',e.message));}
 }
+function rewardCards(reward){const row=el('div',null,'gg-reward-cards');for(const [code,n] of Object.entries(reward||{})){const name=({'credits':'Créditos','uridium':'Uridium','experience':'Experiencia','xp':'Experiencia','honor':'Honor','energy':'Energía extra','log-disk':'Discos de registro','green-key':'Llaves de botín','booster-damage-seconds':'Booster de daño','booster-experience-seconds':'Booster EXP','booster-honor-seconds':'Booster de honor','premium-seconds':'Premium'})[code]||code;const tile=el('div',null,'gg-reward-chip');tile.dataset.kind=code==='credits'?'credits':code==='uridium'?'uridium':code.endsWith('-seconds')?'time':'other';tile.append(el('strong',fmt(code.endsWith('-seconds')?n/3600:n)+(code.endsWith('-seconds')?' h':'')),el('small',name));row.append(tile);}return row;}
 async function dailyMenu(){
  body.replaceChildren(el('h2','Recompensas diarias · 28 días'));
  try{const data=await api('daily');if(!modal.open||mode!=='Registro diario')return;
- body.append(el('p','Día '+data.day+'/28 · '+(data.claimedToday?'Regalo de hoy acreditado':'Regalo disponible')+' · Reinicio UTC'));
- const grid=el('div',null,'gg13-grid');
- for(let i=0;i<data.calendar.length;i++){const d=i+1,tile=el('div',null,'gg13-tile');tile.append(el('strong',(d<=data.day?'✓ ':'')+'Día '+d),el('p',rewardText(data.calendar[i])));if(d%7===0)tile.style.borderColor='#d4af37';grid.append(tile);}
+ const head=el('section',null,'gg-daily-summary');head.append(el('strong','Día '+data.day+' / 28'),el('p',data.claimedToday?'Regalo de hoy acreditado':'Regalo disponible'),el('small','Reinicio diario UTC'));body.append(head);
+ const grid=el('div',null,'gg-daily-grid');
+ for(let i=0;i<data.calendar.length;i++){const d=i+1,tile=el('div',null,'gg13-tile gg-daily-card');const claimed=d<=data.day;tile.dataset.phase=claimed?'claimed':'pending';if(d%7===0)tile.dataset.milestone='true';tile.append(el('strong','Día '+d),el('small',claimed?'Obtenido':'Pendiente'),rewardCards(data.calendar[i]));grid.append(tile);}
  body.append(grid,el('p','Los boosters y premium se guardan como tiempo disponible; activación de sus efectos pendiente.'));
- if(!data.claimedToday)body.append(button('RECLAMAR',async()=>{if(busy)return;busy=true;try{await api('daily',{});await refresh();status.textContent=balance();dailyMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}}));
+ if(!data.claimedToday)body.append(button('RECLAMAR REGALO DE HOY',async()=>{if(busy)return;busy=true;try{await api('daily',{});await refresh();status.textContent=balance();dailyMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}}));
  }catch(e){body.append(el('p',e.message));}
 }
+function missionPhase(m){return m.claimed?'claimed':m.accepted?(m.conditions.every((c,i)=>Number(m.progress[i]||0)>=c.count)?'ready':'active'):m.available?'available':'locked';}
 async function missionMenu(){
  body.replaceChildren(el('h2','Libro de misiones'));
  try{
- let data=await api('missions');
+ let data=await api('missions'),filter='all',query='';
  function draw(){if(!modal.open||mode!=='Misiones')return;body.replaceChildren(el('h2','Libro de misiones'),el('p','Catálogo inicial de prueba; las misiones originales aún no están cargadas.'));
  body.append(button('REGALOS DIARIOS',()=>{mode='Registro diario';dailyMenu();}));
- const grid=el('div',null,'gg13-grid');
- for(const m of data.missions){const tile=el('section',null,'gg13-tile');tile.append(el('h3',m.name),el('p','Nivel '+m.level));
- for(const [i,c] of m.conditions.entries()){const progress=el('progress');progress.max=c.count;progress.value=m.progress[i]||0;tile.append(el('p',({'alien':'Eliminar alien','box':'Recoger cajas','map':'Visitar mapa','gate':'Completar puerta','pilot':'Eliminar piloto'}[c.type]||c.type)+' '+(c.target==='*'?'':c.target)+' · '+(m.progress[i]||0)+'/'+c.count),progress);}
- tile.append(el('p',rewardText(m.reward)));
- const done=m.conditions.every((c,i)=>m.progress[i]>=c.count);
- if(m.claimed)tile.append(el('p','Completada'));
- else if(m.accepted&&!done)tile.append(el('p','En curso'));
- else{const b=button(m.accepted?'RECLAMAR':'ACEPTAR',async()=>{if(busy)return;busy=true;try{data=await api('missions',{action:m.accepted?'claim':'accept',mission:m.id});await refresh();status.textContent=balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}});b.disabled=!m.available;tile.append(b);}
- grid.append(tile);}
- body.append(grid,button('ACTUALIZAR',()=>missionMenu()));}
+ const phases={all:'Todas',available:'Disponibles',active:'En curso',ready:'Por reclamar',claimed:'Completadas',locked:'Bloqueadas'},nav=el('div',null,'gg-mission-tabs'),search=el('input'),grid=el('div',null,'gg13-grid gg-mission-grid');search.type='search';search.placeholder='Buscar misión…';search.value=query;search.setAttribute('aria-label','Buscar misión');
+ for(const [key,label] of Object.entries(phases)){const count=data.missions.filter(m=>key==='all'||missionPhase(m)===key).length,b=button(label+' ('+count+')',()=>{filter=key;draw();});b.setAttribute('aria-pressed',String(filter===key));nav.append(b);}body.append(nav,search,grid);
+ function list(){grid.replaceChildren();for(const m of data.missions){const phase=missionPhase(m);if(filter!=='all'&&phase!==filter||!m.name.toLowerCase().includes(query.toLowerCase()))continue;
+ const tile=el('section',null,'gg13-tile gg-mission-card');tile.dataset.phase=phase;tile.append(el('h3',m.name),el('small','Nivel requerido '+m.level),el('strong',phases[phase],'gg-mission-status'));
+ for(const [i,c] of m.conditions.entries()){const progress=el('progress');progress.max=Math.max(1,c.count);progress.value=Math.min(c.count,Number(m.progress[i]||0));const label=({'alien':'Eliminar alien','box':'Recoger cajas','map':'Visitar mapa','gate':'Completar puerta','pilot':'Eliminar piloto'}[c.type]||c.type)+' '+(c.target==='*'?'':c.target);progress.setAttribute('aria-label',label);tile.append(el('p',label+' · '+(m.progress[i]||0)+'/'+c.count),progress);}
+ tile.append(el('small','Recompensas'),rewardCards(m.reward));
+ if(!m.claimed&&phase!=='active'){const b=button(m.accepted?'RECLAMAR':'ACEPTAR',async()=>{if(busy)return;busy=true;try{data=await api('missions',{action:m.accepted?'claim':'accept',mission:m.id});await refresh();status.textContent=balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}});b.disabled=!m.available;tile.append(b);}
+ grid.append(tile);}if(!grid.children.length)grid.append(el('p','No hay misiones en esta categoría.'));}
+ search.oninput=()=>{query=search.value;list();};list();body.append(button('ACTUALIZAR',()=>missionMenu()));}
  draw();
  }catch(e){body.append(el('p',e.message));}
 }
