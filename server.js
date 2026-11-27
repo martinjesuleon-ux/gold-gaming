@@ -144,10 +144,11 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    else if(action==='leave'){room=hadesLobbies.leave(p.id);socket.emit('v14:hadesLobby',null);broadcastHades(room);return ack({ok:true,room:null});}
    else if(action==='ready')room=hadesLobbies.ready(p.id,data.ready);
    else if(action==='start'){
-    const locked=hadesLobbies.lock(p.id),team=locked.players.map(m=>players.get(m.id));
+    const locked=hadesLobbies.lock(p.id),team=locked.players.map(m=>players.get(m.id));let frozen=false;
     try{
      if(team.some(m=>!m||m.gate||m.deadUntil||m.attack||m.shotPending||m.reloadPending||m.gatePending))throw Error('Todos los pilotos deben estar disponibles y fuera de combate');
-     for(const m of team)m.gatePending=true;
+     for(const m of team)m.gatePending=true;frozen=true;
+     await Promise.all(team.map(m=>m.writes));
      const accountIds=team.map(m=>m.accountId),state=await accounts.hadesStart(accountIds);
      const current=hadesLobbies.status(p.id);
      if(!current||current.players.length!==team.length||team.some(m=>players.get(m.id)!==m))throw Error('Un piloto se desconectó');
@@ -155,7 +156,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
      hadesLobbies.consume(p.id);
      for(const m of team){const sock=io.sockets.sockets.get(m.id),old={hp:m.hp,shield:m.shield,lastHit:m.lastHit};m.gateReturn={x:m.x,y:m.y};sock?.leave('world');m.zone='hades:'+locked.code;sock?.join(m.zone);m.gate=g;spawnPlayer(m);Object.assign(m,old);setPetMode(m,'off');m.gatePending=false;sock?.emit('v14:hadesLobby',null);}
      gateWave(p,true);return ack({ok:true,room:null,started:true});
-    }catch(e){broadcastHades(hadesLobbies.unlock(p.id));throw e;}finally{for(const m of team)if(m)m.gatePending=false;}
+    }catch(e){broadcastHades(hadesLobbies.unlock(p.id));throw e;}finally{if(frozen)for(const m of team)if(m)m.gatePending=false;}
    }
    else if(action==='create'||action==='join'){
     const eligible=await accounts.hadesEligibility(p.accountId);
