@@ -8,7 +8,7 @@ function button(text,fn){const b=el('button',text);b.type='button';b.onclick=fn;
 function balance(){return 'Créditos: '+fmt(state.balance.credits)+'   |   Uridium: '+fmt(state.balance.uridium);}
 async function refresh(){state=await api('inventory');window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:state}));}
 async function open(which,gate){if(busy)return;if(modal?.open){modal.close();if(!gate)return;}mode=which;if(gate)pendingGate=gate; if(!modal){modal=el('dialog',null,'gg13');const head=el('header');head.append(el('strong','GOLD GAMING • V1.6'),button('Cerrar',()=>{if(!busy)modal.close();}));body=el('main');status=el('footer');status.setAttribute('role','status');modal.append(head,body,status);modal.addEventListener('cancel',e=>{if(busy)e.preventDefault();});document.body.append(modal);}modal.showModal();body.replaceChildren(el('p','Cargando…'));status.textContent='';busy=true;try{cat=await api('catalog');await refresh();render();}catch(e){body.replaceChildren(el('p',e.message));}finally{busy=false;}}
-function render(){body.replaceChildren();status.textContent=balance();if(mode==='Portales'){gates();return;}if(mode==='Facción'){faction();return;}if(mode==='Grupo'){socialGroup();return;}if(mode==='Clan'){clanMenu();return;}if(mode==='Misiones'){missionMenu();return;}if(mode==='Registro diario'){dailyMenu();return;}if(mode==='Tienda')shop();else if(mode==='Hangar')hangar();else inventory();}
+function render(){body.replaceChildren();status.textContent=balance();if(mode==='Portales'){gates();return;}if(mode==='Facción'){faction();return;}if(mode==='Grupo'){socialGroup();return;}if(mode==='Clan'){clanMenu();return;}if(mode==='Misiones'){missionMenu();return;}if(mode==='Registro diario'){dailyMenu();return;}if(['Skylab','Refinación','Comercio'].includes(mode)){mineralMenu(mode);return;}if(mode==='Tienda')shop();else if(mode==='Hangar')hangar();else inventory();}
 function shop(){const layout=el('div',null,'gg13-shop'),nav=el('aside'),grid=el('section',null,'gg13-grid'),detail=el('section',null,'gg13-detail');layout.append(nav,grid,detail);body.append(layout);
 function list(category){grid.replaceChildren();detail.replaceChildren(el('p','Selecciona un objeto'));for(const p of (category==='petGear'?[{id:'G-AL1',name:'G-AL1 Auto-botín',price:state.items.some(i=>i.category==='pet')&&!state.items.some(i=>i.code==='G-AL1')?7500:null,currency:'uridium'},{id:'G-KK1',name:'G-KK1 Kamikaze · PRUEBA',damage:1000000,price:state.items.some(i=>i.category==='pet')&&!state.items.some(i=>i.code==='G-KK1')?7500:null,currency:'uridium'}]:category==='fuel'?[{id:'pet-fuel',name:'Combustible P.E.T.',price:state.items.some(i=>i.category==='pet')?.25:null,currency:'uridium'}]:category==='pet'?[{id:'pet-10',name:'P.E.T. 10',hp:50000,price:state.items.some(i=>i.category==='pet')?null:50000,currency:'uridium'}]:category==='drones'?['flax','iris'].map(id=>({id,name:id.toUpperCase(),...cat.drones[id],price:cat.drones[id].prices[state.items.filter(i=>i.category==='drones'&&['flax','iris'].includes(i.code)).length]??null})):cat[category])){const card=button('',()=>select(category,p));card.append(el('span',category==='ships'?'◇':category==='lasers'?'╱╱':category==='ammo'?'•••':category==='shields'?'◈':'»','gg13-symbol'),el('strong',p.name||p.id),el('small',p.price==null?'Recompensa':fmt(p.price)+' '+p.currency));grid.append(card);}}
 function select(category,p){detail.replaceChildren(el('h3',p.name||p.id));for(const k of ['hp','speed','damage','shield','absorption','lasers','generators','multiplier'])if(p[k]!=null)detail.append(el('p',k+': '+p[k]));if(p.price==null||p.id==='phoenix'){detail.append(el('p','No disponible para compra'));return;}const qty=el('input');qty.type='number';qty.min='1';qty.max=category==='petGear'?'1':category==='pet'?'1':category==='drones'?'1':category==='ships'?'1':category==='ammo'?'100000':'100';qty.value=category==='fuel'?'1000':'1';if(category==='fuel'){qty.min='4';qty.max=String(50000-Number(state.ammo.find(a=>a.code==='pet-fuel')?.quantity||0));qty.step='4';}const total=el('p');const buy=button('COMPRAR',async()=>{if(busy||!qty.checkValidity())return;busy=true;buy.disabled=true;const requestId=crypto.randomUUID();try{await api('purchase',{category,code:p.id,quantity:Number(qty.value),requestId});await refresh();status.textContent='Compra confirmada • '+balance();if(['drones','pet','petGear','fuel'].includes(category))list(category);}catch(e){status.textContent=e.message;}finally{busy=false;buy.disabled=false;}});const update=()=>{total.textContent='Total: '+fmt(Number(qty.value)*p.price)+' '+p.currency;};qty.oninput=update;update();detail.append(qty,total,buy);}
@@ -25,6 +25,43 @@ for(const c of draft.configs)for(const a of all(c)){const pos=a.indexOf(id);if(p
 function draw(){middle.replaceChildren(el('h3','Equipamiento'));for(let t=0;t<2;t++){const b=button('Configuración '+(t+1),()=>{tab=t;destination='ship';draw();});b.disabled=tab===t;middle.append(b);}const ship=cat.ships.find(s=>s.id===draft.ship);middle.append(el('p','Láseres: '+ship.lasers+' | Generadores: '+ship.generators));const pick=el('select');for(const [id,label] of [['ship','NAVE'],...drones.map((d,i)=>[d.instanceId,d.code.toUpperCase()+' '+(i+1)])]){const o=el('option',label);o.value=id;pick.append(o);}pick.value=destination;pick.onchange=()=>{destination=pick.value;draw();};middle.append(pick);const slots=el('div',null,'gg13-grid');slots.ondragover=e=>e.preventDefault();slots.ondrop=e=>{e.preventDefault();move(e.dataTransfer.getData('text/plain'));};for(const id of current()){const i=items.find(x=>x.instanceId===id);if(i)slots.append(button(i.code+' ×',()=>{const a=current();a.splice(a.indexOf(id),1);draw();}));}slots.append(el('p','Arrastra o selecciona equipo'));middle.append(slots);right.replaceChildren(el('h3','Inventario'));const bag=el('div',null,'gg13-grid');for(const i of items.filter(i=>!draft.configs.some(c=>all(c).some(a=>a.includes(i.instanceId)))&&(destination==='ship'||i.category!=='engines'))){const b=button(i.code+' · N'+i.level,()=>move(i.instanceId));b.draggable=true;b.ondragstart=e=>e.dataTransfer.setData('text/plain',i.instanceId);bag.append(b);}right.append(bag);}
 draw();}
 const rewardText=r=>Object.entries(r||{}).map(([code,n])=>fmt(code.endsWith('-seconds')?n/3600:n)+' '+({'booster-damage-seconds':'h booster daño','booster-experience-seconds':'h booster EXP','booster-honor-seconds':'h booster honor','premium-seconds':'h premium'}[code]||code)).join(' + ');
+async function mineralMenu(tab){
+ body.replaceChildren(el('h2',tab),el('p','Cargando recursos…'));
+ try{let data=await api('minerals');
+ function draw(){
+  if(!modal.open||!['Skylab','Refinación','Comercio'].includes(mode))return;
+  body.replaceChildren(el('h2',tab));
+  const nav=el('div',null,'gg13-grid');for(const name of ['Skylab','Refinación','Comercio']){const b=button(name,()=>{if(busy)return;tab=name;mode=name;draw();});b.disabled=tab===name;nav.append(b);}body.append(nav);
+  body.append(el('p','Bodega '+fmt(data.cargoUsed)+' / '+fmt(data.capacity)+' · Xenomit sin peso'));
+  async function run(action,fields){if(busy)return;busy=true;try{data=await api('minerals',{action,...fields,requestId:crypto.randomUUID()});state.balance=data.balance;status.textContent=balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}}
+  function quantity(max,step=1){const n=el('input');n.type='number';n.min=step;n.max=Math.max(0,max);n.step=step;n.value=step;n.style.width='95px';return n;}
+  function qtyButton(tile,label,action,code,max,step=1){const q=quantity(max,step),b=button(label,()=>{if(q.checkValidity())run(action,{code,quantity:Number(q.value)});});b.disabled=max<step;tile.append(q,b);}
+  const grid=el('div',null,'gg13-grid');
+  if(tab==='Skylab'){
+   body.append(el('p','Energía: '+fmt(data.metrics.used)+' / '+fmt(data.metrics.power)+' · Rendimiento '+fmt(Math.round(data.metrics.efficiency*100))+' %'),el('p','Estación persistente. Producción y transporte directo de prueba; mejoras pendientes.'));
+   for(const [code,level] of Object.entries(data.lab.levels)){
+    const tile=el('section',null,'gg13-tile');tile.append(el('h3',code.toUpperCase()),el('p','Nivel '+level));
+    if(Object.hasOwn(data.lab.enabled,code)){const enabled=data.lab.enabled[code],stock=data.lab.stock[code]||0;
+     tile.append(el('p',(enabled?'Activo':'Apagado')+' · '+fmt(data.rates[code])+'/h'),el('p',fmt(stock)+' / '+fmt(data.limits[code])),button(enabled?'APAGAR':'ACTIVAR',()=>run('toggle',{code,enabled:!enabled})));
+     qtyButton(tile,'TRANSPORTAR','transfer',code,Math.min(stock,code==='xenomit'?1000000:Math.max(0,data.capacity-data.cargoUsed)));
+    }grid.append(tile);
+   }
+  }else if(tab==='Refinación'){
+   body.append(el('p','Convierte minerales de la bodega pagando la comisión indicada.'));
+   for(const [code,r] of Object.entries(data.recipes)){if(code==='xenomit'||r.premium)continue;const tile=el('section',null,'gg13-tile');tile.append(el('h3',code.toUpperCase()),el('p',Object.entries(r.inputs).map(([k,n])=>n+' '+k).join(' + ')),el('p','Comisión '+fmt(r.fee)+' créditos/u'));
+    const max=Math.min(Math.floor(Number(data.balance.credits)/r.fee),...Object.entries(r.inputs).map(([k,n])=>Math.floor((data.cargo[k]||0)/n)),1000000);
+    qtyButton(tile,'REFINAR','refine',code,max);grid.append(tile);
+   }
+  }else{
+   body.append(el('p','Venta en mapas con base. Honor '+fmt(data.honor)+'. Paladio se cambia en 5-2.'));
+   for(const [code,price] of Object.entries(data.prices)){const tile=el('section',null,'gg13-tile'),n=data.cargo[code]||0;tile.append(el('h3',code.toUpperCase()),el('p',fmt(n)+' disponibles'),el('p','Precio base '+fmt(price)+' créditos/u'));qtyButton(tile,'VENDER','sell',code,n);grid.append(tile);}
+   const tile=el('section',null,'gg13-tile');tile.append(el('h3','PALADIO'),el('p',fmt(data.cargo.paladio||0)+' · 10 = 1 energía'));qtyButton(tile,'CANJEAR','exchange','paladio',Math.floor((data.cargo.paladio||0)/10)*10,10);grid.append(tile);
+  }
+  body.append(grid,button('ACTUALIZAR',()=>{if(!busy)mineralMenu(tab);}));
+ }
+ draw();
+ }catch(e){body.append(el('p',e.message));}
+}
 async function dailyMenu(){
  body.replaceChildren(el('h2','Recompensas diarias · 28 días'));
  try{const data=await api('daily');if(!modal.open||mode!=='Registro diario')return;
