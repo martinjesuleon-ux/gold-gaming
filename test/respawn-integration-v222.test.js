@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');const a=src.indexOf(' function finishRespawn('),b=src.indexOf(' function spawnPlayer(',a),ra=src.indexOf(" socket.on('v222:respawn',"),rb=src.indexOf(" socket.on('v18:ordnance',",ra);assert.ok(a>=0&&b>a&&ra>=0&&rb>ra);const script=new vm.Script(src.slice(a,b)+src.slice(ra,rb)+'\n({finishRespawn,offerRespawn});');const install=env=>script.runInNewContext(env);
+const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');const a=src.indexOf(' function respawnDestination('),b=src.indexOf(' function spawnPlayer(',a),ra=src.indexOf(" socket.on('v222:respawn',"),rb=src.indexOf(" socket.on('v18:ordnance',",ra);assert.ok(a>=0&&b>a&&ra>=0&&rb>ra);const script=new vm.Script(src.slice(a,b)+src.slice(ra,rb)+'\n({finishRespawn,offerRespawn});');const install=env=>script.runInNewContext(env);
 
 function fixture(){
  const p={id:'s',accountId:'pilot',company:1,zone:'1-3',x:77,y:88,deadUntil:1,deathRequestId:'death',writes:Promise.resolve(),respawnChoiceUntil:Date.now()+30000};

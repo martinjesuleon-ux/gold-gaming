@@ -118,6 +118,19 @@ function createMinerals(pool){
  }
  async function petTradeStatus(id){const row=(await pool.query('SELECT away_until FROM gg_pet_trade_v181 WHERE account_id=$1',[id])).rows[0];return {until:Number(row?.away_until||0)};}
  async function status(id){return tx(id,async(c,p)=>view(c,id,p,await labRow(c,id)));}
+ // Only due shipments are scanned. Each settlement rechecks under the existing pilot lock.
+ async function deliverDue(ids,now=Date.now()){
+  if(!Array.isArray(ids)||!ids.length)return [];
+  const due=(await pool.query("SELECT account_id FROM gg_v17_skylab WHERE account_id=ANY($1::uuid[]) AND data ? 'shipment' AND (data->'shipment'->>'readyAt')::bigint<=$2 ORDER BY account_id LIMIT 40",[ids,now])).rows;
+  const results=[];
+  for(const {account_id:id} of due){
+   try{const result=await tx(id,async(c,p)=>{
+    const lab=await labRow(c,id);if(!lab.shipment||lab.shipment.readyAt>now)return null;
+    await settleTransport(c,id,p,lab);if(lab.shipment){if(lab.shipment.blocked)await save(c,id,lab);return null;}
+    await save(c,id,lab);return {accountId:id,delivery:lab.lastDelivery};
+   });if(result)results.push(result);}catch(e){console.error('Skylab delivery:',e.code||e.message);}
+  }return results;
+ }
  async function action(id,d,position=null){if(!d||typeof d.requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(d.requestId))throw fail('Solicitud inválida');
  if(d.action==='cbs-sell'&&(!position||typeof position.zone!=='string'||!Number.isFinite(position.x)||!Number.isFinite(position.y)))throw fail('Acércate a tu estación CBS');
  return tx(id,async(c,p)=>{
@@ -155,6 +168,6 @@ function createMinerals(pool){
  }
  const result=await view(c,id,p,lab);await c.query('INSERT INTO gg_v17_mineral_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,d.requestId,JSON.stringify(result)]);return result;
  },d.action==='cbs-sell');}
- return {ready,status,action,collect,petTrade,petTradeStatus};
+ return {ready,status,action,collect,petTrade,petTradeStatus,deliverDue};
 }
 module.exports={MINERALS,PRICES,RECIPES,RATES,MODULES,initial,tick,supply,demand,capacity,cargoUsed,saleValue,npcCargo,fitCargo,transportDuration,autoRefinePlan,transportPlan,createMinerals};
