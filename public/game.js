@@ -133,12 +133,31 @@ socket.on('v14:hadesLobby',room=>{hadesLobby=room;window.dispatchEvent(new Custo
 socket.on('disconnect',()=>{hadesLobby=null;});
 socket.on('v14:gateState',s=>{gateState={...s,localUntil:s.phase==='between'?performance.now()+1000*(s.seconds||10):0};entities.clear();selected=null;attacking=false;dest=null;notice(s.inside?(s.gate||'Puerta').toUpperCase()+' · Oleada '+s.wave+'/'+s.total+' · Vidas '+s.lives+(s.phase==='countdown'?' · Inicio en '+s.seconds+' s':s.phase==='between'?' · Portal de salida abierto durante 10 s':''):'De vuelta al sector');window.dispatchEvent(new CustomEvent('gg14:gateState',{detail:s}));});
 socket.on('disconnect',()=>{gateState={inside:false};});
-let petTradeUntil=0,petTradePending=false,petMode='off',petFuel=null,petPending=false,petOwned=null,petGear=null,petVitals=null,petVitalsLoading=false,petRepairPending=false,petVitalsEpoch=0,petRepairRequest=null;
+let petFuelBuyPending=false,petFuelBuyRequest=null,petTradeUntil=0,petTradePending=false,petMode='off',petFuel=null,petPending=false,petOwned=null,petGear=null,petVitals=null,petVitalsLoading=false,petRepairPending=false,petVitalsEpoch=0,petRepairRequest=null;
 async function refreshPetVitals(){
  if(petOwned!==true||petVitalsLoading)return;
  petVitalsLoading=true;const epoch=petVitalsEpoch;
  try{const response=await fetch('/api/v13/pet/vitals',{credentials:'same-origin',cache:'no-store'});if(!response.ok)return;const v=await response.json();if(epoch===petVitalsEpoch&&petOwned===true){petVitals=v.enabled?v:null;renderPetPanel();}}
  catch{}finally{petVitalsLoading=false;}
+}
+async function buyPetFuel(fill=false){
+ if(!joined||petOwned!==true||petFuelBuyPending||petFuel===null)return;
+ const available=Math.max(0,Math.floor((50000-petFuel)/4)*4);
+ const quantity=petFuelBuyRequest?.quantity??(fill?available:Math.min(4000,available));
+ if(quantity<4){notice('Depósito de combustible lleno');return;}
+ if(!confirm((petFuelBuyRequest?'Reintentar compra pendiente: ':'Comprar ')+fmt(quantity)+' combustible por '+fmt(quantity/4)+' uridium?'))return;
+ const request=petFuelBuyRequest||{quantity,requestId:crypto.randomUUID()};
+ petFuelBuyRequest=request;petFuelBuyPending=true;renderPetPanel();
+ try{
+  const r=await fetch('/api/v13/purchase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:'fuel',code:'pet-fuel',...request})});
+  const d=await r.json();
+  if(!r.ok){if(r.status<500)petFuelBuyRequest=null;throw Error(d.error||'Compra no disponible');}
+  petFuelBuyRequest=null;notice('Combustible comprado: '+fmt(d.quantity)+' unidades · '+fmt(d.total)+' U');
+  const inv=await fetch('/api/v13/inventory',{credentials:'same-origin',cache:'no-store'});
+  if(inv.ok){const snapshot=await inv.json();window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:snapshot}));}
+  window.dispatchEvent(new CustomEvent('gg13:refresh'));
+ }catch(e){notice(e.message||'Compra no confirmada. Reintenta con el mismo botón.');}
+ finally{petFuelBuyPending=false;renderPetPanel();}
 }
 async function repairPet(){
  if(petRepairPending||!joined||!petVitals?.enabled||!petVitals.destroyed)return;
@@ -155,7 +174,7 @@ function renderPetPanel(){
   panel.querySelector('p')?.remove();controls=document.createElement('div');controls.className='pet-controls gg-pet-compact';panel.append(controls);
   const make=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text)n.textContent=text;return n;};
   const top=make('div','gg-pet-top'),portrait=make('div','gg-pet-portrait'),art=window.ggShopVisual.art('pet',{id:'pet-10',name:'P.E.T. 10'}),stats=make('div','gg-pet-stats');portrait.append(art);top.append(portrait,stats);controls.append(top);
-  const info=make('p','gg-pet-status'),fuelLabel=make('p','gg-pet-fuel'),meter=make('progress');meter.max=50000;meter.setAttribute('aria-label','Combustible P.E.T.');stats.append(info,fuelLabel,meter);
+  const info=make('p','gg-pet-status'),fuelLabel=make('p','gg-pet-fuel'),meter=make('progress');meter.max=50000;meter.setAttribute('aria-label','Combustible P.E.T.');stats.append(info,fuelLabel,meter);const fuelQuick=make('div','gg-pet-fuel-quick'),fuelPack=make('button','gg-pet-fuel-pack','+4.000'),fuelFill=make('button','gg-pet-fuel-fill','Llenar');fuelPack.type=fuelFill.type='button';fuelPack.onclick=()=>buyPetFuel(false);fuelFill.onclick=()=>buyPetFuel(true);fuelQuick.append(fuelPack,fuelFill);stats.append(fuelQuick);
   const unavailable=make('small','gg-pet-unavailable','Vida y escudo: —');stats.append(unavailable);
   const hpLabel=make('small','gg-pet-hp-label'),hpBar=make('progress','gg-pet-hp-bar'),shieldLabel=make('small','gg-pet-shield-label'),shieldBar=make('progress','gg-pet-shield-bar');
   hpBar.setAttribute('aria-label','Vida del P.E.T.');shieldBar.setAttribute('aria-label','Escudo del P.E.T.');stats.append(hpLabel,hpBar,shieldLabel,shieldBar);
@@ -173,6 +192,7 @@ function renderPetPanel(){
  info.dataset.phase=petPending?'pending':petMode==='off'?'off':'active';
  setHudText(fuelLabel,'Combustible '+(petFuel===null?'—':fmt(petFuel))+' / 50.000');
  if(petFuel===null)meter.removeAttribute('value');else setHudValue(meter,Math.max(0,Math.min(50000,petFuel)));
+ const fuelPack=controls.querySelector('.gg-pet-fuel-pack'),fuelFill=controls.querySelector('.gg-pet-fuel-fill'),available=petFuel===null?0:Math.max(0,Math.floor((50000-petFuel)/4)*4);fuelPack.disabled=fuelFill.disabled=!joined||petOwned!==true||petFuelBuyPending||(!petFuelBuyRequest&&available<4);setHudText(fuelPack,petFuelBuyPending?'Comprando…':petFuelBuyRequest?'Reintentar': '+'+fmt(Math.min(4000,available)));setHudText(fuelFill,'Llenar · '+fmt(available/4)+' U');fuelPack.title='Comprar hasta 4.000 unidades por 1.000 U';fuelFill.title='Llenar el depósito hasta su capacidad en múltiplos de cuatro';
  const active=petMode!=='off',trading=petTradeUntil>Date.now();power.disabled=trading||petTradePending||petPending||petOwned!==true||!!petVitals?.destroyed||petRepairPending;
  const vitalsAvailable=!!petVitals?.enabled;
  controls.querySelector('.gg-pet-unavailable').hidden=vitalsAvailable;
