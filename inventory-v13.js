@@ -1,6 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
-const {bonusLoot}=require('./loot-v14');
+const {bonusLoot,pirateLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
@@ -206,7 +206,21 @@ function createInventory(pool){
   });
  }
  async function saveLocation(id,company,map){if(![1,2,3].includes(company)||!Object.hasOwn(MAPS,map))throw fail('Mapa inválido');return transaction(id,async c=>{await c.query('INSERT INTO gg_v14_location(account_id,company,map) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET map=EXCLUDED.map',[id,company,map]);return {company,map};});}
- async function awardBox(id,map='1-1',level=1){
+ async function awardBox(id,map='1-1',level=1,kind='bonus'){
+   if(kind==='pirate'){
+    if(!MAPS[map]?.pirate)throw fail('Cofre fuera de zona pirata');
+    return transaction(id,async(c,p)=>{
+     const key=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='green-key' AND quantity>=1 RETURNING quantity",[id])).rows[0];
+     if(!key)throw Object.assign(fail('Necesitas una llave verde',409),{code:'NO_GREEN_KEY'});
+     const loot=pirateLoot(crypto.randomInt(100));let balance=p;
+     if(loot.code==='credits'||loot.code==='uridium'){
+      balance=(await c.query('UPDATE player_progress SET '+loot.code+'='+loot.code+'+$2 WHERE account_id=$1 RETURNING credits,uridium',[id,loot.quantity])).rows[0];
+     }else if(loot.category==='lasers'){
+      await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),loot.code,loot.category]);
+     }else await addStack(c,id,loot.code,loot.quantity);
+     return {loot,balance,keys:Number(key.quantity)};
+    });
+   }
   const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
   return transaction(id,async(c,p)=>{
    const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*(loot.code==='uridium'?b.luck:1));let balance=p;
