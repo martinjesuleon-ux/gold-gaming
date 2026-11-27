@@ -488,7 +488,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     if(item==='MUL-B03'){
      await extendBooster(c,id,item,18000*itemQuantity);
     }else if(item){
-     const category=item==='LF-4'?'lasers':item==='SG3N-B03'?'shields':['Havoc','Hercules','Spartan'].includes(item)?'drone-designs':'ship-designs';
+     const category=require('./gate-reward-category-v191').rewardCategory(item);
      for(let i=0;i<itemQuantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,category]);
     }
     g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance,item,itemQuantity,...(gate==='kronos'?{extras:{'UBR-100':500,'RSB-75':5000,'gate-energy':250}}:{})};await logGateReward(c,id,gate,g.completions,payout);
