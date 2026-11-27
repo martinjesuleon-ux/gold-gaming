@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const {bonusLoot}=require('./loot-v14');
+const {ALPHA,GATES,spinAlpha}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -20,6 +21,15 @@ function createInventory(pool){
    ship text NOT NULL DEFAULT 'phoenix', configs jsonb NOT NULL DEFAULT '[[],[]]',
    active integer NOT NULL DEFAULT 0 CHECK(active IN (0,1)));
    CREATE TABLE IF NOT EXISTS gg_v13_purchases (
+   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+   request_id uuid NOT NULL, response jsonb NOT NULL,
+   PRIMARY KEY(account_id,request_id));
+   CREATE TABLE IF NOT EXISTS gg_v14_gate_state (
+   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+   gate text NOT NULL, pieces jsonb NOT NULL DEFAULT '[]',
+   multiplier integer NOT NULL DEFAULT 1 CHECK(multiplier BETWEEN 1 AND 6),
+   PRIMARY KEY(account_id,gate));
+   CREATE TABLE IF NOT EXISTS gg_v14_gate_spins (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    request_id uuid NOT NULL, response jsonb NOT NULL,
    PRIMARY KEY(account_id,request_id));`);
@@ -135,6 +145,35 @@ function createInventory(pool){
    return {loot,balance};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox};
+ async function gateStatus(id){
+  return transaction(id,async(c,p)=>{
+   const row=(await c.query("SELECT pieces,multiplier FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0]||{pieces:[],multiplier:1};
+   const energy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
+   return {gates:GATES,alpha:{...ALPHA,...row,required:ALPHA.pieces,pieces:row.pieces,ready:row.pieces.length===ALPHA.pieces},energy,balance:p,provisional:true};
+  });
+ }
+ async function gateSpin(id,{gate,requestId,useMultiplier=false,allowUridium=false}){
+  if(gate!=='alpha'||typeof useMultiplier!=='boolean'||typeof allowUridium!=='boolean'||typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Tirada inválida');
+  return transaction(id,async(c,p)=>{
+   const previous=(await c.query('SELECT response FROM gg_v14_gate_spins WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
+   if(previous)return previous.response;
+   const row=(await c.query("SELECT pieces,multiplier FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0]||{pieces:[],multiplier:1};
+   if(row.pieces.length>=ALPHA.pieces)throw fail('Puerta completa');
+   const next=spinAlpha(row,crypto.randomInt(100),crypto.randomInt(1,35),useMultiplier);
+   const energy=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='gate-energy' AND quantity>=1 RETURNING quantity",[id])).rows[0];
+   let balance=p;
+   if(!energy){
+    if(!allowUridium)throw fail('Sin energía extra. Autoriza el gasto de uridium.');
+    if(Number(p.uridium)<ALPHA.price)throw fail('Uridium insuficiente');
+    balance=(await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1 RETURNING credits,uridium',[id,ALPHA.price])).rows[0];
+   }
+   await c.query("INSERT INTO gg_v14_gate_state(account_id,gate,pieces,multiplier) VALUES($1,'alpha',$2,$3) ON CONFLICT(account_id,gate) DO UPDATE SET pieces=EXCLUDED.pieces,multiplier=EXCLUDED.multiplier",[id,JSON.stringify(next.pieces),next.multiplier]);
+   if(next.reward.code==='LCB-10')await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,next.reward.code,next.reward.quantity]);
+   const result={...next,energy:Number(energy?.quantity||0),balance,ready:next.pieces.length===ALPHA.pieces};
+   await c.query('INSERT INTO gg_v14_gate_spins(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);
+   return result;
+  });
+ }
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin};
 }
 module.exports={createInventory};
