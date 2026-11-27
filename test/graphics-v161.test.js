@@ -159,3 +159,10 @@ test('viewport culling retains objects whose edges intersect the visible map',()
  assert.equal(c.visible({x:500,y:300},0,1000,600),true);
  assert.match(game,/near=nearestPortal\(list\)/);
 });
+
+test('metallic cockpit keeps twenty arsenal slots in two rows of ten',()=>{
+ const hud=read('gold-hud.js'),css=read('gold-hud.css'),html=read('index.html');
+ assert.match(hud,/for\(let i=1;i<20;i\+\+\)/);assert.match(hud,/slots.append\(fire\)/);
+ assert.match(css,/grid-template-columns:repeat\(10,minmax\(0,1fr\)\)/);
+ assert.match(html,/gg-radar-key/);assert.match(hud,/gold-hud.css\?v=1634/);
+});
