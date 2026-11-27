@@ -427,5 +427,87 @@
       "price": 7,
       "currency": "uridium"
     }
+  ],
+  "specialRockets": [
+    {
+      "id": "PLD-8",
+      "effect": "accuracy",
+      "factor": 0.6,
+      "duration": 5000,
+      "cooldown": 30000,
+      "price": 100,
+      "currency": "uridium"
+    },
+    {
+      "id": "DCR-250",
+      "effect": "slow",
+      "factor": 0.7,
+      "duration": 5000,
+      "cooldown": 60000,
+      "price": 500,
+      "currency": "uridium"
+    },
+    {
+      "id": "R-IC3",
+      "effect": "freeze",
+      "factor": 0,
+      "duration": 2000,
+      "cooldown": 120000,
+      "price": 100,
+      "currency": "uridium"
+    }
+  ],
+  "launchers": [
+    {
+      "id": "HST-1",
+      "capacity": 3,
+      "price": 500000,
+      "currency": "credits"
+    },
+    {
+      "id": "HST-2",
+      "capacity": 5,
+      "price": 15000,
+      "currency": "uridium"
+    }
+  ],
+  "launcherAmmo": [
+    {
+      "id": "ECO-10",
+      "damage": 2000,
+      "price": 1500,
+      "currency": "credits"
+    },
+    {
+      "id": "SAR-01",
+      "drain": 1200,
+      "price": 2000,
+      "currency": "credits"
+    },
+    {
+      "id": "SAR-02",
+      "drain": 4000,
+      "price": 20,
+      "currency": "uridium"
+    },
+    {
+      "id": "HSTRM-01",
+      "damage": 4000,
+      "price": 25,
+      "currency": "uridium"
+    },
+    {
+      "id": "UBR-100",
+      "damage": 5000,
+      "price": 30,
+      "currency": "uridium"
+    },
+    {
+      "id": "CBR",
+      "damage": 3000,
+      "drain": 3000,
+      "price": null,
+      "currency": null
+    }
   ]
 }
