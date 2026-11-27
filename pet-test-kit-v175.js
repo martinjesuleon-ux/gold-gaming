@@ -7,6 +7,8 @@ const TEST_ACCOUNT='14733365-e185-4d81-90a8-b3c95baf0af7';
 const testKitEnabled=id=>id===TEST_ACCOUNT&&process.env.GG_PET_TEST_KIT_ENABLED!=='0';
 const equipmentEnabled=id=>testKitEnabled(id)||process.env.GG_PET_EQUIPMENT_ENABLED==='1';
 const gearEnabled=id=>equipmentEnabled(id)&&(testKitEnabled(id)||process.env.GG_PET_GEAR_EQUIP_ENABLED==='1');
+const guardEnabled=id=>equipmentEnabled(id)&&(testKitEnabled(id)||process.env.GG_PET_GUARD_ENABLED==='1');
+const vitalsEnabled=id=>testKitEnabled(id)||process.env.GG_PET_VITALS_ENABLED==='1';
 const KIT=Object.freeze([
  ['LF-4','lasers',100,catalog.rules.maxUpgrade],
  ['LF-P01','lasers',12,catalog.rules.maxUpgrade],
@@ -35,4 +37,4 @@ async function grant(pool){
   await c.query('COMMIT');return true;
  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
 }
-module.exports={TEST_ACCOUNT,testKitEnabled,equipmentEnabled,gearEnabled,KIT,ready,grant};
+module.exports={TEST_ACCOUNT,testKitEnabled,equipmentEnabled,gearEnabled,guardEnabled,vitalsEnabled,KIT,ready,grant};
