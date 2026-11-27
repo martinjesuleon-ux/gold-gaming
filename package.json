@@ -1,6 +1,6 @@
 {
   "name": "gold-gaming",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "private": true,
   "description": "Multijugador espacial 2D",
   "main": "server.js",
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
     "test": "node --test test/*.test.js",
-    "check": "node --check server.js && node --check accounts.js && node --check public/auth.js && node --check public/game.js && node --check public/admin.js && node --check inventory-v13.js && node --check equipment-v13.js && node --check gates-v14.js && node --check maps-v14.js && node --check hades-lobby-v14.js && node --check loot-v14.js && node --check public/gold-v13.js && node --check public/gold-hud.js && node --check groups-v15.js && node --check clans-v15.js && node --check pvp-v15.js && node --check daily-v16.js && node --check missions-v16.js && node --check minerals-v17.js"
+    "check": "node --check server.js && node --check accounts.js && node --check public/auth.js && node --check public/game.js && node --check public/admin.js && node --check inventory-v13.js && node --check equipment-v13.js && node --check gates-v14.js && node --check maps-v14.js && node --check hades-lobby-v14.js && node --check loot-v14.js && node --check public/gold-v13.js && node --check public/gold-hud.js && node --check groups-v15.js && node --check clans-v15.js && node --check pvp-v15.js && node --check daily-v16.js && node --check missions-v16.js && node --check minerals-v17.js && node --check upgrades-v18.js && node --check mines-v18.js && node --check abilities-v18.js && node --check cpus-v18.js"
   },
   "dependencies": {
     "express": "^5.1.0",
