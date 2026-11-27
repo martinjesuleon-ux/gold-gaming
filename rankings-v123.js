@@ -53,7 +53,7 @@ function createRankings(pool){
  (SELECT count(*) FROM gg_rank_kills k WHERE k.victim=p.account_id)+(SELECT count(*) FROM gg_rank_deaths d WHERE d.account_id=p.account_id) AS deaths,
  COALESCE((SELECT value FROM gg_achievement_counters WHERE account_id=p.account_id AND kind='alien'),0) AS aliens,
  COALESCE((SELECT quantity FROM gg_v13_ammo WHERE account_id=p.account_id AND code='green-key'),0) AS keys,
- COALESCE((SELECT quantity FROM gg_v13_ammo WHERE account_id=p.account_id AND code='premium-seconds'),0) AS premium_seconds,
+ COALESCE((SELECT seconds FROM gg_v16_entitlements WHERE account_id=p.account_id AND code='premium-seconds'),0) AS premium_seconds,
  COALESCE((SELECT SUM(quantity) FROM gg_v13_ammo WHERE account_id=p.account_id AND code IN ('prometium','endurium','terbium','prometid','duranium','promerium','seprom','paladio')),0) AS cargo
  FROM player_progress p LEFT JOIN gg_rank_profiles r USING(account_id) WHERE p.account_id=ANY($1::uuid[])`,[ids])).rows;}
  async function death(id,radiation=false,requestId=null){await pool.query('INSERT INTO gg_rank_deaths(account_id,radiation,request_id) VALUES($1,$2,$3) ON CONFLICT(account_id,request_id) DO NOTHING',[id,!!radiation,requestId]);}
