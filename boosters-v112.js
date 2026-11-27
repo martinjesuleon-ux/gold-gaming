@@ -3,6 +3,24 @@ const stats=[['DMG','damage','Daño',.10,.05],['EP','xp','Experiencia',.10,.05],
 const legacy={damage:'damage',xp:'experience',honor:'honor',hp:'hp',repair:'repair',box:'resources',shield:'shield'};
 const CATALOG=Object.fromEntries(stats.flatMap(([prefix,stat,name,own,shared])=>[1,2].map(n=>[prefix+'-B0'+n,{code:prefix+'-B0'+n,name:name+(n===2?' compartido':''),price:10000,seconds:36000,effects:{[stat]:own},shared:n===2?{[stat]:shared}:{},legacy:n===1?'booster-'+legacy[stat]+'-seconds':null}])));
 CATALOG['MUL-B03']={code:'MUL-B03',name:'MultiBooster',seconds:18000,effects:{damage:.05,xp:.05,shield:.05},shared:{}};
+// Special packs have no in-game purchase price. Their effects never enter combat factors.
+CATALOG['NBX-B01']={code:'NBX-B01',name:'Booster de cajas de bonificación',seconds:604800,effects:{},shared:{},rewardKind:'bonus-box',multiplier:2};
+CATALOG['QR-01']={code:'QR-01',name:'Booster de recompensas de misión',seconds:604800,effects:{},shared:{},rewardKind:'mission',multiplier:2};
+CATALOG['PREMIUM']={code:'PREMIUM',name:'Cuenta Premium',seconds:86400,effects:{},shared:{},legacy:'premium-seconds',premium:true};
+function rewardFactor(active,kind,now=Date.now()){
+ const code=kind==='bonus-box'?'NBX-B01':kind==='mission'?'QR-01':null;
+ return code&&Number(active?.[code])>now?2:1;
+}
+async function rewardFactorRead(c,id,kind,now=Date.now()){
+ const code=kind==='bonus-box'?'NBX-B01':kind==='mission'?'QR-01':null;
+ if(!code)return 1;
+ const row=(await c.query('SELECT until_ms FROM gg_booster_active WHERE account_id=$1 AND code=$2 AND until_ms>$3',[id,code,now])).rows[0];
+ return rewardFactor({[code]:row?.until_ms},kind,now);
+}
+function scaleReward(reward,factor){
+ if(factor!==1&&factor!==2)throw Error('Multiplicador inválido');
+ return Object.fromEntries(Object.entries(reward).map(([k,n])=>{if(!Number.isSafeInteger(n)||n<0||!Number.isSafeInteger(n*factor))throw Error('Recompensa inválida');return [k,n*factor];}));
+}
 const fail=(message,status=400)=>Object.assign(Error(message),{status});
 const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
 function factors(active={},nearby=[],now=Date.now()){
@@ -39,4 +57,4 @@ function createBoosters(pool){
  }
  return {ready:()=>ready(pool),read:id=>read(pool,id),status:id=>view(pool,id),action};
 }
-module.exports={CATALOG,createBoosters,ready,read,extend,factors};
+module.exports={CATALOG,createBoosters,ready,read,extend,factors,rewardFactor,rewardFactorRead,scaleReward};
