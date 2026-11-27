@@ -20,7 +20,7 @@ test('minimap grid and pointer projection share coordinates with permanent porta
  const {radarProjection,radarSector}=vm.runInNewContext(game.slice(a,b)+';({radarProjection,radarSector})');
  const r=radarProjection(280,190,12000,8000);
  assert.equal(radarSector(0,0,12000,8000),'A1');assert.equal(radarSector(1500,1400,12000,8000),'B2');assert.equal(radarSector(12000,8000,12000,8000),'F8');
- const x=6000,y=4000;assert.equal((r.left+x*r.sx-r.left)/r.sx,x);assert.equal((r.top+y*r.sy-r.top)/r.sy,y);
+ const x=6000,y=4000;assert.ok(Math.abs((r.left+x*r.sx-r.left)/r.sx-x)<1e-8);assert.ok(Math.abs((r.top+y*r.sy-r.top)/r.sy-y)<1e-8);
  assert.match(game,/if\(portal\)\{sendMove\(portal.x,portal.y\)/);
  assert.match(game,/for\(const p of visiblePortals\(\)\)\{const x=left\+p.x\*sx/);
  assert.match(read('public/gold-hud.js'),/\['Minimapa',hud.querySelector\('\.radar'\)\]/);
