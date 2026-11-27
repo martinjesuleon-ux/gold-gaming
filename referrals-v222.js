@@ -6,7 +6,19 @@ const RECRUIT=Object.freeze({'green-key':5,'log-disk':5,'UCB-100':5000,'RSB-75':
 const REFERRER=Object.freeze({'green-key':10,'log-disk':20,'gate-energy':50,'UCB-100':8000,'RSB-75':3500});
 const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
 function qualifies(level){return Number.isSafeInteger(Number(level))&&Number(level)>=LEVEL;}
-function ipFingerprint(ip,secret){if(typeof secret!=='string'||secret.length<32||typeof ip!=='string')return null;ip=ip.toLowerCase().replace(/^::ffff:(?=\d+\.)/,'');if(!net.isIP(ip))return null;return crypto.createHmac('sha256',secret).update(ip).digest('hex');}
+function canonicalIP(ip){
+ if(typeof ip!=='string'||ip.includes('%'))return null;
+ const family=net.isIP(ip);if(family===4)return ip;if(family!==6)return null;
+ const normalized=new URL('http://['+ip+']/').hostname.slice(1,-1);
+ const mapped=/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(normalized);
+ if(mapped){const a=parseInt(mapped[1],16),b=parseInt(mapped[2],16);return [a>>8,a&255,b>>8,b&255].join('.');}
+ return normalized;
+}
+function ipFingerprint(ip,secret){if(typeof secret!=='string'||secret.length<32)return null;const canonical=canonicalIP(ip);return canonical?crypto.createHmac('sha256',secret).update(canonical).digest('hex'):null;}
+function createInviteLimiter({perIP=20,global=240,windowMs=60000}={}){
+ let started=null,total=0;const counts=new Map();
+ return (hash,now=Date.now())=>{if(!hash)return false;if(started===null||now-started>=windowMs){started=now;total=0;counts.clear();}const count=counts.get(hash)||0;if(total>=global||count>=perIP)return false;counts.set(hash,count+1);total++;return true;};
+}
 function validInvite(invite,now=Date.now()){return uuid(invite?.referrer)&&Number.isSafeInteger(invite?.issuedAt)&&invite.issuedAt<=now&&now-invite.issuedAt<TTL;}
 function signInvite(referrer,secret,now=Date.now()){
  if(!uuid(referrer)||typeof secret!=='string'||secret.length<32) return null;
@@ -27,6 +39,7 @@ function createReferrals(pool){
  CREATE TABLE IF NOT EXISTS gg_referral_used_ip_v222(ip_hash text PRIMARY KEY);
  CREATE TABLE IF NOT EXISTS gg_referrals_v222(recruit_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,referrer_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,ip_hash text NOT NULL,qualified_at timestamptz,created_at timestamptz NOT NULL DEFAULT now(),CHECK(recruit_id<>referrer_id));
  CREATE INDEX IF NOT EXISTS gg_referrals_v222_referrer ON gg_referrals_v222(referrer_id,qualified_at);
+ CREATE INDEX IF NOT EXISTS gg_referrals_v225_pending ON gg_referrals_v222(created_at,recruit_id) WHERE qualified_at IS NULL;
  CREATE TABLE IF NOT EXISTS gg_referral_milestones_v222(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE, milestone integer NOT NULL CHECK(milestone IN (5,15,25,50,100)),reward jsonb NOT NULL,claimed_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(account_id,milestone));`);}
  async function lock(c){await c.query('SELECT pg_advisory_xact_lock(71413,223)');}
  async function recordIP(c,id,hash){
@@ -45,14 +58,14 @@ function createReferrals(pool){
  }
  async function loginIP(id,hash){if(!hash)return;const c=await pool.connect();try{await c.query('BEGIN');await lock(c);await recordIP(c,id,hash);await c.query('COMMIT');}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
  async function add(c,id,reward){for(const [code,n] of Object.entries(reward))await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,code,n]);}
- async function qualify(id){
+ async function qualify(id,receipt=false){
   const c=await pool.connect();try{await c.query('BEGIN');await lock(c);
    const r=(await c.query('SELECT r.*,n.blocked FROM gg_referrals_v222 r LEFT JOIN gg_referral_network_v222 n ON n.account_id=r.referrer_id WHERE recruit_id=$1 FOR UPDATE OF r',[id])).rows[0];
    if(!r||r.qualified_at||r.blocked){await c.query('COMMIT');return false;}
    const rows=(await c.query('SELECT account_id,level FROM player_progress WHERE account_id=ANY($1::uuid[]) ORDER BY account_id FOR UPDATE',[[id,r.referrer_id]])).rows;
    if(rows.length!==2||!qualifies(rows.find(x=>x.account_id===id)?.level)){await c.query('COMMIT');return false;}
    await c.query('UPDATE player_progress SET uridium=uridium+10000 WHERE account_id=$1',[id]);await add(c,id,RECRUIT);await add(c,r.referrer_id,REFERRER);
-   await c.query('UPDATE gg_referrals_v222 SET qualified_at=now() WHERE recruit_id=$1',[id]);await c.query('COMMIT');return true;
+   await c.query('UPDATE gg_referrals_v222 SET qualified_at=now() WHERE recruit_id=$1',[id]);await c.query('COMMIT');return receipt?{recruitId:id,referrerId:r.referrer_id}:true;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
  async function claim(id){
@@ -74,13 +87,18 @@ function createReferrals(pool){
    await c.query('COMMIT');return {awarded};
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
+ async function settleDue(limit=40){
+  if(!Number.isSafeInteger(limit)||limit<1||limit>100)throw Error('Límite inválido');
+  const rows=(await pool.query('SELECT r.recruit_id FROM gg_referrals_v222 r JOIN player_progress p ON p.account_id=r.recruit_id LEFT JOIN gg_referral_network_v222 n ON n.account_id=r.referrer_id WHERE r.qualified_at IS NULL AND p.level>=$1 AND NOT COALESCE(n.blocked,false) ORDER BY r.created_at,r.recruit_id LIMIT $2',[LEVEL,limit])).rows;
+  const delivered=[];for(const r of rows){try{const result=await qualify(r.recruit_id,true);if(result)delivered.push(result);}catch(e){console.error('Referral settlement:',e.code||e.message);}}return delivered;
+ }
  async function status(id){
-  const pending=(await pool.query('SELECT r.recruit_id FROM gg_referrals_v222 r JOIN player_progress p ON p.account_id=r.recruit_id WHERE (r.referrer_id=$1 OR r.recruit_id=$1) AND qualified_at IS NULL AND p.level>=$2 ORDER BY r.created_at LIMIT 100',[id,LEVEL])).rows;
+  const pending=(await pool.query('SELECT r.recruit_id FROM gg_referrals_v222 r JOIN player_progress p ON p.account_id=r.recruit_id LEFT JOIN gg_referral_network_v222 n ON n.account_id=r.referrer_id WHERE (r.referrer_id=$1 OR r.recruit_id=$1) AND qualified_at IS NULL AND p.level>=$2 AND NOT COALESCE(n.blocked,false) ORDER BY r.created_at LIMIT 100',[id,LEVEL])).rows;
   for(const r of pending)await qualify(r.recruit_id);
   const blocked=!!(await pool.query('SELECT blocked FROM gg_referral_network_v222 WHERE account_id=$1',[id])).rows[0]?.blocked;
   const counts=(await pool.query('SELECT count(*)::int AS total,count(qualified_at)::int AS qualified FROM gg_referrals_v222 WHERE referrer_id=$1',[id])).rows[0];
   const history=(await pool.query('SELECT milestone,reward,claimed_at FROM gg_referral_milestones_v222 WHERE account_id=$1 ORDER BY milestone',[id])).rows;return {referrer:id,blocked,total:blocked?0:counts.total,qualified:blocked?0:counts.qualified,requiredLevel:LEVEL,history,milestones:MILESTONES,available:availableMilestones(counts.qualified,history.map(r=>Number(r.milestone)),blocked)};
  }
- return {ready,register,loginIP,qualify,status,claim};
+ return {ready,register,loginIP,qualify,status,claim,settleDue};
 }
-module.exports={LEVEL,TTL,RECRUIT,REFERRER,qualifies,ipFingerprint,validInvite,signInvite,parseInvite,cookieInvite,referralConfig,createReferrals};
+module.exports={LEVEL,TTL,RECRUIT,REFERRER,qualifies,canonicalIP,ipFingerprint,createInviteLimiter,validInvite,signInvite,parseInvite,cookieInvite,referralConfig,createReferrals};

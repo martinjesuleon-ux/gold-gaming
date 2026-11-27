@@ -1,0 +1,10 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {canonicalIP,ipFingerprint,createInviteLimiter}=require('../referrals-v222');
+const secret='a'.repeat(48);
+test('IPv6 equivalent spellings produce identical fingerprints',()=>{assert.equal(canonicalIP('2001:0DB8:0000:0000:0000:0000:0000:0001'),'2001:db8::1');assert.equal(ipFingerprint('2001:DB8:0:0:0:0:0:1',secret),ipFingerprint('2001:db8::1',secret));});
+test('mapped IPv4 decimal and hexadecimal forms share one fingerprint',()=>{const base=ipFingerprint('192.0.2.1',secret);for(const ip of ['::ffff:192.0.2.1','::FFFF:C000:0201','0:0:0:0:0:ffff:c000:201'])assert.equal(ipFingerprint(ip,secret),base);});
+test('different IPs remain distinct',()=>{assert.notEqual(ipFingerprint('2001:db8::1',secret),ipFingerprint('2001:db8::2',secret));});
+test('invalid, scoped and forwarded address lists rejected',()=>{for(const ip of ['fe80::1%eth0','192.0.2.1, 192.0.2.2','192.0.2.1:80','[::1]','bad',null])assert.equal(canonicalIP(ip),null);});
+test('invite rate limit is per address and independent',()=>{const allow=createInviteLimiter({perIP:2,global:5,windowMs:1000});assert.equal(allow('a',0),true);assert.equal(allow('a',1),true);assert.equal(allow('a',2),false);assert.equal(allow('b',2),true);assert.equal(allow('a',1000),true);});
+test('global invitation limit bounds total addresses and rejects missing fingerprint',()=>{const allow=createInviteLimiter({perIP:2,global:2,windowMs:1000});assert.equal(allow(null,0),false);assert.equal(allow('a',0),true);assert.equal(allow('b',0),true);assert.equal(allow('c',0),false);assert.equal(allow('c',1000),true);});
