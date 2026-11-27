@@ -37,7 +37,7 @@ function createBoosters(pool){
  async function view(c,id){const rows=(await c.query('SELECT code,seconds FROM gg_v16_entitlements WHERE account_id=$1',[id])).rows;const stock=Object.fromEntries(rows.map(x=>[x.code,Number(x.seconds)]));return {catalog:Object.values(CATALOG),active:await read(c,id),stock,balance:(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1',[id])).rows[0],clock:'wall',now:Date.now()};}
  async function action(id,{action,code,requestId}={}){
   if(!uuid(requestId)||!Object.hasOwn(CATALOG,code)||!['buy','activate'].includes(action))throw fail('Solicitud inválida');
-  const def=CATALOG[code],c=await pool.connect();
+  const def=CATALOG[code];if(def.premium)throw fail('Activación Premium pendiente de beneficios',409);const c=await pool.connect();
   try{await c.query('BEGIN');await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id]);
    const old=(await c.query('SELECT response FROM gg_booster_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){await c.query('COMMIT');return old.response;}
    if(action==='buy'){
