@@ -92,6 +92,16 @@ function createPetProgression(pool){
    return result;
   });
  }
- return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave};
+ // Experimental guard uses basic ammunition from the pilot's stock, one unit per PET laser.
+ async function authorizeGuardShot(id){
+  if(process.env.GG_PET_GUARD_ENABLED!=='1'||process.env.GG_PET_EQUIPMENT_ENABLED!=='1')return null;
+  return transaction(id,async(c,p)=>{
+   const {stats}=await equipmentState(c,id,p);
+   if(!stats.lasers||!stats.damage)return null;
+   const row=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='LCB-10' AND quantity>=$2 RETURNING quantity",[id,stats.lasers])).rows[0];
+   return row?{code:'LCB-10',count:stats.lasers,damage:stats.damage,stock:Number(row.quantity)}:null;
+  });
+ }
+ return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot};
 }
 module.exports={levelForExperience,profile,quoteSlot,createPetProgression,TYPES,INITIAL};
