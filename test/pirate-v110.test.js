@@ -47,3 +47,15 @@ test('no key and failed rewards rollback; invalid maps are rejected',async t=>{
  assert.equal(b.queries.at(-1).sql,'ROLLBACK');
  const c=fakePool();await assert.rejects(createInventory(c.pool).awardBox('test-account','invalid',1,'pirate'),/Mapa inválido/);assert.equal(c.queries.length,0);
 });
+
+test('wiki event probabilities and dates',()=>{
+ const {pirateEventWeights,pirateEventsForDay,pirateEventLoot}=require('../loot-v14');
+ for(const event of [{},{helix:true},{apisZeus:true},{helix:true,apisZeus:true}]){
+  const w=pirateEventWeights(event),by=Object.fromEntries(PIRATE.map((x,i)=>[x[0],w[i]]));
+  assert.ok(Math.abs(w.reduce((a,b)=>a+b,0)-1000)<1e-8);
+  if(event.helix)assert.equal(by['LF-4'],18);else if(!event.apisZeus)assert.equal(by['LF-4'],12);
+  if(event.apisZeus){assert.equal(by['apis-piece'],90);assert.equal(by['zeus-piece'],60);assert.equal(by.apis,6);assert.equal(by.zeus,6);}
+  let off=0;for(let i=0;i<w.length;i++){const entry=PIRATE[i],result=pirateEventLoot((off+w[i]/2)/1000,0,0,event);assert.equal(result.code,entry[4]?.[0][0]||entry[0]);off+=w[i];}
+ }
+ assert.deepEqual(pirateEventsForDay(new Date('2026-11-27T12:00:00Z'),{GG_HELIX_DATES:'2026-11-27',GG_APIS_ZEUS_DATES:'2026-11-28'}),{helix:true,apisZeus:false});
+});
