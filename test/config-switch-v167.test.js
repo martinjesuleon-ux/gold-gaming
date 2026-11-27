@@ -1,0 +1,3 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+test('HUD switches only the active configuration and waits for server acknowledgement',()=>{assert.match(read('public/index.html'),/id="shipConfigSwitch"/);const g=read('public/game.js');assert.match(g,/active:target-1/);assert.match(g,/configPending===n/);assert.match(g,/v13:loadoutApplied/);assert.match(read('accounts.js'),/inventory\.activateConfig\(req\.pilotV13\.id/);const i=read('inventory-v13.js');assert.match(i,/UPDATE gg_v13_hangar SET active=\$2 WHERE account_id=\$1 RETURNING active/);assert.match(i,/if\(!\[0,1\]\.includes\(active\)\)/);});

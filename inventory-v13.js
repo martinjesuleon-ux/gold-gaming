@@ -123,6 +123,14 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    return {ok:true,stats:computed[active]};
   });
  }
+ async function activateConfig(id,active){
+  if(![0,1].includes(active))throw fail('Configuración inválida');
+  return transaction(id,async c=>{
+   const r=await c.query('UPDATE gg_v13_hangar SET active=$2 WHERE account_id=$1 RETURNING active',[id,active]);
+   if(!r.rowCount)throw fail('Configura primero tu nave en el hangar');
+   return {ok:true,active:r.rows[0].active};
+  });
+ }
  async function combatLoadout(id){
   return transaction(id,async c=>{
    const upgrades=await settleEquipment(c,id);
@@ -442,6 +450,6 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,useCpu,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
+ return {ready,purchase,snapshot,equip,activateConfig,combatLoadout,useCpu,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
 }
 module.exports={createInventory};
