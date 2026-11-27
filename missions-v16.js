@@ -1,4 +1,5 @@
 'use strict';
+const {rewardFactorRead,scaleReward}=require('./boosters-v112');
 // The wiki lists 435 normal/23 daily missions but not their individual definitions.
 // These development-only starter missions are not represented as the original catalog.
 const MISSIONS=[
@@ -19,7 +20,7 @@ function createMissions(pool){
  await tx(id,async(c,p)=>{const row=(await c.query('SELECT progress,claimed FROM gg_v16_missions WHERE account_id=$1 AND mission=$2',[id,m.id])).rows[0];
  if(action==='accept'){if(p.level<m.level)throw fail('Nivel insuficiente');if(row)throw fail('Misión ya aceptada');await c.query('INSERT INTO gg_v16_missions(account_id,mission,progress) VALUES($1,$2,$3)',[id,m.id,JSON.stringify(m.conditions.map(()=>0))]);}
  else if(action==='claim'){if(!row||row.claimed||!m.conditions.every((x,i)=>row.progress[i]>=x.count))throw fail('Misión no disponible para reclamar');
- const r=m.reward;await c.query('UPDATE player_progress SET credits=credits+$2,uridium=uridium+$3,experience=experience+$4,honor=honor+$5,level=CASE WHEN experience+$4<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$4)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1',[id,r.credits||0,r.uridium||0,r.experience||0,r.honor||0]);
+ const r=scaleReward(m.reward,await rewardFactorRead(c,id,'mission'));await c.query('UPDATE player_progress SET credits=credits+$2,uridium=uridium+$3,experience=experience+$4,honor=honor+$5,level=CASE WHEN experience+$4<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$4)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1',[id,r.credits||0,r.uridium||0,r.experience||0,r.honor||0]);
  for(const [code,n] of Object.entries(r))if(!['credits','uridium','experience','honor'].includes(code))await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,code,n]);
  await c.query('UPDATE gg_v16_missions SET claimed=true WHERE account_id=$1 AND mission=$2',[id,m.id]);}
  else throw fail('Acción inválida');});return view(id);}
