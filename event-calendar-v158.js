@@ -1,5 +1,5 @@
 'use strict';
-const {randomUUID}=require('node:crypto');
+const {randomUUID}=require('node:crypto'),{MAPS}=require('./maps-v14');
 const KINDS=['hitac','ice','spaceball','invasion','hitac-lottery'];
 function validate(body,now=Date.now()){
  const kind=body?.kind;
@@ -7,7 +7,7 @@ function validate(body,now=Date.now()){
  const at=typeof body.startAt==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(body.startAt)?Date.parse(body.startAt):NaN;
  if(!Number.isFinite(at)||at<=now)throw Object.assign(Error('Inicio UTC futuro requerido'),{status:400});
  const payload=kind==='hitac-lottery'?{action:'open'}:{action:'start'};
- if(kind==='ice'){if(!['1-4','2-4','3-4','4-5'].includes(body.map))throw Object.assign(Error('Mapa inválido'),{status:400});payload.map=body.map;}
+ if(kind==='ice'){if(typeof body.map!=='string'||!Object.hasOwn(MAPS,body.map))throw Object.assign(Error('Mapa inválido'),{status:400});payload.map=body.map;}
  if(kind==='invasion'){if(!['easy','medium','hard'].includes(body.difficulty))throw Object.assign(Error('Dificultad inválida'),{status:400});payload.difficulty=body.difficulty;}
  return {kind,startAt:new Date(at).toISOString(),payload};
 }
