@@ -160,8 +160,7 @@ function drawBase(t){
 }
 function drawPortals(t){
  for(const portal of visiblePortals()){const q=screen(portal.x,portal.y);if(q.x<-100||q.x>W+100||q.y<-100||q.y>H+100)continue;
- ctx.save();ctx.translate(q.x,q.y);const color=portal.kind==='exit'?'#6df3b4':portal.kind==='galaxy'?'#eac66d':'#5fd9ff';ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=20;ctx.lineWidth=4;
- ctx.beginPath();ctx.arc(0,0,46,0,Math.PI*2);ctx.stroke();ctx.rotate(t/900);ctx.strokeStyle='#c5f6ff';ctx.setLineDash([18,9]);ctx.beginPath();ctx.arc(0,0,35,0,Math.PI*2);ctx.stroke();ctx.restore();
+ ctx.save();ctx.translate(q.x,q.y);const color=portal.kind==='exit'?'#6df3b4':portal.kind==='galaxy'?'#eac66d':'#5fd9ff';window.ggGraphics161.portal(ctx,color,t);ctx.restore();
  ctx.save();ctx.font='bold 12px system-ui';ctx.fillStyle='#b7eaff';ctx.textAlign='center';ctx.fillText(portal.kind==='exit'?'SALIDA · '+Math.max(0,Math.ceil((gateState.localUntil-performance.now())/1000))+' s':(portal.kind==='galaxy'?'GG ':'PORTAL ')+portal.to,q.x,q.y+66);if(nearestPortal()?.id===portal.id)ctx.fillText('[J] SALTAR',q.x,q.y+82);ctx.restore();
  }
 }
