@@ -52,6 +52,39 @@ function draw(){const ship=cat.ships.find(s=>s.id===draft.ship);preview.replaceC
   const portrait=el('div',null,'gg-hangar-preview');portrait.append(visual.art('pet',{id:pet.code}),el('strong','P.E.T. 10'));identity.append(portrait);
   const fuel=state.ammo.find(a=>a.code==='pet-fuel')?.quantity||0,usage=el('div',null,'gg-hangar-usage');
   usage.append(el('span','Combustible disponible: '+fmt(fuel)),el('span','Módulos adquiridos: '+fmt(ownedGear.length)));identity.append(usage);
+  const progression=section('PROGRESIÓN DEL P.E.T.','NIVELES 0–20'),content=el('div',null,'gg13-grid');
+  progression.append(content);
+  let loading=false;
+  function showProgression(p){
+   if(!progression.isConnected)return;
+   content.replaceChildren();
+   const info=el('section',null,'gg13-tile'),meter=el('progress');
+   meter.max=p.nextExperience||Math.max(1,p.experience);meter.value=p.experience;
+   meter.setAttribute('aria-label','Experiencia del P.E.T.');
+   info.append(el('h3','Nivel '+p.level+' / 20'),el('p',fmt(p.experience)+' EXP'+(p.nextExperience?' / '+fmt(p.nextExperience):' · Nivel máximo')),meter,
+    el('p','Vida máxima por nivel: '+fmt(p.maxHp)+' PV'),el('p','Daño +'+p.damageBonus+' % · Escudo +'+p.shieldBonus+' %'),
+    el('p','Nivel de equipo permitido: '+p.equipmentTier),el('p','Coste de reparación de referencia: '+fmt(p.repair)+' U'));
+   content.append(info);
+   for(const [type,label] of [['laser','Láseres'],['generator','Generadores'],['gear','Módulos'],['protocol','Protocolos']]){
+    const tile=el('section',null,'gg13-tile'),q=p.nextSlots?.[type];
+    tile.append(el('h3',label),el('strong',p.slots[type]+' / '+p.limits[type]+' ranuras'),el('small',q?'Siguiente ranura: '+fmt(q.price)+' U':p.level===20?'Límite alcanzado':'Más ranuras al subir de nivel'));
+    if(q&&!p.purchasesEnabled)tile.append(el('small','Compra pendiente de activación'));
+    if(q&&p.purchasesEnabled){
+     const requestId=crypto.randomUUID();
+     const b=button('COMPRAR RANURA '+q.slot,async()=>{
+      if(busy||loading||!confirm('¿Comprar por '+fmt(q.price)+' uridium?'))return;
+      busy=true;loading=true;b.disabled=true;
+      try{await api('pet/slots',{type,requestId});await refresh();status.textContent=balance();await readProgression();}
+      catch(e){status.textContent=e.message;}
+      finally{busy=false;loading=false;if(b.isConnected)b.disabled=false;}
+     });b.disabled=Number(p.uridium)<q.price;tile.append(b);
+    }
+    content.append(tile);
+   }
+   if(!p.purchasesEnabled)content.append(el('p','Vista de progresión en pruebas. Los efectos de combate y la obtención de EXP se integrarán por separado.'));
+  }
+  async function readProgression(){try{showProgression(await api('pet/progression'));}catch(e){if(progression.isConnected)content.replaceChildren(el('p','Progresión no disponible: '+e.message),button('REINTENTAR',()=>readProgression()));}}
+  content.append(el('p','Cargando progresión…'));readProgression();
   const modules=section('MÓDULOS ADQUIRIDOS',fmt(ownedGear.length)),gear=el('div',null,'gg-slot-grid');
   for(const i of ownedGear){
    const name=i.code==='G-AL1'?'Auto-botín':i.code==='G-KK1'?'Kamikaze':i.code;
