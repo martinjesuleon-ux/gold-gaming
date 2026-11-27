@@ -8,6 +8,19 @@ const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 function qualifies(level){return Number.isSafeInteger(Number(level))&&Number(level)>=LEVEL;}
 function ipFingerprint(ip,secret){if(typeof secret!=='string'||secret.length<32||typeof ip!=='string')return null;ip=ip.toLowerCase().replace(/^::ffff:(?=\d+\.)/,'');if(!net.isIP(ip))return null;return crypto.createHmac('sha256',secret).update(ip).digest('hex');}
 function validInvite(invite,now=Date.now()){return uuid(invite?.referrer)&&Number.isSafeInteger(invite?.issuedAt)&&invite.issuedAt<=now&&now-invite.issuedAt<TTL;}
+function signInvite(referrer,secret,now=Date.now()){
+ if(!uuid(referrer)||typeof secret!=='string'||secret.length<32) return null;
+ const payload=referrer+'.'+now;return payload+'.'+crypto.createHmac('sha256',secret).update('invite:'+payload).digest('hex');
+}
+function parseInvite(token,secret,now=Date.now()){
+ if(typeof token!=='string'||typeof secret!=='string'||secret.length<32)return null;
+ const m=/^([0-9a-f-]{36})\.(\d{1,16})\.([a-f0-9]{64})$/i.exec(token);if(!m)return null;
+ const invite={referrer:m[1].toLowerCase(),issuedAt:Number(m[2])};if(!validInvite(invite,now))return null;
+ const expected=signInvite(m[1],secret,invite.issuedAt);if(!expected||!crypto.timingSafeEqual(Buffer.from(expected.split('.').at(-1),'hex'),Buffer.from(m[3],'hex')))return null;
+ return invite;
+}
+function cookieInvite(headers,secret,now=Date.now()){const token=(headers?.cookie||'').match(/(?:^|;\s*)gg_referral=([^;]+)/)?.[1];return parseInvite(token,secret,now);}
+function referralConfig(env=process.env){return env.GG_REFERRALS_ENABLED==='1'&&typeof env.GG_REFERRAL_SECRET==='string'&&env.GG_REFERRAL_SECRET.length>=32&&(!env.RENDER||env.GG_REFERRAL_TRUST_PROXY==='1');}
 function createReferrals(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_referral_ip_v222(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,ip_hash text NOT NULL,PRIMARY KEY(account_id,ip_hash));
  CREATE TABLE IF NOT EXISTS gg_referral_network_v222(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,blocked boolean NOT NULL DEFAULT false);
@@ -70,4 +83,4 @@ function createReferrals(pool){
  }
  return {ready,register,loginIP,qualify,status,claim};
 }
-module.exports={LEVEL,TTL,RECRUIT,REFERRER,qualifies,ipFingerprint,validInvite,createReferrals};
+module.exports={LEVEL,TTL,RECRUIT,REFERRER,qualifies,ipFingerprint,validInvite,signInvite,parseInvite,cookieInvite,referralConfig,createReferrals};
