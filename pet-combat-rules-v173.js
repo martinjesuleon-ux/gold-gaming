@@ -5,7 +5,7 @@ function xpPercent(raw){
  const n=Number(raw);return n>=1&&n<=100?n:0;
 }
 function eligibleForNpcXp(p,now){
- return !!p&&!p.deadUntil&&p.hp>0&&!p.godMode&&!p.oneShot&&!p.gate&&!p.gatePending&&!p.ubaReturn&&!p.invasionReturn&&['passive','guard','loot'].includes(p.petMode)&&p.petUntil>now;
+ return !!p&&!p.deadUntil&&p.hp>0&&!p.godMode&&!p.oneShot&&!p.gate&&!p.gatePending&&!p.ubaReturn&&!p.invasionReturn&&['passive','guard','loot','combo-guard'].includes(p.petMode)&&p.petUntil>now;
 }
 function petXpFromReward(xp,eligible,raw){
  const percent=xpPercent(raw);
@@ -14,7 +14,7 @@ function petXpFromReward(xp,eligible,raw){
 }
 // Guard defends its owner independently of their selected target or firing state.
 function guardTarget(p,n,now,range){
- if(!p||p.petMode!=='guard'||p.petUntil<=now||p.hp<=0||p.deadUntil||p.gatePending||p.gateWaiting||p.ubaReturn||p.invasionReturn||p.petVitals?.destroyed||p.cloaked||p.safe||!n||n.target!==p.id||p.zone!==n.zone||n.hp<=0||n.gateShielded||n.accountId||n.godMode||n.empUntil>now||!Number.isFinite(range)||range<=0)return false;
+ if(!p||!['guard','combo-guard'].includes(p.petMode)||p.petUntil<=now||p.hp<=0||p.deadUntil||p.gatePending||p.gateWaiting||p.ubaReturn||p.invasionReturn||p.petVitals?.destroyed||p.cloaked||p.safe||!n||n.target!==p.id||p.zone!==n.zone||n.hp<=0||n.gateShielded||n.accountId||n.godMode||n.empUntil>now||!Number.isFinite(range)||range<=0)return false;
  if(!Number.isFinite(n.lastShot)||now-n.lastShot>2500||n.lastShot>now)return false;
  return Math.hypot(p.petX-n.x,p.petY-n.y)<=range&&Math.hypot(p.x-n.x,p.y-n.y)<=range;
 }
