@@ -192,7 +192,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
    if(mode==='loot'&&!owned.some(x=>x.code==='G-AL1'))throw fail('Necesitas el engranaje G-AL1');
    if(mode==='loot')await requireMountedGear(c,id,owned,'G-AL1');
-   if(process.env.GG_PET_VITALS_ENABLED==='1'){
+   if(require('./pet-test-kit-v175').vitalsEnabled(id)){
     const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
     if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido. Repáralo primero');
    }
