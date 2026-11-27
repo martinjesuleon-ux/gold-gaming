@@ -425,10 +425,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  socket.on('v115:cbs',(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
   if(!p||p.deadUntil||p.gatePending||p.gate||p.cbsBusy)return ack({ok:false,error:'Estación no disponible'});
-  if(process.env.GG_CBS_BUILD_ENABLED!=='1')return ack({ok:false,error:'Construcción en pruebas'});
-  if(!['build','lower'].includes(data?.action))return ack({ok:false,error:'Acción inválida'});
+  if(!['build','lower','emergency'].includes(data?.action))return ack({ok:false,error:'Acción inválida'});
+  if(data.action==='emergency'?process.env.GG_CBS_COMBAT_ENABLED!=='1':process.env.GG_CBS_BUILD_ENABLED!=='1')return ack({ok:false,error:'Función CBS en pruebas'});
   p.cbsBusy=true;const position={x:p.x,y:p.y,zone:p.zone};
-  const job=p.writes.catch(()=>{}).then(()=>accounts[data.action==='build'?'stationBuild':'stationLower'](p.accountId,data,position));p.writes=job;pending.add(job);
+  const job=p.writes.catch(()=>{}).then(()=>accounts[data.action==='build'?'stationBuild':data.action==='emergency'?'stationEmergency':'stationLower'](p.accountId,data,position));p.writes=job;pending.add(job);
   job.then(r=>ack({ok:true,...r})).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo guardar la estación'})).finally(()=>{p.cbsBusy=false;pending.delete(job);});
  });
  socket.on('v114:bid',(data,ack)=>{
