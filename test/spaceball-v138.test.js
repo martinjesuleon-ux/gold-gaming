@@ -16,3 +16,10 @@ test('reward bounds and own goal without crates',()=>{
  for(const [key,[min,max]] of Object.entries(REWARDS)){assert.equal(rewards(()=>0)[key],min);assert.equal(rewards(()=>.99999999)[key],max);}
  const g=createGame(0),goal=g.goals.find(p=>p.company===1);g.ball={x:goal.x-160,y:goal.y};const r=shot(g,{zone:'4-4',company:1,x:goal.x-260,y:goal.y},'RSB-75',100);assert.equal(r.scorer,null);assert.equal(g.boxes.size,0);assert.equal(g.scores[1],0);
 });
+
+test('Spaceball validates shot before ammunition is charged and rejects during reset',()=>{
+ const {validateShot}=require('../spaceball-v138'),g=createGame(0),p={zone:'4-4',company:1,x:5900,y:4000};
+ assert.equal(validateShot(g,p,'LCB-10',0),100);assert.deepEqual(g.ball,{x:6000,y:4000});
+ assert.throws(()=>validateShot(g,p,'SAB-50',0));g.resetAt=10000;assert.throws(()=>validateShot(g,p,'LCB-10',9999));assert.equal(validateShot(g,p,'LCB-10',10000),100);
+ g.active=false;assert.throws(()=>validateShot(g,p,'LCB-10',10001));
+});
