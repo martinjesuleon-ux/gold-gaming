@@ -135,5 +135,28 @@
  }
  const droneColors=Object.freeze({Havoc:'#ff3838',Hercules:'#398dff',Spartan:'#ff8a24'});
  function droneColor(design){return Object.hasOwn(droneColors,design)?droneColors[design]:'#aab4bd';}
- root.ggGraphics161={draw,portal,droneColor,droneKind,npcStyle,playerStyle};
+ function formationOffsets(count,formation){
+  const n=Math.min(10,Math.max(0,Math.floor(Number(count)||0))),f=formation||'normal',out=[];
+  for(let i=0;i<n;i++){
+   const a=2*Math.PI*i/n,side=i%2?1:-1,k=Math.floor(i/2),radius=68;
+   let x=Math.cos(a)*radius,y=Math.sin(a)*radius*.78;
+   if(['arrow','double-arrow','chevron','drill'].includes(f)){x=44-k*24;y=side*(25+k*11);}
+   else if(f==='ring'||f==='dome'){x=Math.cos(a)*84;y=Math.sin(a)*84;}
+   else if(f==='heart'){x=56*Math.sin(a)**3;y=-3.6*(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a));}
+   else if(f==='wave'){x=(i-(n-1)/2)*18;y=62+Math.sin(i*.8)*18;}
+   else if(['bat','moth','star'].includes(f)){x=Math.cos(a)*(i%2?45:87);y=Math.sin(a)*(i%2?45:87);}
+   else if(f==='diamond'){const r=radius/(Math.abs(Math.cos(a))+Math.abs(Math.sin(a)));x=Math.cos(a)*r;y=Math.sin(a)*r;}
+   out.push({x,y});
+  }
+  return out;
+ }
+ function labelLayout(o,visual,npc,scale=1,angle=0,offsets=[]){
+  const kind=visual.kind,base=kind==='crystal-elite'?44:kind==='cube'?35:kind.startsWith('ship-')?42:36;
+  let above=base*scale,below=above;
+  const sin=Math.sin(angle),cos=Math.cos(angle);
+  if(!npc)for(const {x,y} of offsets){const v=(x*sin+y*cos)*scale;above=Math.max(above,-v+15*scale);below=Math.max(below,v+19*scale);}
+  return {top:Math.ceil(above+14),name:Math.ceil(below+15),width:o.type==='boss'?90:58,ring:Math.ceil(base*scale+4)};
+ }
+ function safeRatio(value,max){return Number.isFinite(value)&&Number.isFinite(max)&&max>0?Math.max(0,Math.min(1,value/max)):0;}
+ root.ggGraphics161={draw,portal,droneColor,droneKind,npcStyle,playerStyle,formationOffsets,labelLayout,safeRatio};
 })(window);
