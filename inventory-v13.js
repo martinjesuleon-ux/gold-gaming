@@ -84,7 +84,7 @@ function createInventory(pool){
    if(Number(p[q.currency])<q.total)throw fail('Saldo insuficiente',409);
    const column=q.currency==='credits'?'credits':'uridium';
    const balance=(await c.query('UPDATE player_progress SET '+column+'='+column+'-$2 WHERE account_id=$1 RETURNING credits,uridium',[id,q.total])).rows[0];
-   if(category==='ammo'||category==='fuel'){
+   if(['ammo','fuel','rockets'].includes(category)){
     await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,code,q.quantity]);
    }else{
     for(let i=0;i<q.quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),code,category]);
