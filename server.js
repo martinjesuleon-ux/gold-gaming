@@ -403,6 +403,15 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    ack({ok:true,stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo colocar la mina'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
  });
+ socket.on('v115:cbs',(data,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
+  if(!p||p.deadUntil||p.gatePending||p.gate||p.cbsBusy)return ack({ok:false,error:'Estación no disponible'});
+  if(process.env.GG_CBS_BUILD_ENABLED!=='1')return ack({ok:false,error:'Construcción en pruebas'});
+  if(!['build','lower'].includes(data?.action))return ack({ok:false,error:'Acción inválida'});
+  p.cbsBusy=true;const position={x:p.x,y:p.y,zone:p.zone};
+  const job=p.writes.catch(()=>{}).then(()=>accounts[data.action==='build'?'stationBuild':'stationLower'](p.accountId,data,position));p.writes=job;pending.add(job);
+  job.then(r=>ack({ok:true,...r})).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo guardar la estación'})).finally(()=>{p.cbsBusy=false;pending.delete(job);});
+ });
  socket.on('v114:bid',(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);if(!p||p.auctionBusy||p.deadUntil)return ack({ok:false,error:'Subasta no disponible'});
   p.auctionBusy=true;const job=p.writes.catch(()=>{}).then(()=>accounts.auctionBid(p.accountId,data));p.writes=job;pending.add(job);
