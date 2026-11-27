@@ -21,6 +21,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    code text NOT NULL, quantity bigint NOT NULL CHECK(quantity>=0),
    PRIMARY KEY(account_id,code));
+   CREATE TABLE IF NOT EXISTS gg_pet_kami_cooldown_v189(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,ready_at bigint NOT NULL CHECK(ready_at>=0));
    CREATE TABLE IF NOT EXISTS gg_pet_equipment_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,equipment jsonb NOT NULL DEFAULT '{"laser":[],"generator":[]}');
    CREATE TABLE IF NOT EXISTS gg_v13_hangar (
    account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
@@ -189,16 +190,21 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   if(!hasMountedGear(equipment,owned,code))throw fail('Equipa el módulo '+code+' en el hangar del P.E.T.');
   return owned.find(i=>i.category==='petGear'&&i.code===code&&equipment.gear.includes(i.instanceId));
  }
+ async function petCooldowns(id){const r=(await pool.query('SELECT (SELECT ready_at FROM gg_pet_kami_cooldown_v189 WHERE account_id=$1) AS kami,(SELECT ready_at FROM gg_pet_combo_cooldown_v180 WHERE account_id=$1) AS combo',[id])).rows[0];return {kamiReadyAt:require('./pet-test-kit-v175').testKitEnabled(id)?0:Number(r?.kami||0),comboReadyAt:Number(r?.combo||0)};}
  async function petKamikaze(id){
   return transaction(id,async c=>{
    const owned=(await c.query("SELECT instance_id AS \"instanceId\",code,category,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet')||!owned.some(x=>x.code==='G-KK1'))throw fail('Compra el módulo G-KK1 Kamikaze en la tienda');
    const gear=await requireMountedGear(c,id,owned,'G-KK1'),rules=require('./pet-gear-levels-v177');
    const spec=rules.levelRulesEnabled(id)?rules.spec('G-KK1',gear?.level):null;
+   const test=require('./pet-test-kit-v175').testKitEnabled(id),now=Date.now(),cooldown=test?0:(spec?.cooldown??10000);
+   const previous=Number((await c.query('SELECT ready_at FROM gg_pet_kami_cooldown_v189 WHERE account_id=$1',[id])).rows[0]?.ready_at||0);
+   if(!test&&previous>now)throw fail('Kamikaze: espera '+Math.ceil((previous-now)/1000)+' s');
    if(require('./pet-test-kit-v175').vitalsEnabled(id)){const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido');}
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-10 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=10 RETURNING quantity",[id])).rows[0];
    if(!r)throw fail('Necesitas 10 unidades de combustible');
-   return {fuel:Number(r.quantity),kamikaze:spec};
+   const readyAt=now+cooldown;await c.query('INSERT INTO gg_pet_kami_cooldown_v189(account_id,ready_at) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET ready_at=EXCLUDED.ready_at',[id,readyAt]);
+   return {fuel:Number(r.quantity),kamikaze:spec,readyAt:test?0:readyAt};
   });
  }
  async function petInterval(id,mode){
@@ -493,6 +499,6 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,activateConfig,combatLoadout,useCpu,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
+ return {ready,purchase,snapshot,equip,activateConfig,combatLoadout,useCpu,consumeAmmo,petInterval,petKamikaze,petCooldowns,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
 }
 module.exports={createInventory};
