@@ -135,6 +135,22 @@ function createPetProgression(pool){
   await c.query('INSERT INTO gg_pet_vitals_v173(account_id,hp,shield) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET hp=EXCLUDED.hp,shield=EXCLUDED.shield',[id,v.hp,v.shield]);
  }
  async function vitalsRead(id){return transaction(id,async(c,p)=>{const {vitals,stats}=await readVitals(c,id,p);return {...vitals,lasers:stats.lasers,damage:stats.damage,repairPrice:p.repair,enabled:require('./pet-test-kit-v175').vitalsEnabled(id)};});}
+ // Internal server-only repair tick. No client-supplied amount or duration.
+ async function repairPetHullTick(id){
+  const rules=require('./pet-support-gears-v178');if(!rules.repairEnabled(id))throw fail('Reparación en pruebas',403);
+  return transaction(id,async(c,p)=>{
+   const {equipment,available,stats}=await equipmentState(c,id,p);
+   const gear=available.find(i=>i.category==='petGear'&&i.code==='G-REP1'&&equipment.gear?.includes(i.instanceId));
+   const spec=rules.supportSpec('G-REP1',gear?.level);if(!spec)throw fail('Equipa el módulo G-REP1');
+   const {vitals}=require('./pet-vitals-v173');
+   const row=(await c.query('SELECT hp,shield FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
+   const v=vitals(stats,row?{hp:Number(row.hp),shield:Number(row.shield)}:null);
+   if(v.destroyed)throw fail('P.E.T. destruido');
+   const hp=rules.repairHull(v.hp,v.maxHp,spec.repairPerSecond,1000);
+   if(hp!==v.hp)await writeVitals(c,id,{...v,hp});
+   return {...v,hp,lasers:stats.lasers,damage:stats.damage,repairPrice:p.repair,enabled:true,durationMs:spec.durationMs};
+  });
+ }
  async function applyPetDamage(id,amount){
   if(!require('./pet-test-kit-v175').vitalsEnabled(id))return null;
   return transaction(id,async(c,p)=>{
@@ -193,6 +209,6 @@ function createPetProgression(pool){
    return response;
   });
  }
- return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet,regeneratePetShield,upgradeHull};
+ return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet,repairPetHullTick,regeneratePetShield,upgradeHull};
 }
 module.exports={levelForExperience,profile,quoteSlot,createPetProgression,TYPES,INITIAL};
