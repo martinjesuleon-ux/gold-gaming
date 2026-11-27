@@ -115,3 +115,17 @@ test('dark-space background cache regenerates only when viewport dimensions chan
  g.sky(c,1920,1080);assert.equal(canvases,2);g.sky(c,0,0);assert.equal(canvases,2);
  g.draw(c,'pet','#5ae5ff');g.draw(c,'pet','#5ae5ff');assert.equal(canvases,3);
 });
+
+test('sprite cache retains recently used hulls when many palettes are rendered',()=>{
+ let canvases=0;const gradient={addColorStop(){}},context=()=>new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient},{get:(t,k)=>k in t?t[k]:()=>{}});
+ const window={document:{createElement(){canvases++;return {getContext:()=>context()};}}};vm.runInNewContext(read('graphics-v161.js'),{window});
+ const g=window.ggGraphics161,c=context(),color=i=>'#'+i.toString(16).padStart(6,'0');
+ for(let i=0;i<128;i++)g.draw(c,'scout',color(i));
+ g.draw(c,'scout',color(0));assert.equal(canvases,128);
+ g.draw(c,'scout',color(128));assert.equal(canvases,129);
+ g.draw(c,'scout',color(0));assert.equal(canvases,129);
+ g.draw(c,'scout',color(1));assert.equal(canvases,130);
+});
+test('HUD resize work is coalesced and avoids unchanged style mutations',()=>{
+ const hud=read('gold-hud.js');assert.match(hud,/if\(layoutQueued\)return/);assert.match(hud,/getPropertyValue\(name\)!==next/);assert.match(hud,/requestAnimationFrame/);assert.match(hud,/attributeFilter:\['hidden'\]/);
+});
