@@ -7,7 +7,7 @@ const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,item
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
-function createInventory(pool){
+function createInventory(pool,{uridiumFactor=async()=>1}={}){
  const formations=createFormations(pool),pilot=createPilot(pool);
  async function ready(){
   await pool.query(`CREATE TABLE IF NOT EXISTS gg_v13_inventory (
@@ -347,10 +347,10 @@ function createInventory(pool){
    if(state.kills.includes(key))return {duplicate:true};
    const balances={};
    // Provisional: split the alien reward equally, with rounding remainder to the killer.
-   const share=(amount,id)=>Math.floor(amount/ids.length)+(id===killer?amount%ids.length:0);
+   const share=(amount,id)=>Math.floor(amount/ids.length)+(id===killer?amount%ids.length:0);const factor=await uridiumFactor(c);
    for(const {id,g} of rows){
     g.kills.push(key);await saveGateRow(c,id,g);
-    balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,share(payout.credits,id),share(payout.xp,id),share(payout.uridium,id),share(payout.honor,id)])).rows[0];
+    balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,share(payout.credits,id),share(payout.xp,id),share(payout.uridium,id)*factor,share(payout.honor,id)])).rows[0];
    }
    return {balances,rankChanged:await drones.award(c,killer,dronePoints)};
   });
@@ -400,7 +400,7 @@ function createInventory(pool){
    if(g.kills.includes(key))return {duplicate:true};
    g.kills.push(key);await saveGateRow(c,id,g);
    const {credits,xp,uridium,honor}=payout;
-   const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,uridium,honor])).rows[0];
+   const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,uridium*(await uridiumFactor(c)),honor])).rows[0];
    return {balance,rankChanged:await drones.award(c,id,dronePoints)};
   });
  }
