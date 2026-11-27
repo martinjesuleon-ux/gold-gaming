@@ -38,11 +38,12 @@ function createRankings(pool){
  if(!inserted.rowCount&&Number(last?.day)===day&&now-Number(last?.refreshed_at||0)<RANK_REFRESH_MS){await c.query('COMMIT');return false;}
  const rows=(await c.query(`SELECT p.account_id AS id,p.experience,p.honor,p.level,COALESCE(l.company,1) AS company,r.admin,r.highest,
  GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (now()-r.registered_at))/86400)) AS days,
- (SELECT count(*) FROM gg_rank_kills k WHERE k.attacker=p.account_id AND NOT k.ally) AS kills,
- (SELECT count(*) FROM gg_rank_kills k WHERE k.attacker=p.account_id AND k.ally) AS "allyKills",
- (SELECT count(*) FROM gg_rank_kills k WHERE k.victim=p.account_id)+(SELECT count(*) FROM gg_rank_deaths d WHERE d.account_id=p.account_id AND NOT d.radiation) AS deaths,
- (SELECT count(*) FROM gg_rank_deaths d WHERE d.account_id=p.account_id AND d.radiation) AS radiation
- FROM player_progress p JOIN gg_rank_profiles r USING(account_id) LEFT JOIN gg_v14_location l USING(account_id)`)).rows;
+ COALESCE(k.kills,0) AS kills,COALESCE(k.ally_kills,0) AS "allyKills",
+ COALESCE(v.deaths,0)+COALESCE(d.deaths,0) AS deaths,COALESCE(d.radiation,0) AS radiation
+ FROM player_progress p JOIN gg_rank_profiles r USING(account_id) LEFT JOIN gg_v14_location l USING(account_id)
+ LEFT JOIN (SELECT attacker,count(*) FILTER (WHERE NOT ally) AS kills,count(*) FILTER (WHERE ally) AS ally_kills FROM gg_rank_kills GROUP BY attacker) k ON k.attacker=p.account_id
+ LEFT JOIN (SELECT victim,count(*) AS deaths FROM gg_rank_kills GROUP BY victim) v ON v.victim=p.account_id
+ LEFT JOIN (SELECT account_id,count(*) FILTER (WHERE NOT radiation) AS deaths,count(*) FILTER (WHERE radiation) AS radiation FROM gg_rank_deaths GROUP BY account_id) d ON d.account_id=p.account_id`)).rows;
  const result=ranks(rows);
  if(result.length)await c.query(`UPDATE gg_rank_profiles r SET rank=v.rank,points=v.points,highest=CASE WHEN v.rank<=21 THEN GREATEST(r.highest,v.rank) ELSE r.highest END,calculated_at=$4 FROM unnest($1::uuid[],$2::int[],$3::bigint[]) AS v(id,rank,points) WHERE r.account_id=v.id AND (r.rank IS DISTINCT FROM v.rank OR r.points IS DISTINCT FROM v.points OR r.calculated_at=0 OR (v.rank<=21 AND r.highest<v.rank))`,[result.map(p=>p.id),result.map(p=>p.rank),result.map(p=>p.points),now]);
  await c.query('INSERT INTO gg_rank_clock(singleton,day,refreshed_at) VALUES(true,$1,$2) ON CONFLICT(singleton) DO UPDATE SET day=EXCLUDED.day,refreshed_at=EXCLUDED.refreshed_at',[day,now]);await c.query('COMMIT');return true;
