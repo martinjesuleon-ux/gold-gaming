@@ -727,9 +727,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  });
  socket.on('v16:kamikaze',()=>{
   const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||p.gatePending||p.gateWaiting||p.petPending||p.kamiPending||p.petTradePending)return;
-  const testKami=p.godAllowed===true&&require('./pet-test-kit-v175').testKitEnabled(p.accountId);const now=Date.now();if(!testKami&&(p.kamiUntil||0)>now){io.to(p.id).emit('notice','Kamikaze: espera '+Math.ceil((p.kamiUntil-now)/1000)+' s');return;}
+  const testKami=p.godAllowed===true&&require('./pet-test-kit-v175').testKitEnabled(p.accountId);const now=Date.now();if(!testKami&&(p.kamiUntil||0)>now){io.to(p.id).emit('v184:petKami',{pending:false,readyAt:p.kamiUntil});io.to(p.id).emit('notice','Kamikaze: espera '+Math.ceil((p.kamiUntil-now)/1000)+' s');return;}
   if(p.petMode==='off'||p.petUntil<=now||!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){io.to(p.id).emit('notice','Activa tu P.E.T. primero');return;}
-  const zone=p.zone,generation=p.petGeneration;p.kamiPending=true;
+  const zone=p.zone,generation=p.petGeneration;p.kamiPending=true;io.to(p.id).emit('v184:petKami',{pending:true,readyAt:p.kamiUntil||0});
   const job=accounts.petKamikaze(p.accountId).then(r=>{
    if(players.get(p.id)!==p||p.zone!==zone||p.deadUntil||p.gatePending||p.gateWaiting||p.petGeneration!==generation)return;
    const center={x:p.petX,y:p.petY};if(!Number.isFinite(center.x)||!Number.isFinite(center.y))return;
@@ -739,7 +739,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    io.to(zone).emit('v16:kamikazeEffect',{...center,radius:kami.radius});
    io.to(p.id).emit('notice','Kamikaze · '+targets.length+' NPC afectados · '+kills+' eliminados · recarga '+(kami.cooldown/1000)+' s');
    if(targets.length&&p.gate&&!([...npcs.values()].some(n=>sameZone(p,n)&&!n.gateShielded)))nextGateGroup(p);
-  }).catch(e=>io.to(p.id).emit('notice',e.status?e.message:'Kamikaze no disponible')).finally(()=>{p.kamiPending=false;pending.delete(job);});
+  }).catch(e=>io.to(p.id).emit('notice',e.status?e.message:'Kamikaze no disponible')).finally(()=>{p.kamiPending=false;if(players.get(p.id)===p){io.to(p.id).emit('v184:petKami',{pending:false,readyAt:p.kamiUntil||0});io.to(p.id).emit('v14:petState',{mode:p.petMode,fuel:p.petFuel??null,pending:!!p.petPending,vitals:p.petVitals||null});}pending.delete(job);});
   pending.add(job);
  });
  socket.on('v180:comboRepair',()=>{
