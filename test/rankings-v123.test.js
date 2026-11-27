@@ -19,6 +19,11 @@ test('rank snapshot and leaderboard exclude wanted and admin accounts',{skip:pro
  assert.equal((await r.status(ids[1])).own.rank,22);assert.equal((await r.status(ids[2])).own.rank,23);
  await pool.query('INSERT INTO gg_rank_kills(attacker,victim,ally) VALUES($1,$2,false)',[ids[0],ids[1]]);
  assert.equal(Number((await r.status(ids[0],'war')).rows.find(x=>x.name===names[0]).value),75);
+ const deathId=randomUUID();
+ await r.death(ids[0],false,deathId);await r.death(ids[0],false,deathId);
+ await r.death(ids[0],true,randomUUID());
+ const deaths=(await pool.query('SELECT radiation,count(*) AS n FROM gg_rank_deaths WHERE account_id=$1 GROUP BY radiation ORDER BY radiation',[ids[0]])).rows;
+ assert.deepEqual(deaths.map(x=>[x.radiation,Number(x.n)]),[[false,1],[true,1]]);
  await r.status(ids[0],'clan');
  }finally{for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
