@@ -28,6 +28,21 @@ test('CBS construction consumes owned modules once and rejects occupied asteroid
   const built=await service.status(ids[0]);assert.equal(built.inventory.length,0);assert.equal(built.asteroids.find(a=>a.id===asteroid.id).station.owned,true);assert.equal((await service.status(ids[1])).asteroids.find(a=>a.id===asteroid.id).station.owned,false);
   await assert.rejects(service.build(ids[1],{...request,moduleIds:inv[1].map(x=>x.instanceId),requestId:randomUUID()},position),/ocupado/);
   assert.equal((await service.status(ids[1])).inventory.length,10);
+  // Isolated fixture: move construction clock into the vulnerable phase without waiting.
+  const now=Date.now();await pool.query('UPDATE gg_cbs_stations SET ready_at=$2,down_until=$3 WHERE asteroid_id=$1',[asteroid.id,now-1000,now+1799000]);
+  const shot={asteroidId:asteroid.id,slot:2,damage:20000000,requestId:randomUUID()};
+  await assert.rejects(service.hit(ids[0],shot,position),/propia estación/);
+  await assert.rejects(service.hit(ids[1],{...shot,slot:0},position),/protegido/);
+  const firstHit=await service.hit(ids[1],shot,position);assert.equal(firstHit.uridium,700);assert.deepEqual(await service.hit(ids[1],shot,position),firstHit);
+  await assert.rejects(service.hit(ids[1],{...shot,requestId:randomUUID()},position),/destruido/);
+  for(const slot of [1,3,4,5,6,7,8,9])await service.hit(ids[1],{...shot,slot,requestId:randomUUID()},position);
+  const finalShot={...shot,slot:0,requestId:randomUUID()},final=await service.hit(ids[1],finalShot,position);assert.equal(final.stationDestroyed,true);assert.deepEqual(await service.hit(ids[1],finalShot,position),final);
+  assert.equal((await service.status(ids[0])).asteroids.find(a=>a.id===asteroid.id).station,null);
+  const broken=(await pool.query("SELECT instance_id,level FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-broken'",[ids[0]])).rows;
+  assert.equal(broken.length,10);assert.deepEqual(broken.map(x=>x.instance_id).sort(),inv[0].map(x=>x.instanceId).sort());
+  const reward=(await pool.query('SELECT credits,experience,honor,uridium FROM player_progress WHERE account_id=$1',[ids[1]])).rows[0];
+  assert.equal(Number(reward.credits),50000000);assert.equal(Number(reward.experience),10000000);assert.equal(Number(reward.honor),500000);assert.equal(Number(reward.uridium),9200);
+
  }finally{for(const clan of clans)await pool.query('DELETE FROM gg_v15_clans WHERE id=$1',[clan]);for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
 
