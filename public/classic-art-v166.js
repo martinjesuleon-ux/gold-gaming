@@ -50,5 +50,108 @@
   polygon(c,[[11,-8],[22,-7],[26,-5],[19,-3],[11,-4]],'#080d11','#8c5148',.6);c.fillStyle='#e57a66';c.fillRect(20,-6,5,1.2);
   for(const [x,y] of [[-27,4],[-11,9],[-3,14],[5,-12],[14,12]]){c.fillStyle='#e0b9a5';c.fillRect(x,y,1.7,1.4);}
  }
- root.ggClassicArt={finish,loot,ice,impact,streuner};
+ // Heavy segmented fighter: original geometry inspired by the supplied green craft.
+ function goliath(c,color){
+  const steel=linear(c,-30,-26,28,30,[[0,'#697b76'],[.18,'#263935'],[.4,'#101a1c'],[.62,'#3c4946'],[.82,'#182321'],[1,'#090e13']]);
+  const trim=linear(c,-20,-20,22,20,[[0,color],[.3,'#31493d'],[.6,'#101b19'],[1,color]]);
+  for(const sign of [-1,1]){
+   polygon(c,[[-32,sign*6],[-25,sign*18],[-12,sign*26],[4,sign*32],[16,sign*22],[22,sign*13],[34,sign*11],[29,sign*5],[8,sign*6],[-10,sign*8]],steel,'#667969',.75);
+   polygon(c,[[-17,sign*11],[-10,sign*27],[5,sign*28],[16,sign*18],[5,sign*12]],'#182424','#52675d',.65);
+   polygon(c,[[8,sign*6],[17,sign*8],[26,sign*7],[33,sign*11],[29,sign*15],[19,sign*17],[15,sign*13]],trim,'#7b9382',.65);
+   polygon(c,[[-30,sign*7],[-20,sign*10],[-12,sign*8],[-13,sign*5],[-29,sign*4]],color,'#294a39',.45);
+   for(let i=0;i<4;i++){const x=-8+i*4;polygon(c,[[x,sign*19],[x+2,sign*20],[x+6,sign*17],[x+4,sign*16]],'#82908a','#17241f',.35);}
+   c.fillStyle=radial(c,5,sign*10,7,[[0,'#ffffcf'],[.3,color],[1,color+'00']]);c.fillRect(-2,sign*10-7,14,14);
+  }
+  polygon(c,[[-34,0],[-25,-6],[-11,-10],[6,-8],[15,-5],[30,-6],[36,0],[30,6],[15,5],[6,8],[-11,10],[-25,6]],steel,'#82968a',.8);
+  polygon(c,[[-26,0],[-16,-4],[-4,-3],[3,0],[-4,3],[-16,4]],trim,color,.6);
+  polygon(c,[[4,-5],[19,-4],[24,0],[19,4],[4,5],[10,0]],color,'#bdd3b9',.5);
+  polygon(c,[[28,-3],[33,0],[28,3],[23,0]],'#a9b6a9','#293e31',.45);
+  for(const y of [-6,6]){c.fillStyle='#a6b9a5';c.fillRect(-19,y-.5,7,1);}
+ }
+ function alien(c,kind,color){
+  const green=kind==='classic-lordakia',steel=linear(c,-25,-25,29,26,[[0,green?'#8ea991':'#9eacb9'],[.25,green?'#3b5b3b':'#35404d'],[.5,'#11191f'],[.75,green?'#25462a':'#25303e'],[1,'#0b1016']]);
+  if(green){
+   for(const s of [-1,1]){
+    polygon(c,[[-25,s*9],[-12,s*17],[1,s*14],[12,s*7],[27,s*12],[19,s*21],[8,s*23],[-9,s*12],[-20,s*23],[-30,s*19]],steel,'#5d8265',.75);
+    polygon(c,[[4,s*8],[18,s*7],[31,s*14],[23,s*15],[17,s*11]],'#254433','#6f9c77',.6);
+    for(let i=0;i<3;i++){const x=17+i*3;polygon(c,[[x,s*13],[x+6,s*19],[x+3,s*20],[x-2,s*14]],'#a1b3a8','#303e3a',.45);}
+   }
+   polygon(c,[[-23,0],[-12,-10],[2,-13],[14,-7],[22,0],[14,8],[2,13],[-12,10]],steel,'#527d55',.8);
+   polygon(c,[[-14,0],[-5,-9],[5,-5],[14,0],[5,5],[-5,9]],'#27893e','#a1d488',.8);
+   c.fillStyle=radial(c,0,0,8,[[0,'#fff8c4'],[.28,'#efb94a'],[.55,'#937530'],[1,'#443e1600']]);c.fillRect(-8,-8,16,16);
+  }else{
+   for(const s of [-1,1]){
+    polygon(c,[[-21,s*3],[-18,s*14],[-8,s*23],[7,s*20],[19,s*9],[34,s*6],[20,s*2],[5,s*8],[-5,s*10]],steel,'#596a7e',.65);
+    polygon(c,[[-9,s*10],[3,s*18],[29,s*10],[36,s*3],[8,s*8]],'#344451','#9faeba',.55);
+    for(let i=0;i<3;i++){const x=-17+i*6;polygon(c,[[x,s*13],[x+6,s*23],[x+10,s*25],[x+4,s*15]],'#18252e','#4b5c6e',.5);}
+   }
+   polygon(c,[[-29,0],[-20,-10],[-4,-13],[14,-6],[24,0],[14,5],[-4,11],[-20,9]],steel,'#697887',.75);
+   polygon(c,[[-16,-2],[-7,-6],[9,-3],[17,0],[1,2],[-9,3]],'#17212b','#b2c1cb',.55);
+  }
+ }
+ function mineArt(c,armed){
+  const accent=armed?'#fa573c':'#e7b368',glow=radial(c,0,8,51,[[0,accent+'90'],[.55,accent+'32'],[1,accent+'00']]);c.fillStyle=glow;c.fillRect(-60,-55,120,110);
+  const metal=linear(c,-26,-35,25,35,[[0,'#d5c4b6'],[.25,'#776863'],[.55,'#27252a'],[1,'#796565']]);
+  for(let i=0;i<6;i++){const a=i*Math.PI/3,dx=Math.cos(a),dy=Math.sin(a);polygon(c,[[dx*7-dy*5,dy*7+dx*5],[dx*38-dy*2,dy*38+dx*2+9],[dx*43,dy*43+9],[dx*14+dy*5,dy*14-dx*5]],metal,'#b19688',1);}
+  polygon(c,[[-16,9],[-13,-25],[0,-38],[12,-26],[17,7],[4,19],[-8,17]],metal,'#d7b3a5',1.5);
+  polygon(c,[[-8,5],[-8,-21],[0,-30],[7,-21],[9,5],[0,12]],'#382d2e','#9d7167',1);
+  for(let y=-18;y<8;y+=7){polygon(c,[[-7,y],[0,y+6],[7,y]],'#7e5a54','#241e21',.7);}
+  polygon(c,[[-8,-24],[0,-32],[8,-24],[4,-20],[-4,-20]],accent,'#ffdec6',1.2);
+ }
+ function mine(c,armed,t){const s=cacheArt('mine-'+String(armed),a=>mineArt(a,armed));c.save();c.globalAlpha=.9+.1*Math.sin(t/180);c.drawImage(s,-20,-20,40,40);c.restore();}
+ function stationArt(c,color){
+  const steel=linear(c,-45,-30,45,30,[[0,'#b1c6c5'],[.24,'#617e80'],[.47,'#253b42'],[.68,'#152830'],[1,'#455c60']]);
+  polygon(c,[[-49,-8],[-35,-24],[-12,-25],[2,-13],[19,-25],[43,-17],[51,-4],[44,19],[18,28],[-9,19],[-31,27],[-48,13]],'#17272c','#648087',1);
+  polygon(c,[[-40,-4],[-31,-15],[-22,-17],[-9,-6],[-13,11],[-28,18],[-42,11]],steel,'#879e9c',1);
+  polygon(c,[[-18,-34],[2,-35],[8,-24],[9,24],[0,36],[-15,33],[-23,21],[-22,-24]],steel,'#91a4a0',1.5);
+  for(let y=-25;y<25;y+=12){polygon(c,[[-15,y],[2,y],[5,y+7],[-14,y+7]],'#263d42','#8ca8a8',.85);for(let i=0;i<4;i++){c.fillStyle='#a5c1bd';c.fillRect(-12+i*3.7,y+2,2,2);}}
+  polygon(c,[[17,-23],[38,-20],[48,-10],[43,14],[26,24],[14,10]],steel,'#8ea7a7',1);
+  polygon(c,[[23,-9],[38,-8],[41,4],[34,13],[22,9]],'#23373c','#75908f',1);for(let i=0;i<4;i++){c.fillStyle='#91a9a6';c.fillRect(25,-5+i*4,12,1.3);}
+  c.strokeStyle='#c1d0c7';c.lineWidth=1.6;for(const y of [-8,7]){c.beginPath();c.moveTo(7,y);c.bezierCurveTo(17,y-15,15,y+15,24,y);c.stroke();}
+  for(const [x,y] of [[-7,-28],[-6,29],[31,-17],[35,17]]){c.fillStyle=color;c.fillRect(x-1.5,y-1,3,2);}
+ }
+ function station(c,color){const s=cacheArt('station-'+color,a=>stationArt(a,color));c.drawImage(s,-60,-60,120,120);}
+ // Separate species geometry; elite variants retain their species silhouette and add armor.
+ function largeAlien(c,kind,color){
+  const [,species,tier='normal']=kind.split('-'),elite=tier!=='normal';
+  const steel=linear(c,-36,-35,36,35,[[0,'#c0c9c8'],[.2,'#697e89'],[.42,'#202f3d'],[.6,'#526674'],[.8,'#1b2935'],[1,'#0b141f']]);
+  const armor=linear(c,-30,-32,32,30,[[0,color],[.25,'#646b66'],[.48,'#1b262b'],[.75,'#38464b'],[1,'#10191f']]);
+  const gem=linear(c,-24,-28,26,28,[[0,'#e6f8ff'],[.25,color],[.5,'#203c58'],[.75,color],[1,'#0e243c']]);
+  const seam='#718b9b';
+  if(species==='kristallin'||species==='kristallon'){
+   const big=species==='kristallon',reach=big?43:35;
+   for(const side of [-1,1]){
+    const tips=big?[[30,0],[19,17],[-2,reach],[-13,27],[-31,31],[-24,9],[-13,0]]:[[29,0],[9,13],[-7,reach],[-17,23],[-30,16],[-20,5],[-13,0]];
+    polygon(c,tips.map(([x,y])=>[x,y*side]),steel,seam,.8);
+    polygon(c,[[23,4*side],[9,18*side],[-7,(reach-3)*side],[-13,20*side],[-21,12*side],[-5,5*side]],gem,color,.8);
+    polygon(c,[[9,18*side],[-7,(reach-3)*side],[-2,12*side]],'#dbf4ffb0',color,.5);
+    polygon(c,[[-2,12*side],[-13,20*side],[-21,12*side]],'#122c47',seam,.5);
+    if(big){polygon(c,[[16,10*side],[30,19*side],[17,31*side],[5,23*side]],steel,color,.8);polygon(c,[[20,15*side],[26,19*side],[17,27*side]],gem,color,.6);}
+    if(elite){polygon(c,[[-24,12*side],[-36,24*side],[-24,32*side],[-15,21*side]],steel,color,1);polygon(c,[[-31,24*side],[-24,29*side],[-20,22*side]],gem);}
+   }
+   polygon(c,[[36,0],[15,-12],[-4,-14],[-24,-8],[-31,0],[-24,8],[-4,14],[15,12]],steel,seam,1);
+   polygon(c,[[25,0],[9,-9],[-8,-9],[-16,0],[-8,9],[9,9]],gem,color,.8);
+   polygon(c,[[19,0],[5,-4],[-4,0],[5,4]],'#e9fbff',color,.5);
+  }else if(species==='mordon'||species==='devolarium'){
+   const heavy=species==='devolarium',w=heavy?34:27;
+   for(const side of [-1,1]){
+    const outline=heavy?[[32,8],[23,22],[7,w],[-15,w],[-35,20],[-29,8],[-8,5]]:[[26,8],[18,23],[-1,w],[-23,23],[-30,13],[-17,6],[-7,4]];
+    polygon(c,outline.map(([x,y])=>[x,y*side]),armor,color,.85);
+    for(let i=0;i<3;i++){const x=-20+i*13;polygon(c,[[x,11*side],[x+10,13*side],[x+8,(w-5)*side],[x-4,(w-7)*side]],steel,'#77807d',.65);polygon(c,[[x+1,15*side],[x+6,16*side],[x+4,20*side],[x-1,19*side]],'#1d2b30',color,.4);}
+    polygon(c,[[-31,9*side],[-35,17*side],[-26,22*side],[-21,14*side]],steel,seam,.65);
+    if(heavy||elite){polygon(c,[[18,9*side],[34,12*side],[39,19*side],[26,24*side],[14,17*side]],steel,color,.8);for(let i=0;i<3;i++){c.fillStyle=color;c.fillRect(26+i*3,side*17-1,1.6,2);}}
+   }
+   polygon(c,[[35,0],[21,-11],[2,-14],[-22,-10],[-34,-4],[-34,4],[-22,10],[2,14],[21,11]],steel,seam,1);
+   polygon(c,[[25,0],[12,-7],[-10,-7],[-18,0],[-10,7],[12,7]],'#101d25',color,.8);
+   for(let i=0;i<5;i++){c.fillStyle=i===2?color:'#62777d';c.fillRect(-11+i*5,-3,3,6);}
+  }else{
+   // Three-dimensional modular cube; three visible faces and separately recessed plates.
+   const top=[[0,-42],[38,-22],[0,-2],[-38,-22]],left=[[-38,-22],[0,-2],[0,42],[-38,22]],right=[[0,-2],[38,-22],[38,22],[0,42]];
+   polygon(c,top,steel,'#bcc9c9',1);polygon(c,left,'#364956',seam,1);polygon(c,right,'#182932',seam,1);
+   for(const side of [-1,1])for(let row=0;row<2;row++)for(let col=0;col<2;col++){const x=side*(4+col*16),y=6+row*19-col*8;polygon(c,[[x,y],[x+side*13,y-6],[x+side*13,y+8],[x,y+14]],steel,seam,.65);polygon(c,[[x+side*3,y+2],[x+side*10,y-1],[x+side*10,y+5],[x+side*3,y+8]],'#0b1c28',color,.55);}
+   polygon(c,[[0,-34],[24,-22],[0,-10],[-24,-22]],armor,color,1);polygon(c,[[0,-29],[13,-22],[0,-15],[-13,-22]],gem,color,.65);
+   for(const side of [-1,1]){c.fillStyle=color;c.fillRect(side*28-1,14,2,3);}
+  }
+ }
+ root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien};
 })(window);
