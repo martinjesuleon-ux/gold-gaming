@@ -28,6 +28,10 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
   try{const a=await authenticate(req.headers);if(!a)return res.status(401).json({error:'Inicia sesión'});req.pilotV13=a;next();}catch{return res.status(503).json({error:'Servicio no disponible'});}
  });
  const routeV13=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){res.status(e.status||(/^[0-9A-Z]{5}$/.test(e.code||'')?503:400)).json({error:e.status?e.message:'No se pudo completar la operación'});}};
+ app.get('/api/v13/gates',routeV13(req=>inventory.gateStatus(req.pilotV13.id)));
+ app.post('/api/v13/gates/spin',routeV13(req=>inventory.gateSpin(req.pilotV13.id,req.body||{})));
+ app.post('/api/v13/gates/build',routeV13(req=>inventory.gateBuild(req.pilotV13.id,req.body||{})));
+ app.post('/api/v13/gates/life',routeV13(req=>inventory.gateLife(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/catalog',routeV13(async()=>catalogV13));
  app.get('/api/v13/inventory',routeV13(req=>inventory.snapshot(req.pilotV13.id)));
  app.post('/api/v13/purchase',routeV13(req=>inventory.purchase(req.pilotV13.id,req.body||{})));
@@ -39,8 +43,8 @@ app.use('/api/auth',(req,res,next)=>{res.set('Cache-Control','no-store');if(req.
  }
  async function authenticate(headers){const token=tokenFrom(headers);if(!token)return null;return (await pool.query('SELECT a.id,a.username,p.ship,p.credits,p.experience,p.level,p.honor,p.uridium FROM player_sessions s JOIN accounts a ON a.id=s.account_id JOIN player_progress p ON p.account_id=a.id WHERE s.token_hash=$1 AND s.expires_at>now()',[digest(token)])).rows[0]||null;}
  // Cada recompensa se confirma en PostgreSQL antes de mostrarse al jugador.
- async function reward(id,credits,xp){const r=(await pool.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,level=GREATEST(level,1+((experience+$3)/500)::integer),updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level',[id,credits,xp])).rows[0];if(!r)throw Error('Cuenta sin progreso');return r;}
+ async function reward(id,credits,xp,uridium=0,honor=0){const r=(await pool.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,uridium,honor])).rows[0];if(!r)throw Error('Cuenta sin progreso');return r;}
  async function ready(){await pool.query('SELECT a.id,p.account_id,s.token_hash,i.item_code FROM accounts a LEFT JOIN player_progress p ON p.account_id=a.id LEFT JOIN player_sessions s ON s.account_id=a.id LEFT JOIN player_inventory i ON i.account_id=a.id LIMIT 0');await inventory.ready();}
- return {endpoints,authenticate,reward,ready,combatLoadout:inventory.combatLoadout,consumeAmmo:inventory.consumeAmmo,close:()=>pool.end()};
+ return {endpoints,authenticate,reward,ready,combatLoadout:inventory.combatLoadout,consumeAmmo:inventory.consumeAmmo,petInterval:inventory.petInterval,location:inventory.location,saveLocation:inventory.saveLocation,awardBox:inventory.awardBox,hadesEligibility:inventory.hadesEligibility,hadesStart:inventory.hadesStart,hadesKill:inventory.hadesKill,hadesAdvance:inventory.hadesAdvance,gateCheckpoint:inventory.gateCheckpoint,gateKill:inventory.gateKill,gateAdvance:inventory.gateAdvance,close:()=>pool.end()};
 }
 module.exports={createAccounts,hashPassword,verifyPassword};

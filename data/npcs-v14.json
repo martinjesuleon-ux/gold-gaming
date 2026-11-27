@@ -1,0 +1,722 @@
+{
+  "Streuner": {
+    "hp": 800,
+    "shield": 400,
+    "damage": 18,
+    "speed": 280,
+    "credits": 800,
+    "uridium": 2,
+    "xp": 400,
+    "honor": 2
+  },
+  "Lordakia": {
+    "hp": 2000,
+    "shield": 2000,
+    "damage": 70,
+    "speed": 320,
+    "credits": 1600,
+    "uridium": 4,
+    "xp": 800,
+    "honor": 4
+  },
+  "Saimon": {
+    "hp": 6000,
+    "shield": 3000,
+    "damage": 175,
+    "speed": 320,
+    "credits": 3200,
+    "uridium": 8,
+    "xp": 1600,
+    "honor": 8
+  },
+  "Boss Streuner": {
+    "hp": 3200,
+    "shield": 1600,
+    "damage": 100,
+    "speed": 250,
+    "credits": 3200,
+    "uridium": 8,
+    "xp": 1600,
+    "honor": 8
+  },
+  "Uber-Streuner": {
+    "hp": 6400,
+    "shield": 3200,
+    "damage": 140,
+    "speed": 300,
+    "credits": 6400,
+    "uridium": 16,
+    "xp": 3200,
+    "honor": 16
+  },
+  "Sibelonit": {
+    "hp": 40000,
+    "shield": 40000,
+    "damage": 850,
+    "speed": 320,
+    "credits": 25600,
+    "uridium": 24,
+    "xp": 3200,
+    "honor": 16
+  },
+  "Boss Lordakia": {
+    "hp": 8000,
+    "shield": 8000,
+    "damage": 320,
+    "speed": 320,
+    "credits": 6400,
+    "uridium": 16,
+    "xp": 3200,
+    "honor": 16
+  },
+  "Mordon": {
+    "hp": 20000,
+    "shield": 10000,
+    "damage": 350,
+    "speed": 125,
+    "credits": 12800,
+    "uridium": 16,
+    "xp": 3200,
+    "honor": 16
+  },
+  "StreuneR": {
+    "hp": 40000,
+    "shield": 30000,
+    "damage": 1000,
+    "speed": 280,
+    "credits": 24000,
+    "uridium": 30,
+    "xp": 6000,
+    "honor": 30
+  },
+  "Devolarium": {
+    "hp": 100000,
+    "shield": 100000,
+    "damage": 1000,
+    "speed": 200,
+    "credits": 102400,
+    "uridium": 32,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Kristallin": {
+    "hp": 50000,
+    "shield": 40000,
+    "damage": 1000,
+    "speed": 320,
+    "credits": 25600,
+    "uridium": 32,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Boss Saimon": {
+    "hp": 24000,
+    "shield": 12000,
+    "damage": 700,
+    "speed": 300,
+    "credits": 12800,
+    "uridium": 32,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Uber-Lordakia": {
+    "hp": 16000,
+    "shield": 16000,
+    "damage": 550,
+    "speed": 250,
+    "credits": 12800,
+    "uridium": 32,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Kristallin Infectado": {
+    "hp": 75000,
+    "shield": 60000,
+    "damage": 1500,
+    "speed": 320,
+    "credits": 25600,
+    "uridium": 32,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Interceptor": {
+    "hp": 60000,
+    "shield": 40000,
+    "damage": 438,
+    "speed": 600,
+    "credits": 50000,
+    "uridium": 40,
+    "xp": 7500,
+    "honor": 40
+  },
+  "Boss Mordon": {
+    "hp": 80000,
+    "shield": 40000,
+    "damage": 1500,
+    "speed": 150,
+    "credits": 51200,
+    "uridium": 64,
+    "xp": 12800,
+    "honor": 64
+  },
+  "Sibelon": {
+    "hp": 200000,
+    "shield": 200000,
+    "damage": 2500,
+    "speed": 100,
+    "credits": 204800,
+    "uridium": 64,
+    "xp": 12800,
+    "honor": 64
+  },
+  "Boss Sibelonit": {
+    "hp": 160000,
+    "shield": 160000,
+    "damage": 3763,
+    "speed": 300,
+    "credits": 204800,
+    "uridium": 96,
+    "xp": 12800,
+    "honor": 64
+  },
+  "Boss StreuneR": {
+    "hp": 80000,
+    "shield": 40000,
+    "damage": 1400,
+    "speed": 200,
+    "credits": 51200,
+    "uridium": 64,
+    "xp": 12800,
+    "honor": 64
+  },
+  "Uber Saimon": {
+    "hp": 48000,
+    "shield": 24000,
+    "damage": 1500,
+    "speed": 340,
+    "credits": 51200,
+    "uridium": 32,
+    "xp": 12800,
+    "honor": 64
+  },
+  "Barracuda": {
+    "hp": 180000,
+    "shield": 100000,
+    "damage": 5250,
+    "speed": 430,
+    "credits": 180000,
+    "uridium": 50,
+    "xp": 15000,
+    "honor": 56
+  },
+  "Saboteur": {
+    "hp": 200000,
+    "shield": 150000,
+    "damage": 3500,
+    "speed": 400,
+    "credits": 250000,
+    "uridium": 90,
+    "xp": 22500,
+    "honor": 72
+  },
+  "Boss Kristallin": {
+    "hp": 200000,
+    "shield": 160000,
+    "damage": 4700,
+    "speed": 340,
+    "credits": 102400,
+    "uridium": 128,
+    "xp": 25600,
+    "honor": 128
+  },
+  "Lordakium": {
+    "hp": 300000,
+    "shield": 200000,
+    "damage": 3500,
+    "speed": 230,
+    "credits": 409600,
+    "uridium": 128,
+    "xp": 25600,
+    "honor": 128
+  },
+  "Uber-Mordon": {
+    "hp": 160000,
+    "shield": 80000,
+    "damage": 2500,
+    "speed": 110,
+    "credits": 102400,
+    "uridium": 128,
+    "xp": 25600,
+    "honor": 128
+  },
+  "Uber-Sibelonit": {
+    "hp": 320000,
+    "shield": 320000,
+    "damage": 7000,
+    "speed": 350,
+    "credits": 409600,
+    "uridium": 192,
+    "xp": 25600,
+    "honor": 128
+  },
+  "Boss Devolarium": {
+    "hp": 400000,
+    "shield": 400000,
+    "damage": 4375,
+    "speed": 280,
+    "credits": 409600,
+    "uridium": 128,
+    "xp": 26500,
+    "honor": 128
+  },
+  "Uber-StreuneR": {
+    "hp": 320000,
+    "shield": 240000,
+    "damage": 7000,
+    "speed": 330,
+    "credits": 192000,
+    "uridium": 240,
+    "xp": 48000,
+    "honor": 240
+  },
+  "Boss Sibelon": {
+    "hp": 800000,
+    "shield": 800000,
+    "damage": 5112,
+    "speed": 175,
+    "credits": 819200,
+    "uridium": 256,
+    "xp": 51000,
+    "honor": 1256
+  },
+  "Kristallon": {
+    "hp": 400000,
+    "shield": 300000,
+    "damage": 4500,
+    "speed": 250,
+    "credits": 819200,
+    "uridium": 256,
+    "xp": 51200,
+    "honor": 256
+  },
+  "Uber-Devolarium": {
+    "hp": 800000,
+    "shield": 800000,
+    "damage": 9500,
+    "speed": 150,
+    "credits": 819200,
+    "uridium": 256,
+    "xp": 51200,
+    "honor": 256
+  },
+  "Uber Kristallin": {
+    "hp": 400000,
+    "shield": 320000,
+    "damage": 8400,
+    "speed": 335,
+    "credits": 204800,
+    "uridium": 256,
+    "xp": 51200,
+    "honor": 256
+  },
+  "Annihilator": {
+    "hp": 300000,
+    "shield": 200000,
+    "damage": 13125,
+    "speed": 350,
+    "credits": 500000,
+    "uridium": 130,
+    "xp": 75000,
+    "honor": 128
+  },
+  "Boss Lordakium": {
+    "hp": 1200000,
+    "shield": 800000,
+    "damage": 14000,
+    "speed": 200,
+    "credits": 1638400,
+    "uridium": 512,
+    "xp": 102400,
+    "honor": 512
+  },
+  "Uber Sibelon": {
+    "hp": 1600000,
+    "shield": 1600000,
+    "damage": 21000,
+    "speed": 100,
+    "credits": 1638400,
+    "uridium": 512,
+    "xp": 102400,
+    "honor": 512
+  },
+  "Deadly Battleray": {
+    "hp": 750000,
+    "shield": 600000,
+    "damage": 13000,
+    "speed": 300,
+    "credits": 5250000,
+    "uridium": 530,
+    "xp": 187500,
+    "honor": 375
+  },
+  "Uber-Lordakium": {
+    "hp": 2400000,
+    "shield": 1600000,
+    "damage": 28000,
+    "speed": 100,
+    "credits": 3276800,
+    "uridium": 1024,
+    "xp": 204800,
+    "honor": 1024
+  },
+  "Boss Kristallon": {
+    "hp": 1600000,
+    "shield": 1200000,
+    "damage": 17500,
+    "speed": 250,
+    "credits": 3276800,
+    "uridium": 1024,
+    "xp": 204800,
+    "honor": 1024
+  },
+  "Uber-Kristallon": {
+    "hp": 3200000,
+    "shield": 2400000,
+    "damage": 31000,
+    "speed": 240,
+    "credits": 6553600,
+    "uridium": 2048,
+    "xp": 409600,
+    "honor": 2048
+  },
+  "Cubikon": {
+    "hp": 1600000,
+    "shield": 1200000,
+    "damage": 0,
+    "speed": 30,
+    "credits": 3276800,
+    "uridium": 2048,
+    "xp": 512000,
+    "honor": 4096
+  },
+  "Boss Kucurbium": {
+    "hp": 20000000,
+    "shield": 20000000,
+    "damage": 30000,
+    "speed": 200,
+    "credits": 52428800,
+    "uridium": 8192,
+    "xp": 1638400,
+    "honor": 8192
+  },
+  "Vagrant": {
+    "hp": 60000,
+    "shield": 40000,
+    "damage": 2500,
+    "speed": 345,
+    "credits": 30000,
+    "uridium": 16,
+    "xp": 4000,
+    "honor": 4
+  },
+  "Marauder": {
+    "hp": 80000,
+    "shield": 60000,
+    "damage": 4500,
+    "speed": 370,
+    "credits": 60000,
+    "uridium": 32,
+    "xp": 6000,
+    "honor": 8
+  },
+  "Evil Iris": {
+    "hp": 60000,
+    "shield": 50000,
+    "damage": 1400,
+    "speed": 380,
+    "credits": 25600,
+    "uridium": 32,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Ufonit": {
+    "hp": 60000,
+    "shield": 50000,
+    "damage": 850,
+    "speed": 300,
+    "credits": 25600,
+    "uridium": 24,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Icy": {
+    "hp": 100000,
+    "shield": 80000,
+    "damage": 1750,
+    "speed": 475,
+    "credits": 25600,
+    "uridium": 32,
+    "xp": 6400,
+    "honor": 32
+  },
+  "Infernal": {
+    "hp": 60000,
+    "shield": 50000,
+    "damage": 1000,
+    "speed": 370,
+    "credits": 50000,
+    "uridium": 32,
+    "xp": 8000,
+    "honor": 4
+  },
+  "Outcast": {
+    "hp": 300000,
+    "shield": 160000,
+    "damage": 4500,
+    "speed": 370,
+    "credits": 100000,
+    "uridium": 48,
+    "xp": 9000,
+    "honor": 12
+  },
+  "Scorher": {
+    "hp": 200000,
+    "shield": 200000,
+    "damage": 2500,
+    "speed": 360,
+    "credits": 300000,
+    "uridium": 64,
+    "xp": 15000,
+    "honor": 8
+  },
+  "Corsair": {
+    "hp": 200000,
+    "shield": 120000,
+    "damage": 7000,
+    "speed": 380,
+    "credits": 160000,
+    "uridium": 64,
+    "xp": 15000,
+    "honor": 8
+  },
+  "Ravager": {
+    "hp": 300000,
+    "shield": 250000,
+    "damage": 9600,
+    "speed": 340,
+    "credits": 160000,
+    "uridium": 128,
+    "xp": 25000,
+    "honor": 64
+  },
+  "Convict": {
+    "hp": 450000,
+    "shield": 300000,
+    "damage": 10500,
+    "speed": 400,
+    "credits": 440000,
+    "uridium": 300,
+    "xp": 30000,
+    "honor": 100
+  },
+  "Hooligan": {
+    "hp": 250000,
+    "shield": 200000,
+    "damage": 9000,
+    "speed": 390,
+    "credits": 250000,
+    "uridium": 128,
+    "xp": 40000,
+    "honor": 32
+  },
+  "DemaNeR": {
+    "hp": 512000,
+    "shield": 256000,
+    "damage": 5000,
+    "speed": 300,
+    "credits": 819200,
+    "uridium": 512,
+    "xp": 51200,
+    "honor": 256
+  },
+  "Melter": {
+    "hp": 300000,
+    "shield": 400000,
+    "damage": 4375,
+    "speed": 360,
+    "credits": 800000,
+    "uridium": 512,
+    "xp": 55000,
+    "honor": 12
+  },
+  "Impulse II": {
+    "hp": 1200000,
+    "shield": 750000,
+    "damage": 12000,
+    "speed": 450,
+    "credits": 200000,
+    "uridium": 45,
+    "xp": 55000,
+    "honor": 200
+  },
+  "Kucurbium": {
+    "hp": 800000,
+    "shield": 600000,
+    "damage": 7000,
+    "speed": 200,
+    "credits": 3276800,
+    "uridium": 1024,
+    "xp": 102400,
+    "honor": 512
+  },
+  "Demon Drone": {
+    "hp": 1600000,
+    "shield": 1600000,
+    "damage": 21000,
+    "speed": 400,
+    "credits": 819000,
+    "uridium": 3560,
+    "xp": 102400,
+    "honor": 5512
+  },
+  "Boss Kucurbium (Kappa)": {
+    "hp": 800000,
+    "shield": 600000,
+    "damage": 46000,
+    "speed": 200,
+    "credits": 6553600,
+    "uridium": 4096,
+    "xp": 204800,
+    "honor": 1024
+  },
+  "Kucurbium (large)": {
+    "hp": 5000000,
+    "shield": 5000000,
+    "damage": 15000,
+    "speed": 200,
+    "credits": 12000000,
+    "uridium": 1024,
+    "xp": 204800,
+    "honor": 1024
+  },
+  "Attend XI": {
+    "hp": 9000000,
+    "shield": 4800000,
+    "damage": 17000,
+    "speed": 150,
+    "credits": 1000000,
+    "uridium": 275,
+    "xp": 350000,
+    "honor": 750
+  },
+  "Emperor-Sibelon": {
+    "hp": 6400000,
+    "shield": 6400000,
+    "damage": 35000,
+    "speed": 350,
+    "credits": 2800000,
+    "uridium": 9216,
+    "xp": 409600,
+    "honor": 2048
+  },
+  "Hitac Mothership": {
+    "hp": 10000000,
+    "shield": 5500000,
+    "damage": 27500,
+    "speed": 0,
+    "credits": 3000000,
+    "uridium": 10000,
+    "xp": 600000,
+    "honor": 7500
+  },
+  "Emperor-Lordakium": {
+    "hp": 9600000,
+    "shield": 6400000,
+    "damage": 45000,
+    "speed": 350,
+    "credits": 4000000,
+    "uridium": 18428,
+    "xp": 786000,
+    "honor": 4096
+  },
+  "Super Ice Meteoroid": {
+    "hp": 4000000,
+    "shield": 4000000,
+    "damage": 15000,
+    "speed": 200,
+    "credits": 6000000,
+    "uridium": 3600,
+    "xp": 1000000,
+    "honor": 5000
+  },
+  "Devourer": {
+    "hp": 2000000,
+    "shield": 1000000,
+    "damage": 10500,
+    "speed": 370,
+    "credits": 5000000,
+    "uridium": 2048,
+    "xp": 1000000,
+    "honor": 512
+  },
+  "Hitac Minion": {
+    "hp": 3800000,
+    "shield": 2600000,
+    "damage": 9000,
+    "speed": 300,
+    "credits": 2000000,
+    "uridium": 4500,
+    "xp": 1000000,
+    "honor": 18500
+  },
+  "Emperor-Kristallon": {
+    "hp": 14080000,
+    "shield": 11100000,
+    "damage": 15000,
+    "speed": 350,
+    "credits": 10000000,
+    "uridium": 73728,
+    "xp": 1536000,
+    "honor": 8192
+  },
+  "Century-Falcon (Kappa)": {
+    "hp": 12000000,
+    "shield": 9000000,
+    "damage": 70000,
+    "speed": 360,
+    "credits": 3000000,
+    "uridium": 15000,
+    "xp": 3000000,
+    "honor": 15000
+  },
+  "Frightful Curcubitor": {
+    "hp": 4400000,
+    "shield": 4800000,
+    "damage": 36000,
+    "speed": 200,
+    "credits": 52428800,
+    "uridium": 8192,
+    "xp": 3276800,
+    "honor": 16384
+  },
+  "Strokelight Barrage": {
+    "hp": 4500000,
+    "shield": 500000,
+    "damage": 22500,
+    "speed": 0,
+    "credits": 6500000,
+    "uridium": 4000,
+    "xp": 3500000,
+    "honor": 350000
+  },
+  "Century-Falcon": {
+    "hp": 36000000,
+    "shield": 27000000,
+    "damage": 60500,
+    "speed": 360,
+    "credits": 2000000,
+    "uridium": 10000,
+    "xp": 9000000,
+    "honor": 130000
+  }
+}
