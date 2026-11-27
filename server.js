@@ -1,6 +1,6 @@
 'use strict';
 const express=require('express');const http=require('node:http');const path=require('node:path');const crypto=require('node:crypto');const {Server}=require('socket.io');const {createAccounts}=require('./accounts');
-const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const {MAPS,homeBase,galaxyPortals,portals,requiredLevel,population}=require('./maps-v14');const {eligible,damageFactor}=require('./pvp-v15');const {createGroups}=require('./groups-v15');const {npcCargo}=require('./minerals-v17');const {factor}=require('./upgrades-v18');const {MINES,RULES:MR,mineImpact}=require('./mines-v18');const {ABILITIES,definitions:abilityDefinitions,active:abilityActive,activate:activateAbility,heal,speedFactor,incoming,breakCloak}=require('./abilities-v18');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo,hit}=require('./equipment-v13');
+const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const {MAPS,homeBase,galaxyPortals,portals,requiredLevel,population}=require('./maps-v14');const {eligible,damageFactor}=require('./pvp-v15');const {createGroups}=require('./groups-v15');const {npcCargo}=require('./minerals-v17');const {factor}=require('./upgrades-v18');const {MINES,RULES:MR,mineImpact}=require('./mines-v18');const {repairRate}=require('./cpus-v18');const {ABILITIES,definitions:abilityDefinitions,active:abilityActive,activate:activateAbility,heal,speedFactor,incoming,breakCloak}=require('./abilities-v18');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo,hit}=require('./equipment-v13');
 const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,damage:110},tank:{hp:1800,shield:950,speed:255,damage:155}};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n)),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),random=(a,b)=>a+Math.random()*(b-a),point=()=>({x:random(150,WORLD.w-150),y:random(150,WORLD.h-150)}),validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
 function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCount=75,accounts=createAccounts(process.env.DATABASE_URL)}={}){
@@ -9,8 +9,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  const later=(fn,ms)=>{if(closing)return;const t=setTimeout(()=>{timers.delete(t);fn();},ms);timers.add(t);};const id=()=>String(++seq);
  function spawnNPC(boss=false,pos=point()){const n={id:id(),type:boss?'boss':'drone',name:boss?'BOSS · TITAN':'Stellar Drone',x:pos.x,y:pos.y,angle:0,hp:boss?8500:650,maxHp:boss?8500:650,shield:boss?4500:220,maxShield:boss?4500:220,speed:boss?105:155,damage:boss?220:55,reward:boss?3500:180,target:null,dest:point(),lastShot:0};npcs.set(n.id,n);return n;}
  function spawnBox(pos=point(),zone='1-1'){const b={id:id(),zone,x:pos.x,y:pos.y,value:Math.floor(random(35,101))};boxes.set(b.id,b);return b;}
- function applyLoadout(p,l){if(!l)return;if(p.ship!==l.ship||p.design!==l.design)for(const a of Object.values(p.abilities||{}))a.until=0;const ratio=Number.isFinite(p.hp)?p.hp/p.maxHp:1;p.ship=l.ship;p.design=l.design||null;p.designBonus=l.designBonus||{};p.maxHp=Math.round(l.hp*(p.designBonus.hp||1));p.baseShield=Math.round(l.shield*(p.designBonus.shield||1));p.baseSpeed=l.speed;p.maxShield=Math.round(p.baseShield*factor(p.mineralUpgrades,'shield'));p.speed=l.speed*factor(p.mineralUpgrades,'speed');p.damage=Math.round(l.damage*(p.designBonus.damage||1));p.lasers=l.lasers;p.launcher=l.launcher||null;p.absorption=l.absorption;p.hp=Math.min(p.maxHp,Math.max(0,Math.round(p.maxHp*ratio)));p.shield=Math.min(Number.isFinite(p.shield)?p.shield:p.maxShield,p.maxShield);p.v13=true;p.ammo=p.ammo||'LCB-10';}
- function spawnPlayer(p){for(const a of Object.values(p.abilities||{}))a.until=0;p.petMode='off';p.petUntil=0;p.petGeneration=(p.petGeneration||0)+1;Object.assign(p,{x:WORLD.w/2+random(-180,180),y:WORLD.h/2+random(-180,180),hp:p.maxHp,shield:p.maxShield,angle:0,dest:null,target:null,attack:false,deadUntil:0,lastHit:Date.now()});}
+ function applyLoadout(p,l){if(!l)return;if(p.ship!==l.ship||p.design!==l.design)for(const a of Object.values(p.abilities||{}))a.until=0;const ratio=Number.isFinite(p.hp)?p.hp/p.maxHp:1;p.ship=l.ship;p.design=l.design||null;p.designBonus=l.designBonus||{};p.maxHp=Math.round(l.hp*(p.designBonus.hp||1));p.baseShield=Math.round(l.shield*(p.designBonus.shield||1));p.baseSpeed=l.speed;p.maxShield=Math.round(p.baseShield*factor(p.mineralUpgrades,'shield'));p.speed=l.speed*factor(p.mineralUpgrades,'speed');p.damage=Math.round(l.damage*(p.designBonus.damage||1));p.lasers=l.lasers;p.launcher=l.launcher||null;p.cpus=l.cpus||[];p.robot=l.robot||null;p.absorption=l.absorption;p.hp=Math.min(p.maxHp,Math.max(0,Math.round(p.maxHp*ratio)));p.shield=Math.min(Number.isFinite(p.shield)?p.shield:p.maxShield,p.maxShield);p.v13=true;p.ammo=p.ammo||'LCB-10';}
+ function spawnPlayer(p){p.cloaked=false;p.ishUntil=0;p.repairOn=false;for(const a of Object.values(p.abilities||{}))a.until=0;p.petMode='off';p.petUntil=0;p.petGeneration=(p.petGeneration||0)+1;Object.assign(p,{x:WORLD.w/2+random(-180,180),y:WORLD.h/2+random(-180,180),hp:p.maxHp,shield:p.maxShield,angle:0,dest:null,target:null,attack:false,deadUntil:0,lastHit:Date.now()});}
  function applyMineralStats(p,upgrades){p.mineralUpgrades=upgrades||{};const max=Math.round((p.baseShield??p.maxShield)*factor(upgrades,'shield'));p.maxShield=max;p.shield=Math.min(max,p.shield);p.speed=(p.baseSpeed??p.speed)*factor(upgrades,'speed');}
  function generatorTick(p,now){
   if(p.upgradePending||p.shotPending||now<(p.nextGeneratorRound||0))return;
@@ -22,7 +22,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const job=p.writes.catch(()=>{}).then(()=>accounts.generatorRound(p.accountId,slots)).then(r=>{if(players.get(p.id)===p)applyMineralStats(p,r.upgrades);});
   p.writes=job;pending.add(job);job.catch(()=>{}).finally(()=>{p.upgradePending=false;pending.delete(job);});
  }
- function damage(v,amount){if(v.godMode===true)return;amount=protectDamage(v,amount*incoming(v,Date.now()));const absorbed=Math.min(v.shield,amount*(v.absorption??1));v.shield-=absorbed*(abilityActive(v,'fortress',Date.now())?.7:1);v.hp=Math.max(0,v.hp-(amount-absorbed));v.lastHit=Date.now();}
+ function immune(v){return v.godMode===true||v.ishUntil>Date.now();}
+ function damage(v,amount){if(immune(v))return;amount=protectDamage(v,amount*incoming(v,Date.now()));const absorbed=Math.min(v.shield,amount*(v.absorption??1));v.shield-=absorbed*(abilityActive(v,'fortress',Date.now())?.7:1);v.hp=Math.max(0,v.hp-(amount-absorbed));v.lastHit=Date.now();}
  function move(v,d,dt){if(!d)return;const dx=d.x-v.x,dy=d.y-v.y,len=Math.hypot(dx,dy);if(len<1)return;v.angle=Math.atan2(dy,dx);const step=Math.min(len,v.speed*speedFactor(v,Date.now())*(v.freezeUntil>Date.now()?0:v.mineSlowUntil>Date.now()?.5:v.slowUntil>Date.now()?.7:1)*dt);v.x=clamp(v.x+dx/len*step,25,WORLD.w-25);v.y=clamp(v.y+dy/len*step,25,WORLD.h-25);}
  function laser(a,b){io.to(zoneOf(a)).emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player'});}
  const initializedMaps=new Set();
@@ -42,7 +43,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    if(owner)for(const n of npcs.values())if(n.zone===m.zone&&!n.gateShielded&&n.hp>0)candidates.push(n);
    if(!candidates.some(v=>distance(m,v)<=MR.triggerRadius))continue;
    mines.delete(m.id);const spec=MINES.find(x=>x.id===m.code);
-   for(const v of candidates)if(distance(m,v)<=MR.blastRadius&&!v.godMode){
+   for(const v of candidates)if(distance(m,v)<=MR.blastRadius&&!immune(v)){
     const before=v.hp+v.shield;Object.assign(v,mineImpact(v,spec,now));if(v.hp+v.shield<before)v.lastHit=now;
     if(owner&&npcs.get(v.id)===v)v.target=owner.id;
    }
@@ -59,13 +60,14 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function changeMap(p,zone,pos){const sock=io.sockets.sockets.get(p.id);sock?.leave(zoneOf(p));p.zone=zone;initMap(zone);sock?.join(zone);p.x=pos?.x??WORLD.w/2;p.y=pos?.y??WORLD.h/2;p.dest=null;p.target=null;p.attack=false;setPetMode(p,'off');sock?.emit('v14:map',{map:zone});sock?.emit('v16:basePortals',{map:zone,portals:personalPortals(p)});}
  function groupView(id){const g=groups.status(id);return {group:g?{...g,members:g.members.map(id=>({id,name:players.get(id)?.name||'Piloto',map:players.get(id)?.zone}))}:null,invite:groups.pending(id),pilots:[...players.values()].filter(p=>p.id!==id&&!p.gate).map(p=>({id:p.id,name:p.name}))};}
  function notifyGroup(ids){for(const id of ids){const p=players.get(id);if(p){p.group=groups.status(id)?.id||null;io.to(id).emit('v15:group',groupView(id));}}}
- function canPvp(a,b){return !!b&&!abilityActive(b,'ultimate-cloak',Date.now())&&eligible(a,{...b,safe:safeZone(b)})&&!safeZone(a)&&!(a.hadesPending||b.hadesPending);}
+ function canPvp(a,b){return !!b&&!abilityActive(b,'ultimate-cloak',Date.now())&&!b.cloaked&&eligible(a,{...b,safe:safeZone(b)})&&!safeZone(a)&&!(a.hadesPending||b.hadesPending);}
  function groupMates(p,radius){return [...players.values()].filter(q=>q!==p&&!q.deadUntil&&!q.gatePending&&q.hp>0&&p.group&&q.group===p.group&&sameZone(q,p)&&distance(p,q)<=radius);}
  function protectDamage(v,amount){if(!v.group||!amount)return amount;const protector=groupMates(v,700).find(q=>abilityActive(q,'protect',Date.now()));if(!protector)return amount;const redirected=Math.min(protector.shield,amount*.25);if(!protector.godMode){protector.shield-=redirected;protector.lastHit=Date.now();}return amount-redirected;}
  function markFactor(p,n,now){return n.markUntil>now&&n.markGroup&&n.markGroup===p.group?1.05:1;}
  function abilityTick(p,now,dt){
   const a=p.abilities||{};
-  if(abilityActive(p,'singularity',now)){const effect=a.singularity,n=npcs.get(effect.target)||players.get(effect.target);const pvp=!!n&&players.get(n.id)===n;if(!n||n.hp<=0||n.godMode||n.gateShielded||!sameZone(p,n)||(pvp&&!canPvp(p,n))){effect.until=0;}else if(now>=(effect.next||0)){effect.next=now+1000;effect.ticks=(effect.ticks||0)+1;n.hp=Math.max(0,n.hp-500*effect.ticks);n.lastHit=now;finishCombat(p,n,pvp);if(n.hp<=0)effect.until=0;}}
+  if(p.robot&&(p.repairOn||p.cpus?.includes('NC-RRB'))&&!p.attack&&now-p.lastHit>=5000&&p.hp<p.maxHp)heal(p,'hp',repairRate(p.robot,p.maxHp)*dt);
+  if(abilityActive(p,'singularity',now)){const effect=a.singularity,n=npcs.get(effect.target)||players.get(effect.target);const pvp=!!n&&players.get(n.id)===n;if(!n||n.hp<=0||immune(n)||n.gateShielded||!sameZone(p,n)||(pvp&&!canPvp(p,n))){effect.until=0;}else if(now>=(effect.next||0)){effect.next=now+1000;effect.ticks=(effect.ticks||0)+1;n.hp=Math.max(0,n.hp-500*effect.ticks);n.lastHit=now;finishCombat(p,n,pvp);if(n.hp<=0)effect.until=0;}}
   for(const [key,kind,selfRate,otherRate] of [['repair-hp','hp',20000,40000],['repair-shield','shield',15000,25000]]){
    if(!abilityActive(p,key,now))continue;const q=players.get(a[key].target);
    if(q&&groupMates(p,700).includes(q))heal(q,kind,otherRate*dt);else heal(p,kind,selfRate*dt);
@@ -191,7 +193,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }).catch(()=>{if(players.get(p.id)===p){returnFromGate(p,outcome==='death');io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice','No se pudo guardar la puerta. Vuelve a entrar.');}}).finally(()=>{p.gatePending=false;pending.delete(job);});
   p.writes=job;pending.add(job);
  }
- const publicPlayer=p=>({id:p.id,name:p.name,godAllowed:!!p.godAllowed,godMode:!!p.godMode,abilities:p.abilities||{},jamUntil:p.jamUntil||0,mineralUpgrades:p.mineralUpgrades||{},clanTag:p.clanTag||'',ship:p.ship,design:p.design||null,company:p.company,companyChosen:p.companyChosen,honor:p.honor,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil,pet:p.petUntil>Date.now()&&p.petMode!=='off'&&!p.deadUntil?{mode:p.petMode,x:p.petX,y:p.petY}:null});
+ const publicPlayer=p=>({id:p.id,name:p.name,godAllowed:!!p.godAllowed,godMode:!!p.godMode,cpus:p.cpus||[],robot:p.robot,repairOn:!!p.repairOn,cloaked:!!p.cloaked,ishUntil:p.ishUntil||0,mineUntil:p.mineUntil||0,abilities:p.abilities||{},jamUntil:p.jamUntil||0,mineralUpgrades:p.mineralUpgrades||{},clanTag:p.clanTag||'',ship:p.ship,design:p.design||null,company:p.company,companyChosen:p.companyChosen,honor:p.honor,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil,pet:p.petUntil>Date.now()&&p.petMode!=='off'&&!p.deadUntil?{mode:p.petMode,x:p.petX,y:p.petY}:null});
  function missionEvent(p,type,target,count=1){
   const job=p.writes.catch(()=>{}).then(()=>accounts.missionEvent(p.accountId,type,target,count));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo guardar el progreso de misión');});return job;
  }
@@ -236,6 +238,26 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  socket.on('join',async(data,ack)=>{if(typeof ack!=='function'||!allowed()||joining||closing)return;if(players.has(socket.id))return ack({ok:true,id:socket.id,world:WORLD});if(players.size>=40)return ack({ok:false,error:'Servidor lleno (40 pilotos)'});joining=true;try{const a=await accounts.authenticate(socket.handshake.headers);if(!socket.connected)return;if(!a)return ack({ok:false,error:'Inicia sesión o regístrate primero'});if(active.has(a.id))return ack({ok:false,error:'Cuenta ya conectada o guardando. Reintenta.'});if(players.size>=40||closing)return ack({ok:false,error:'Servidor no disponible'});const ship=Object.hasOwn(SHIPS,a.ship)?a.ship:'scout',s=SHIPS[ship];const p={id:socket.id,accountId:a.id,name:a.username,godAllowed:a.id==='14733365-e185-4d81-90a8-b3c95baf0af7',godMode:false,ship,maxHp:s.hp,maxShield:s.shield,speed:s.speed,damage:s.damage,credits:Number(a.credits),experience:Number(a.experience),level:Number(a.level),honor:Number(a.honor),lastShot:0,writes:Promise.resolve()};const loadout=await accounts.combatLoadout?.(a.id);p.mineralUpgrades=(await accounts.upgradeStatus(a.id)).upgrades;p.baseSpeed=s.speed;p.baseShield=s.shield;const loc=await accounts.location(a.id);const daily=await accounts.dailyClaim(a.id);p.credits=Number(daily.balance.credits);p.company=loc.company;p.companyChosen=loc.company_chosen;p.zone=loc.map;initMap(p.zone);if(!socket.connected||closing||active.has(a.id)||players.size>=40)return ack({ok:false,error:'Cuenta o servidor no disponible'});applyLoadout(p,loadout);if(!loadout)applyMineralStats(p,p.mineralUpgrades);spawnPlayer(p);p.protectedUntil=Date.now()+3000;active.set(a.id,p);players.set(socket.id,p);socket.join(p.zone);ack({ok:true,id:socket.id,world:WORLD,map:p.zone});refreshGalaxy(p).catch(()=>{});if(!daily.already)io.to(p.id).emit('notice','Recompensa diaria '+daily.day+'/28 acreditada');}catch{ack({ok:false,error:'Base de datos no disponible'});}finally{joining=false;}});
  socket.on('move',data=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||!validPoint(data))return;p.dest={x:clamp(data.x,25,WORLD.w-25),y:clamp(data.y,25,WORLD.h-25)};});socket.on('select',target=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil)return;const n=npcs.get(target)||players.get(target);p.target=n&&sameZone(p,n)&&distance(p,n)<1800&&(npcs.has(target)||canPvp(p,n)||groupMates(p,1800).includes(n))?n.id:null;p.attack=false;});socket.on('attack',on=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||typeof on!=='boolean')return;const n=npcs.get(p.target)||players.get(p.target);p.attack=on&&!!n&&sameZone(p,n)&&!p.gatePending&&(npcs.has(p.target)||canPvp(p,n));if(p.attack)p.protectedUntil=0;});
  socket.on('v13:ammo',code=>{const p=players.get(socket.id);if(allowed()&&p&&catalogV13.ammo.some(a=>a.id===code))p.ammo=code;});
+ socket.on('v18:cpu',(code,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id),now=Date.now();
+  if(!p||p.deadUntil||p.gatePending||p.gateWaiting||p.upgradePending||p.shotPending||p.reloadPending)return ack({ok:false,error:'CPU no disponible ahora'});
+  if(code==='repair'){if(!p.robot)return ack({ok:false,error:'Equipa un robot primero'});p.repairOn=!p.repairOn;return ack({ok:true,repairOn:p.repairOn});}
+  if(!p.cpus?.includes(code)||!['ISH-01','SMB-01','CLO4K-CPU','CLO4K-XL-CPU'].includes(code))return ack({ok:false,error:'Equipa el CPU en el hangar'});
+  const mineBased=['ISH-01','SMB-01'].includes(code),zone=p.zone;
+  if(mineBased&&now<(p.mineUntil||0))return ack({ok:false,error:'Minas en recarga'});
+  if(code==='SMB-01'&&safeZone(p))return ack({ok:false,error:'No disponible en zona segura'});
+  if(!mineBased&&(p.cloaked||abilityActive(p,'ultimate-cloak',now)))return ack({ok:false,error:'Ya estás camuflado'});
+  p.upgradePending=true;const job=p.writes.catch(()=>{}).then(()=>accounts.useCpu(p.accountId,code));p.writes=job;pending.add(job);
+  job.then(remaining=>{
+   if(mineBased)p.mineUntil=Date.now()+(p.cpus.includes('MIN-T02')?30000:60000);
+   if(players.get(p.id)!==p||p.deadUntil||p.zone!==zone)return ack({ok:true,remaining});
+   if(code==='ISH-01')p.ishUntil=Date.now()+3000;
+   else if(code==='SMB-01'){breakCloak(p);const spec=MINES.find(x=>x.id==='ACM-01');for(const n of [...npcs.values(),...players.values()])if(n!==p&&sameZone(p,n)&&distance(p,n)<=250&&n.hp>0&&!n.deadUntil&&!immune(n)&&!n.gateShielded&&(npcs.has(n.id)||canPvp(p,n))){Object.assign(n,mineImpact(n,spec,Date.now()));n.lastHit=Date.now();}io.to(zone).emit('v18:mineBlast',{x:p.x,y:p.y,radius:250,code});}
+   else{p.cloaked=true;p.attack=false;p.target=null;for(const n of npcs.values())if(n.target===p.id)n.target=null;}
+   for(const [code,quantity] of Object.entries(remaining))io.to(p.id).emit('v13:ammoStock',{code,quantity});
+   ack({ok:true,remaining});io.to(p.id).emit('notice',code+' activado');
+  }).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo activar CPU'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
+ });
  socket.on('v18:ability',(code,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
   const p=players.get(socket.id),now=Date.now();
@@ -260,15 +282,15 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(typeof ack!=='function'||!allowed())return;
   const p=players.get(socket.id),spec=MINES.find(m=>m.id===code);
   if(!p||!spec||p.deadUntil||p.gatePending||p.gateWaiting||p.upgradePending||p.shotPending||safeZone(p))return ack({ok:false,error:'No puedes poner una mina aquí'});
-  if(code==='EMPM-01')return ack({ok:false,error:'Camuflaje pendiente de integración'});
+  
   if(Date.now()<(p.mineUntil||0))return ack({ok:false,error:'Minas en recarga'});
   const zone=p.zone,pos={x:clamp(p.x-Math.cos(p.angle)*65,25,WORLD.w-25),y:clamp(p.y-Math.sin(p.angle)*65,25,WORLD.h-25)};
   p.upgradePending=true;const job=p.writes.catch(()=>{}).then(()=>accounts.consumeOrdnance(p.accountId,code,1));p.writes=job;pending.add(job);
   job.then(stock=>{
    if(stock===null)return ack({ok:false,error:'No tienes '+code});
-   p.mineUntil=Date.now()+MR.cooldownMs;breakCloak(p);io.to(p.id).emit('v13:ammoStock',{code,quantity:stock});
+   const cd=p.cpus?.includes('MIN-T02')?MR.cooldownMs/2:MR.cooldownMs;p.mineUntil=Date.now()+cd;breakCloak(p);io.to(p.id).emit('v13:ammoStock',{code,quantity:stock});
    if(players.get(p.id)===p&&!p.deadUntil&&!p.gatePending&&p.zone===zone)spawnMine(zone,pos,code,p.id);
-   ack({ok:true,stock,cooldown:MR.cooldownMs});
+   ack({ok:true,stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo colocar la mina'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
  });
  socket.on('v18:ordnance',(code,ack)=>{
@@ -291,7 +313,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?players.get(n.id)!==n||!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock,cooldown,count,key});
    io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
    let amount=0;
-   if(!n.godMode){
+   if(!immune(n)){
     if(special){const field={accuracy:'accuracyUntil',slow:'slowUntil',freeze:'freezeUntil'}[special.effect];n[field]=Math.max(n[field]||0,Date.now()+special.duration);if(!pvp)n.target=p.id;}
     else{const scale=(pvp?damageFactor(p.honor):1)*markFactor(p,n,Date.now());const drain=Math.min(n.shield,Math.round((shell.drain||0)*count*scale));n.shield-=drain;p.shield=Math.min(p.maxShield,p.shield+drain);amount=Math.round((shell.damage||0)*count*scale);if(amount)damage(n,amount);if(drain||amount)finishCombat(p,n,pvp);}
    }
@@ -310,13 +332,13 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.writes=job;pending.add(job);
   job.then(shot=>{
    if(!shot)return ack({ok:false,error:'No tienes '+code});
-   p.rocketUntil=Date.now()+2000;breakCloak(p);applyMineralStats(p,shot.upgrades);
+   const cd=p.cpus?.includes('R0K-T01')?1000:2000;p.rocketUntil=Date.now()+cd;breakCloak(p);applyMineralStats(p,shot.upgrades);
    io.to(p.id).emit('v13:ammoStock',{code,quantity:shot.stock});
-   if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock:shot.stock,cooldown:2000});
+   if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock:shot.stock,cooldown:cd});
    const amount=Math.random()<1-(1-rocket.miss)*(p.accuracyUntil>Date.now()?.6:1)?0:Math.round(rocket.damage*shot.factor*markFactor(p,n,Date.now())*(pvp?damageFactor(p.honor):1));
    io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
-   if(amount&&!n.godMode){damage(n,amount);finishCombat(p,n,pvp);}
-   ack({ok:true,damage:n.godMode?0:amount,stock:shot.stock,cooldown:2000});
+   if(amount&&!immune(n)){damage(n,amount);finishCombat(p,n,pvp);}
+   ack({ok:true,damage:n.godMode?0:amount,stock:shot.stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo confirmar el disparo'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
  });
  socket.on('v13:reload',()=>{const p=players.get(socket.id);if(!allowed()||!p)return;p.reloadRequested=true;p.attack=false;io.to(p.id).emit('notice','Equipamiento guardado. Activando configuración…');});
@@ -474,10 +496,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  if(stock===null){p.attack=false;io.to(p.id).emit('notice','Munición insuficiente');return;}
  io.to(p.id).emit('v13:ammoStock',{code:ammo,quantity:stock});
  if(closing||players.get(p.id)!==p||p.deadUntil||p.gatePending||!p.attack||p.target!==n.id||distance(p,n)>600||(pvp?players.get(n.id)!==n||!canPvp(p,n):npcs.get(n.id)!==n))return;
- const result=salvo({...p,accuracyFactor:p.accuracyUntil>Date.now()?.6:1,damage:p.damage*shot.factor*markFactor(p,n,Date.now())*incoming(n,Date.now())*(abilityActive(p,'prism',Date.now())?.75:1)*(abilityActive(n,'prism',Date.now())?.1:1)*(pvp?damageFactor(p.honor):1)},n,ammo,stock+count,Math.random());p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);if(!n.godMode){if(result.damage>0){const resolved=hit(n,protectDamage(n,result.damage),n.absorption??.5);const shieldLoss=n.shield-resolved.shield;resolved.shield=Math.max(0,n.shield-shieldLoss*(n.weakenUntil>Date.now()?1.5:1)*(abilityActive(n,'fortress',Date.now())?.7:1));Object.assign(n,resolved);}else if(result.drained>0){const drained=protectDamage(n,result.drained);n.shield=Math.max(0,n.shield-drained);p.shield=Math.min(p.maxShield,p.shield+drained);}finish();}
+ const result=salvo({...p,accuracyFactor:p.accuracyUntil>Date.now()?.6:1,damage:p.damage*shot.factor*markFactor(p,n,Date.now())*incoming(n,Date.now())*(abilityActive(p,'prism',Date.now())?.75:1)*(abilityActive(n,'prism',Date.now())?.1:1)*(pvp?damageFactor(p.honor):1)},n,ammo,stock+count,Math.random());p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);if(!immune(n)){if(result.damage>0){const resolved=hit(n,protectDamage(n,result.damage),n.absorption??.5);const shieldLoss=n.shield-resolved.shield;resolved.shield=Math.max(0,n.shield-shieldLoss*(n.weakenUntil>Date.now()?1.5:1)*(abilityActive(n,'fortress',Date.now())?.7:1));Object.assign(n,resolved);}else if(result.drained>0){const drained=protectDamage(n,result.drained);n.shield=Math.max(0,n.shield-drained);p.shield=Math.min(p.maxShield,p.shield+drained);}finish();}
  }).catch(()=>{p.attack=false;io.to(p.id).emit('notice','No se pudo confirmar el consumo de munición');}).finally(()=>{p.shotPending=false;pending.delete(job);});pending.add(job);}
  }}
- for(const n of npcs.values()){let target=players.get(n.target);if(!target||abilityActive(target,'ultimate-cloak',now)||target.deadUntil||target.gatePending||safeZone(target)||!sameZone(n,target)||(!n.gateNPC&&distance(n,target)>1000)){target=null;let best=n.gateNPC?Infinity:n.type==='boss'?850:310;for(const p of players.values()){const d=distance(n,p);if(!p.deadUntil&&!p.gatePending&&!safeZone(p)&&!abilityActive(p,'ultimate-cloak',now)&&sameZone(p,n)&&d<best){target=p;best=d;}}n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100&&!safeZone(target)&&!(target.protectedUntil>now)){n.lastShot=now;laser(n,target);if(!(n.accuracyUntil>now)||Math.random()<.6)damage(target,n.damage);if(target.hp<=0){if(target.gate){saveGate(target,'death');continue;}target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else if(!n.gateNPC){if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
+ for(const n of npcs.values()){let target=players.get(n.target);if(!target||target.cloaked||abilityActive(target,'ultimate-cloak',now)||target.deadUntil||target.gatePending||safeZone(target)||!sameZone(n,target)||(!n.gateNPC&&distance(n,target)>1000)){target=null;let best=n.gateNPC?Infinity:n.type==='boss'?850:310;for(const p of players.values()){const d=distance(n,p);if(!p.deadUntil&&!p.gatePending&&!safeZone(p)&&!p.cloaked&&!abilityActive(p,'ultimate-cloak',now)&&sameZone(p,n)&&d<best){target=p;best=d;}}n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100&&!safeZone(target)&&!(target.protectedUntil>now)){n.lastShot=now;laser(n,target);if(!(n.accuracyUntil>now)||Math.random()<.6)damage(target,n.damage);if(target.hp<=0){if(target.gate){saveGate(target,'death');continue;}target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else if(!n.gateNPC){if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
  updateMines(now);
  if(++tick%2===0&&players.size)for(const zone of new Set([...players.values()].map(zoneOf)))for(const viewer of players.values())if(zoneOf(viewer)===zone)io.to(viewer.id).volatile.emit('state',{time:now,players:[...players.values()].filter(p=>zoneOf(p)===zone&&(p===viewer||!abilityActive(p,'ultimate-cloak',now))).map(publicPlayer),npcs:[...npcs.values()].filter(n=>zoneOf(n)===zone).map(({dest,lastShot,damage,reward,speed,lastHit,target,zone,...n})=>n),map:MAPS[zone]?zone:null,base:homeBase(zone,WORLD.w,WORLD.h),portals:MAPS[zone]?portals(zone,WORLD.w,WORLD.h):[],mines:[...mines.values()].filter(m=>m.zone===zone).map(({id,x,y,code,armedAt})=>({id,x,y,code,armedAt})),boxes:MAPS[zone]?[...boxes.values()].filter(b=>b.zone===zone).map(({id,x,y,kind})=>({id,x,y,kind})):[]});},50);
  async function close(){closing=true;clearInterval(loop);clearInterval(maintenance);for(const t of timers)clearTimeout(t);await new Promise(resolve=>io.close(resolve));await Promise.allSettled([...pending]);await accounts.close();}return{app,server,io,close};}
