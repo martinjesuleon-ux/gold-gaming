@@ -1,4 +1,5 @@
 'use strict';
+const {premiumRead}=require('./boosters-v112');
 const {levels,costs}=require('./data/pet-progression-v173.json');
 const TYPES=Object.freeze(['laser','generator','gear','protocol']);
 const INITIAL=Object.freeze({laser:1,generator:2,gear:1,protocol:2});
@@ -136,7 +137,7 @@ function createPetProgression(pool){
  async function writeVitals(c,id,v){
   await c.query('INSERT INTO gg_pet_vitals_v173(account_id,hp,shield) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET hp=EXCLUDED.hp,shield=EXCLUDED.shield',[id,v.hp,v.shield]);
  }
- async function vitalsRead(id){return transaction(id,async(c,p)=>{const {vitals,stats}=await readVitals(c,id,p);return {...vitals,lasers:stats.lasers,damage:stats.damage,repairPrice:p.repair,enabled:require('./pet-test-kit-v175').vitalsEnabled(id)};});}
+ async function vitalsRead(id){return transaction(id,async(c,p)=>{const {vitals,stats}=await readVitals(c,id,p);return {...vitals,lasers:stats.lasers,damage:stats.damage,repairPrice:await premiumRead(c,id)?0:p.repair,enabled:require('./pet-test-kit-v175').vitalsEnabled(id)};});}
  // Internal server-only repair tick. No client-supplied amount or duration.
  async function authorizeComboRepair(id){
   const combos=require('./pet-combos-v180');if(!combos.comboEnabled(id))throw fail('Combo reparación en pruebas',403);
@@ -167,7 +168,7 @@ function createPetProgression(pool){
    if(v.destroyed)throw fail('P.E.T. destruido');
    const hp=rules.repairHull(v.hp,v.maxHp,spec.repairPerSecond,1000);
    if(hp!==v.hp)await writeVitals(c,id,{...v,hp});
-   return {...v,hp,lasers:stats.lasers,damage:stats.damage,repairPrice:p.repair,enabled:true,durationMs:spec.durationMs};
+   return {...v,hp,lasers:stats.lasers,damage:stats.damage,repairPrice:await premiumRead(c,id)?0:p.repair,enabled:true,durationMs:spec.durationMs};
   });
  }
  async function applyPetDamage(id,amount){
@@ -219,7 +220,7 @@ function createPetProgression(pool){
    const receipt=(await c.query('SELECT kind,response FROM gg_pet_slot_receipts_v173 WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
    if(receipt){if(receipt.kind!=='repair')throw fail('Solicitud ya utilizada',409);return receipt.response;}
    const {stats,saved}=await readVitals(c,id,p);
-   const r=require('./pet-vitals-v173').repairVitals(stats,saved,p.repair,Number(balance.uridium));
+   const r=require('./pet-vitals-v173').repairVitals(stats,saved,await premiumRead(c,id)?0:p.repair,Number(balance.uridium));
    if(r.price)await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1',[id,r.price]);
    await writeVitals(c,id,r.vitals);
    await c.query('UPDATE gg_pet_vitals_v173 SET last_regen_at=now() WHERE account_id=$1',[id]);

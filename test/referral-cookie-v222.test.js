@@ -1,0 +1,11 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {signInvite,parseInvite,cookieInvite,referralConfig,TTL}=require('../referrals-v222');
+const id='00000000-0000-4000-8000-000000000001',secret='a'.repeat(48),now=1700000000000;
+test('signed invite round trip',()=>assert.deepEqual(parseInvite(signInvite(id,secret,now),secret,now),{referrer:id,issuedAt:now}));
+test('tampered timestamp and account rejected',()=>{const t=signInvite(id,secret,now);assert.equal(parseInvite(t.replace(String(now),String(now-1)),secret,now),null);assert.equal(parseInvite(t.replace(id,'00000000-0000-4000-8000-000000000002'),secret,now),null);});
+test('expired and future cookie rejected',()=>{const t=signInvite(id,secret,now);assert.equal(parseInvite(t,secret,now+TTL),null);assert.equal(parseInvite(t,secret,now-1),null);});
+test('wrong secret rejected',()=>assert.equal(parseInvite(signInvite(id,secret,now),'b'.repeat(48),now),null));
+test('cookie parsed without exposing session cookie',()=>assert.equal(cookieInvite({cookie:'gg_session=unrelated; gg_referral='+signInvite(id,secret,now)},secret,now).referrer,id));
+test('production requires explicit proxy trust',()=>{const base={GG_REFERRALS_ENABLED:'1',GG_REFERRAL_SECRET:secret,RENDER:'true'};assert.equal(referralConfig(base),false);assert.equal(referralConfig({...base,GG_REFERRAL_TRUST_PROXY:'1'}),true);});
+test('feature disabled by default or short secret',()=>{assert.equal(referralConfig({}),false);assert.equal(referralConfig({GG_REFERRALS_ENABLED:'1',GG_REFERRAL_SECRET:'short'}),false);});
