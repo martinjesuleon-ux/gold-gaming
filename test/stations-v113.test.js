@@ -33,6 +33,15 @@ test('CBS construction consumes owned modules once and rejects occupied asteroid
   const shot={asteroidId:asteroid.id,slot:2,damage:20000000,requestId:randomUUID()};
   await assert.rejects(service.hit(ids[0],shot,position),/propia estación/);
   await assert.rejects(service.hit(ids[1],{...shot,slot:0},position),/protegido/);
+  // Emergency repair charges only once; use a damaged module in the isolated fixture.
+  await pool.query('UPDATE player_progress SET uridium=1000 WHERE account_id=$1',[ids[0]]);
+  await service.hit(ids[1],{...shot,damage:100000,requestId:randomUUID()},position);
+  const emergency={asteroidId:asteroid.id,slot:2,requestId:randomUUID()};
+  await assert.rejects(service.emergency(ids[1],emergency),/Estación no disponible/);
+  const repair=await service.emergency(ids[0],emergency);
+  assert.equal(repair.uridium,500);assert.deepEqual(await service.emergency(ids[0],emergency),repair);
+  await assert.rejects(service.emergency(ids[0],{...emergency,requestId:randomUUID()}),/activa/);
+  assert.equal(Number((await pool.query('SELECT uridium FROM player_progress WHERE account_id=$1',[ids[0]])).rows[0].uridium),500);
   const weapon={code:'LCB-10',count:2};
   await assert.rejects(service.hit(ids[1],shot,position,weapon),/Munición insuficiente/);
   await pool.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'LCB-10',10)",[ids[1]]);
@@ -67,4 +76,18 @@ test('CBS combat rules protect deflector, require edge destruction, and limit re
  assert.equal(shares.length,2);assert.equal(shares.reduce((n,x)=>n+x.credits,0),DESTRUCTION_REWARD.credits);
  assert.equal(shares.reduce((n,x)=>n+x.xp,0),DESTRUCTION_REWARD.xp);
  assert.equal(shares.reduce((n,x)=>n+x.honor,0),DESTRUCTION_REWARD.honor);
+});
+
+test('CBS passive and emergency repair use elapsed time once, never revive destroyed modules',()=>{
+ const {repairState,moduleLimits}=require('../stations-v113');
+ const now=10000000,modules=validateModules(items(),300000).map(m=>m.slot===2?{...m,hp:m.hp-500000}:m.slot===3?{...m,hp:0}:m);
+ const station={ready_at:now-20000,repair_at:now-20000,last_hit:now-20000,emergency_slot:2,emergency_until:now,modules};
+ const r=repairState(station,now);
+ assert.equal(r.modules[2].hp,modules[2].hp+205000+150000);assert.equal(r.modules[3].hp,0);
+ const next=repairState({...station,modules:r.modules,repair_at:r.repairAt},now);
+ assert.deepEqual(next.modules,r.modules);
+ const after=repairState({...station,modules:r.modules,repair_at:r.repairAt},now+100000);
+ assert.equal(after.modules[2].hp,moduleLimits(modules[2]).hp);
+ const pending=repairState({...station,ready_at:now+10000},now);
+ assert.equal(pending.modules[2].hp,modules[2].hp);
 });
