@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const {bonusLoot}=require('./loot-v14');
-const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,spinGate,itemDraw}=require('./gates-v14');
+const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -163,7 +163,7 @@ function createInventory(pool){
  async function gateView(c,id,rows){
   const energy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
   const balance=(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1',[id])).rows[0];
-  const states=Object.fromEntries(GATES.map(g=>[g,{...DEFS[g],...rows[g],required:DEFS[g].pieces,ready:rows[g].built,canBuild:!rows[g].built&&rows[g].pieces.length===DEFS[g].pieces,combatAvailable:PLAYABLE.includes(g)}]));
+  const states=Object.fromEntries(GATES.map(g=>[g,{...DEFS[g],...rows[g],required:DEFS[g].pieces,ready:rows[g].built,canBuild:!rows[g].built&&rows[g].pieces.length===DEFS[g].pieces,combatAvailable:PLAYABLE.includes(g),provisional:PROVISIONAL[g]||null}]));
   return {gates:GATES,states,alpha:states.alpha,energy,balance};
  }
  async function gateStatus(id){return transaction(id,async c=>gateView(c,id,await gateRows(c,id)));}
