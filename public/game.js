@@ -211,6 +211,20 @@ function jumpPortal(portal){
  if(portal.kind==='galaxy'){if(portal.gate==='hades'){window.gg16OpenGate?.('hades');return;}jumpPending=true;window.gg14GateEnter(portal.gate).catch(e=>notice(e.message)).finally(()=>jumpPending=false);return;}
  jumpPending=true;socket.timeout(10000).emit('v14:jump',portal.id,(err,r)=>{jumpPending=false;if(err||!r?.ok)notice(r?.error||'Salto no disponible');else notice('Sector '+r.map);});
 }
+// Stellar map navigation uses existing movement and portal authorization.
+window.gg171StarMap=()=>new Promise((resolve,reject)=>{
+ if(!joined||!socket.connected)return reject(Error('Inicia sesión para consultar el sistema estelar'));
+ socket.timeout(6000).emit('v171:starMap',(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Sistema estelar no disponible'));else resolve(r);});
+});
+window.gg171TravelSector=destination=>{
+ if(!joined||!socket.connected||gateState.inside)throw Error('Salto no disponible en este momento');
+ const portal=(state.portals||[]).find(q=>q.to===destination);
+ if(!portal)throw Error('No hay portal directo hacia ese sector');
+ const me=entities.get('p'+meId);
+ if(!me||me.data.deadUntil)throw Error('Espera a reaparecer');
+ if(distance(me,portal)<=portalRange(portal)){jumpPortal(portal);return 'Solicitud de salto enviada';}
+ sendMove(portal.x,portal.y);notice('Portal a '+destination+' · Pulsa J al llegar');return 'Navegando al portal de '+destination+' · Pulsa J al llegar';
+};
 function nearestPortal(list=visiblePortals()){const me=entities.get('p'+meId);if(!me)return null;let best=null,min=Infinity;for(const p of list){const d=distance(me,p);if(d<=portalRange(p)&&d<min){min=d;best=p;}}return best;}
 socket.on('v14:map',s=>{entities.clear();selected=null;attacking=false;dest=null;lasers=[];damageNumbers=[];notice('Sector '+s.map);});
 $('fire').onclick=toggleAttack;window.ggArsenalCanUse=()=>joined&&socket.connected;addEventListener('keydown',e=>{if(joined&&e.key==='Escape')select(null);if(joined&&e.key.toLowerCase()==='j'&&!e.repeat&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){const portal=nearestPortal();if(portal)jumpPortal(portal);else notice('Acércate a un portal para saltar');}});
