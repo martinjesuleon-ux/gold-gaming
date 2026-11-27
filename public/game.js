@@ -195,7 +195,34 @@ canvas.addEventListener('pointerdown',e=>{if(!joined||e.button!==0)return;draggi
 mini.addEventListener('pointerdown',e=>{const r=mini.getBoundingClientRect();sendMove((e.clientX-r.left)/r.width*world.w,(e.clientY-r.top)/r.height*world.h);});
 // Deterministic procedural stars: no external graphics or CDN.
 function hash(x,y,k){const n=Math.sin(x*127.1+y*311.7+k*74.7)*43758.5453;return n-Math.floor(n);}
-function stars(){window.ggGraphics161.sky(ctx,W,H);for(const [layer,par,size,cell] of [[1,.12,.7,110],[2,.38,1.0,155],[3,.75,1.5,240]].slice(0,qualityProfiles[quality].stars)){const ox=camera.x*par-W/2,oy=camera.y*par-H/2;for(let ix=Math.floor(ox/cell);ix<=Math.ceil((ox+W)/cell);ix++)for(let iy=Math.floor(oy/cell);iy<=Math.ceil((oy+H)/cell);iy++){const x=ix*cell+hash(ix,iy,layer)*cell-ox,y=iy*cell+hash(ix,iy,layer+4)*cell-oy;ctx.globalAlpha=.18+hash(ix,iy,layer+9)*.55;ctx.fillStyle=layer===3?'#a4d6ff':'#d1dcf3';ctx.beginPath();ctx.arc(x,y,size*(.35+hash(ix,iy,layer+15)*.65),0,Math.PI*2);ctx.fill();}}ctx.globalAlpha=1;const corner=screen(0,0);ctx.strokeStyle='#647d994d';ctx.lineWidth=2;ctx.strokeRect(corner.x,corner.y,world.w,world.h);}
+// GOLD: repeat cached star fields at three parallax speeds, avoiding per-star work every frame.
+const goldStarLayers=[[1,.12,.7,110],[2,.38,1.0,155],[3,.75,1.5,240]];
+const goldStarTiles=new Map();
+function goldStarTile(layer,size,cell){
+ if(goldStarTiles.has(layer))return goldStarTiles.get(layer);
+ const count=6,span=cell*count,tile=document.createElement('canvas');
+ tile.width=tile.height=span;const a=tile.getContext('2d');
+ a.fillStyle=layer===3?'#a4d6ff':'#d1dcf3';
+ // Include the wrapped edge cells so the tile has no visible seams.
+ for(let ix=-1;ix<=count;ix++)for(let iy=-1;iy<=count;iy++){
+  const hx=(ix+count)%count,hy=(iy+count)%count;
+  const x=ix*cell+hash(hx,hy,layer)*cell,y=iy*cell+hash(hx,hy,layer+4)*cell;
+  const r=size*(.35+hash(hx,hy,layer+15)*.65);
+  if(x+r<0||x-r>span||y+r<0||y-r>span)continue;
+  a.globalAlpha=.18+hash(hx,hy,layer+9)*.55;
+  a.beginPath();a.arc(x,y,r,0,Math.PI*2);a.fill();
+ }
+ a.globalAlpha=1;goldStarTiles.set(layer,tile);return tile;
+}
+function drawGoldStars(){
+ for(let i=0;i<qualityProfiles[quality].stars;i++){
+  const [layer,par,size,cell]=goldStarLayers[i],tile=goldStarTile(layer,size,cell),span=tile.width;
+  const ox=camera.x*par-W/2,oy=camera.y*par-H/2;
+  const startX=-((ox%span+span)%span),startY=-((oy%span+span)%span);
+  for(let x=startX;x<W;x+=span)for(let y=startY;y<H;y+=span)ctx.drawImage(tile,x,y);
+ }
+}
+function stars(){window.ggGraphics161.sky(ctx,W,H);if((window.ggVisualTheme?.current()||'gold')==='gold'){drawGoldStars();}else{for(const [layer,par,size,cell] of [[1,.12,.7,110],[2,.38,1.0,155],[3,.75,1.5,240]].slice(0,qualityProfiles[quality].stars)){const ox=camera.x*par-W/2,oy=camera.y*par-H/2;for(let ix=Math.floor(ox/cell);ix<=Math.ceil((ox+W)/cell);ix++)for(let iy=Math.floor(oy/cell);iy<=Math.ceil((oy+H)/cell);iy++){const x=ix*cell+hash(ix,iy,layer)*cell-ox,y=iy*cell+hash(ix,iy,layer+4)*cell-oy;ctx.globalAlpha=.18+hash(ix,iy,layer+9)*.55;ctx.fillStyle=layer===3?'#a4d6ff':'#d1dcf3';ctx.beginPath();ctx.arc(x,y,size*(.35+hash(ix,iy,layer+15)*.65),0,Math.PI*2);ctx.fill();}}}ctx.globalAlpha=1;const corner=screen(0,0);ctx.strokeStyle='#647d994d';ctx.lineWidth=2;ctx.strokeRect(corner.x,corner.y,world.w,world.h);}
 function poly(points,fill,stroke){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.3;ctx.stroke();}}
 function ship(v,isMe,npc){
  const o=v.data,p=screen(v.x,v.y);if(p.x<-160||p.y<-160||p.x>W+160||p.y>H+160||o.deadUntil)return;
