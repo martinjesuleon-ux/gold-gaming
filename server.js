@@ -5,6 +5,18 @@ const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,dam
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n)),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),random=(a,b)=>a+Math.random()*(b-a),point=()=>({x:random(150,WORLD.w-150),y:random(150,WORLD.h-150)}),validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
 function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCount=75,accounts=createAccounts(process.env.DATABASE_URL)}={}){
  const app=express(),server=http.createServer(app),io=new Server(server,{maxHttpBufferSize:8192});const hadesLobbies=createHadesLobbies(),groups=createGroups();const players=new Map(),npcs=new Map(),boxes=new Map(),mines=new Map(),active=new Map(),pending=new Set();let seq=0,tick=0,closing=false;const timers=new Set(),attempts=new Map();
+ const {createLobby:makeUBALobby,accept:acceptUBA}=require('./uba-v126');
+ const ubaEligible=p=>!!p&&players.get(p.id)===p&&p.level>=14&&!p.deadUntil&&!p.gate&&!p.gatePending&&!p.hadesPending&&!p.godMode;
+ const ubaLobby=makeUBALobby({eligible:ubaEligible});
+ function ubaView(id,m=ubaLobby.get(id)){
+  return {queued:ubaLobby.queued(id),match:m?{id:m.id,round:m.round,phase:m.phase,until:m.until,accepted:m.accepted.includes(id),opponentAccepted:m.accepted.some(x=>x!==id),opponent:players.get(m.players.find(x=>x!==id))?.name||'Piloto'}:null};
+ }
+ function notifyUBA(m){if(m)for(const id of m.players)io.to(id).emit('v127:ubaState',ubaView(id,m));}
+ function leaveUBA(id){const m=ubaLobby.remove(id);if(m){m.phase='cancelled';m.until=0;notifyUBA(m);}io.to(id).emit('v127:ubaState',ubaView(id));}
+ function tickUBA(now){if(process.env.GG_UBA_LOBBY_ENABLED!=='1')return;for(const m of ubaLobby.previewTick(now)){
+  if(m.players.some(id=>!ubaEligible(players.get(id)))){leaveUBA(m.players[0]);continue;}
+  if(['cancelled','preview-complete'].includes(m.phase)){notifyUBA(m);ubaLobby.remove(m.players[0]);}
+ }}
  const zoneOf=o=>o?.zone||'1-1';const sameZone=(a,b)=>zoneOf(a)===zoneOf(b);
  const later=(fn,ms)=>{if(closing)return;const t=setTimeout(()=>{timers.delete(t);fn();},ms);timers.add(t);};const id=()=>String(++seq);
  function spawnNPC(boss=false,pos=point()){const n={id:id(),type:boss?'boss':'drone',name:boss?'BOSS · TITAN':'Stellar Drone',x:pos.x,y:pos.y,angle:0,hp:boss?8500:650,maxHp:boss?8500:650,shield:boss?4500:220,maxShield:boss?4500:220,speed:boss?105:155,damage:boss?220:55,reward:boss?3500:180,target:null,dest:point(),lastShot:0};npcs.set(n.id,n);return n;}
@@ -418,6 +430,18 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   });p.writes=job;pending.add(job);
   job.then(r=>{p.credits=Number(r.balance.credits);ack({ok:true,...r});}).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo vender el mineral'})).finally(()=>{p.cbsBusy=false;pending.delete(job);});
  });
+ socket.on('v127:uba',(data,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
+  if(!p)return ack({ok:false,error:'Conéctate primero'});
+  if(process.env.GG_UBA_LOBBY_ENABLED!=='1')return ack({ok:false,error:'Sala UBA en pruebas'});
+  try{if(data?.action==='leave'){leaveUBA(p.id);return ack({ok:true,...ubaView(p.id)});}
+   if(data?.action==='status')return ack({ok:true,...ubaView(p.id)});
+   if(!ubaEligible(p))throw Error('Nivel 14 y nave disponible requeridos');
+   if(data?.action==='join'){const m=ubaLobby.enqueue(p);notifyUBA(m);return ack({ok:true,...ubaView(p.id)});}
+   if(data?.action==='accept'){const m=ubaLobby.get(p.id);if(!m||m.id!==data.matchId||m.players.some(id=>!ubaEligible(players.get(id))))throw Error('Oferta no disponible');acceptUBA(m,p.id);notifyUBA(m);return ack({ok:true,...ubaView(p.id)});}
+   throw Error('Acción inválida');
+  }catch(e){ack({ok:false,error:e.message});}
+ });
  socket.on('v116:cbsShot',(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id),now=Date.now();
   if(process.env.GG_CBS_COMBAT_ENABLED!=='1')return ack({ok:false,error:'Combate CBS en pruebas'});
@@ -591,7 +615,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  });
  socket.on('v14:gateNext',()=>{const p=players.get(socket.id);if(allowed()&&p?.gateWaiting)io.to(p.id).emit('notice','La siguiente ronda comienza automáticamente');});
  socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&!p.shotPending&&!p.deadUntil&&p.gate.exitPortal&&Date.now()<p.gate.intermissionUntil){if(distance(p,p.gate.exitPortal)>125){io.to(p.id).emit('notice','Acércate al portal de salida');return;}if(p.gate.gate==='hades'){if(p.gate.leader===p.id)endHades(p.gate,'El grupo regresó a la base');}else{returnFromGate(p);refreshGalaxy(p).catch(()=>{});socket.emit('v14:gateState',{inside:false});}}});
- socket.on('disconnect',()=>{const p=players.get(socket.id);if(p?.gate?.gate==='hades')endHades(p.gate,'Hades en pausa: un piloto se desconectó');else if(p?.gate)clearGateNPCs(p);broadcastHades(hadesLobbies.leave(socket.id));const oldGroup=groups.status(socket.id)?.members||[];groups.leave(socket.id);if(p)flushFlight(p);players.delete(socket.id);notifyGroup(oldGroup);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
+ socket.on('disconnect',()=>{leaveUBA(socket.id);const p=players.get(socket.id);if(p?.gate?.gate==='hades')endHades(p.gate,'Hades en pausa: un piloto se desconectó');else if(p?.gate)clearGateNPCs(p);broadcastHades(hadesLobbies.leave(socket.id));const oldGroup=groups.status(socket.id)?.members||[];groups.leave(socket.id);if(p)flushFlight(p);players.delete(socket.id);notifyGroup(oldGroup);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
  // Run independently of simulation; never overlap or block a simulation tick.
  let maintenanceBusy=false;
  const maintenance=setInterval(()=>{
@@ -656,7 +680,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }).catch(()=>{p.attack=false;io.to(p.id).emit('notice','No se pudo confirmar el consumo de munición');}).finally(()=>{p.shotPending=false;pending.delete(job);if(players.get(p.id)===p&&p.attack&&!p.deadUntil&&!p.gatePending&&!p.upgradePending&&!p.reloadPending&&Date.now()>=(p.autoRetry||0)){const now=Date.now();const choices=[];if(p.cpus?.includes('AROL-X')&&now>=(p.rocketUntil||0))choices.push('rocket');if(p.launcher&&p.cpus?.includes('RL-LB1')&&now>=(p.ordnanceUntil?.hellstorm||0))choices.push('shell');if(choices.length){const choice=choices[p.autoTurn%choices.length||0];p.autoTurn=(p.autoTurn||0)+1;const ack=r=>{if(!r.ok)p.autoRetry=Date.now()+2000;};if(choice==='rocket')shootRocket(p,p.autoRocket||'R-310',ack);else shootOrdnance(p,p.autoShell||'ECO-10',ack);}}});pending.add(job);}
  }}
  for(const n of npcs.values()){if(n.empUntil>now){n.target=null;continue;}let target=players.get(n.target);if(!target||target.cloaked||abilityActive(target,'ultimate-cloak',now)||target.deadUntil||target.gatePending||safeZone(target)||!sameZone(n,target)||(!n.gateNPC&&distance(n,target)>1000)){target=null;let best=n.gateNPC?Infinity:n.type==='boss'?850:310;for(const p of players.values()){const d=distance(n,p);if(!p.deadUntil&&!p.gatePending&&!safeZone(p)&&!p.cloaked&&!abilityActive(p,'ultimate-cloak',now)&&sameZone(p,n)&&d<best){target=p;best=d;}}n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100&&!safeZone(target)&&!(target.protectedUntil>now)){n.lastShot=now;laser(n,target);if(Math.random()<(n.accuracyUntil>now?.6:1)*(1-(formationBonus(target.formation).evasion||0))*(1-(target.pilotBonus?.evasion||0)))damage(target,n.damage*(abilityActive(target,'prism',now)?.1:1));if(target.hp<=0&&!target.deadUntil){recordRankDeath(target);if(target.gate){saveGate(target,'death');continue;}target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else if(!n.gateNPC){if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
- updateMines(now);updateDefense(now);
+ updateMines(now);updateDefense(now);tickUBA(now);
  if(++tick%2===0&&players.size)for(const zone of new Set([...players.values()].map(zoneOf)))for(const viewer of players.values())if(zoneOf(viewer)===zone)io.to(viewer.id).volatile.emit('state',{time:now,players:[...players.values()].filter(p=>zoneOf(p)===zone&&(p===viewer||!abilityActive(p,'ultimate-cloak',now))).map(publicPlayer),npcs:[...npcs.values()].filter(n=>zoneOf(n)===zone).map(({dest,lastShot,damage,reward,speed,lastHit,target,zone,...n})=>n),map:MAPS[zone]?zone:null,base:homeBase(zone,WORLD.w,WORLD.h),portals:MAPS[zone]?portals(zone,WORLD.w,WORLD.h):[],mines:[...mines.values()].filter(m=>m.zone===zone).map(({id,x,y,code,armedAt})=>({id,x,y,code,armedAt})),boxes:MAPS[zone]?[...boxes.values()].filter(b=>b.zone===zone).map(({id,x,y,kind})=>({id,x,y,kind})):[]});},50);
  async function close(){closing=true;clearInterval(loop);clearInterval(maintenance);for(const t of timers)clearTimeout(t);await new Promise(resolve=>io.close(resolve));await Promise.allSettled([...pending]);await accounts.close();}return{app,server,io,close};}
  if(require.main===module){const accounts=createAccounts(process.env.DATABASE_URL);accounts.ready().then(()=>{const game=createGame({accounts}),PORT=process.env.PORT||3000;game.server.listen(PORT,'0.0.0.0',()=>console.log(`GOLD GAMING escuchando en ${PORT}`));for(const sig of ['SIGTERM','SIGINT'])process.once(sig,()=>game.close().then(()=>process.exit(0)));}).catch(async e=>{console.error('No se pudo conectar a PostgreSQL:',e.code||e.message);await accounts.close();process.exitCode=1;});}module.exports={createGame,WORLD,SHIPS};
