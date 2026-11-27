@@ -68,7 +68,7 @@ function createInventory(pool){
   return transaction(id,async c=>{
    const rows=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    if(ship!=='phoenix'&&!rows.some(x=>x.category==='ships'&&x.code===ship))throw fail('Nave no adquirida');
-   const owned=new Map(rows.filter(x=>['lasers','engines','shields'].includes(x.category)).map(x=>[x.instanceId,x]));
+   const owned=new Map(rows.filter(x=>['lasers','engines','shields','drones'].includes(x.category)).map(x=>[x.instanceId,x]));
    const computed=configurations(ship,configs,owned);
    await c.query('INSERT INTO gg_v13_hangar(account_id,ship,configs,active) VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO UPDATE SET ship=EXCLUDED.ship,configs=EXCLUDED.configs,active=EXCLUDED.active',[id,ship,JSON.stringify(configs),active]);
    return {ok:true,stats:computed[active]};
@@ -78,7 +78,7 @@ function createInventory(pool){
   return transaction(id,async c=>{
    const h=(await c.query('SELECT ship,configs,active FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];
    if(!h)return null;
-   const items=(await c.query('SELECT instance_id AS "instanceId",code,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
+   const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    const stats=configurations(h.ship,h.configs,new Map(items.map(i=>[i.instanceId,i])));
    return {ship:h.ship,active:h.active,...stats[h.active]};
   });
