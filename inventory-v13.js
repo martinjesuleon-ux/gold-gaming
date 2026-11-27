@@ -324,7 +324,8 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
  }
  async function gateStatus(id){return transaction(id,async c=>gateView(c,id,await gateRows(c,id)));}
  async function gateAction(id,body,action){
-  const {gate,requestId,useMultiplier=false,allowUridium=false}=body||{};
+  const {gate,requestId,useMultiplier=false,allowUridium=false,expectedAccountId}=body||{};
+  if(expectedAccountId!==undefined&&expectedAccountId!==id)throw fail('La operación de portal pertenece a otra cuenta',409);
   if(!GATES.includes(gate)||!validRequest(requestId)||typeof useMultiplier!=='boolean'||typeof allowUridium!=='boolean')throw fail('Solicitud de puerta inválida');
   return transaction(id,async(c,p)=>{
    const old=(await c.query('SELECT response FROM gg_v14_gate_spins WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){const prior=old.response;if(prior.request&&(prior.request.action!==action||prior.request.gate!==gate||prior.request.count!==(body.count??1)||prior.request.useMultiplier!==useMultiplier||prior.request.allowUridium!==allowUridium))throw fail('Solicitud ya utilizada',409);return {...await gateView(c,id,await gateRows(c,id)),reward:prior.reward,batch:prior.batch,duplicate:true};}
