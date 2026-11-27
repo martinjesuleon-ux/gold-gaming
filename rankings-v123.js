@@ -48,7 +48,15 @@ function createRankings(pool){
   const own=(await pool.query('SELECT CASE WHEN p.honor<0 AND NOT r.admin THEN 22 WHEN r.admin THEN 23 ELSE r.rank END AS rank,r.highest,CASE WHEN p.honor<0 OR r.admin THEN 0 ELSE r.points END AS points,r.calculated_at FROM gg_rank_profiles r JOIN player_progress p USING(account_id) WHERE r.account_id=$1',[id])).rows[0];
   return {board,rows,own,names:NAMES,provisional:true};
  }
+ async function pilotSummary(ids){if(!ids.length)return [];return (await pool.query(`SELECT p.account_id,CASE WHEN r.admin THEN 23 WHEN p.honor<0 THEN 22 ELSE COALESCE(r.rank,1) END AS rank,COALESCE(r.points,0) AS points,p.uridium,
+ (SELECT count(*) FROM gg_rank_kills k WHERE k.attacker=p.account_id) AS kills,
+ (SELECT count(*) FROM gg_rank_kills k WHERE k.victim=p.account_id)+(SELECT count(*) FROM gg_rank_deaths d WHERE d.account_id=p.account_id) AS deaths,
+ COALESCE((SELECT value FROM gg_achievement_counters WHERE account_id=p.account_id AND kind='alien'),0) AS aliens,
+ COALESCE((SELECT quantity FROM gg_v13_ammo WHERE account_id=p.account_id AND code='green-key'),0) AS keys,
+ COALESCE((SELECT quantity FROM gg_v13_ammo WHERE account_id=p.account_id AND code='premium-seconds'),0) AS premium_seconds,
+ COALESCE((SELECT SUM(quantity) FROM gg_v13_ammo WHERE account_id=p.account_id AND code IN ('prometium','endurium','terbium','prometid','duranium','promerium','seprom','paladio')),0) AS cargo
+ FROM player_progress p LEFT JOIN gg_rank_profiles r USING(account_id) WHERE p.account_id=ANY($1::uuid[])`,[ids])).rows;}
  async function death(id,radiation=false,requestId=null){await pool.query('INSERT INTO gg_rank_deaths(account_id,radiation,request_id) VALUES($1,$2,$3) ON CONFLICT(account_id,request_id) DO NOTHING',[id,!!radiation,requestId]);}
- return {ready,refresh,status,death};
+ return {ready,refresh,status,pilotSummary,death};
 }
 module.exports={rankPoints,warPoints,ranks,NAMES,createRankings};
