@@ -60,3 +60,5 @@
 #hud .arsenal>div:not(.gg-slots) small{font-size:9px;white-space:normal;text-align:right}
 @media(max-width:900px){#hud .gg-tool{grid-template-columns:repeat(10,26px);gap:2px}#hud .gg-tool.gg-right{grid-template-columns:repeat(6,26px)}#hud .gg-tool button{height:26px;font-size:14px}#hud .arsenal{width:min(440px,48vw)!important}#hud .gg-slots{gap:2px}#hud .gg-slots button{font-size:8px;height:30px}}
 @media(max-width:650px){#hud .gg-tool{grid-template-columns:repeat(7,24px)}#hud .gg-tool.gg-right{grid-template-columns:repeat(3,24px)}#hud .gg-tool button{height:24px}#hud .topbar,#hud .vitals,#hud .gg-window[data-key=module]{width:156px!important}#hud .radar{width:145px!important;bottom:90px!important}#hud .target{width:140px!important}#hud .arsenal{width:calc(100vw - 16px)!important}#hud .gg-slots button{font-size:9px;height:28px}}
+
+#hud .gg-radar-key{display:inline-flex;align-items:center;gap:3px;margin-right:6px;white-space:nowrap}#hud .gg-radar-key i{display:inline-block;width:5px;height:5px;background:var(--dot);border-radius:50%}
