@@ -35,7 +35,7 @@ function createInventory(pool){
  }
  async function purchase(id,{category,code,quantity,requestId}){
   if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Identificador de compra inválido');
-  let q=category==='drones'||category==='pet'||category==='fuel'?null:quote(category,code,quantity);
+  let q=category==='drones'||category==='pet'||category==='fuel'||category==='petGear'?null:quote(category,code,quantity);
   return transaction(id,async(c,p)=>{
    const previous=(await c.query('SELECT response FROM gg_v13_purchases WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
    if(previous)return previous.response;
@@ -45,6 +45,13 @@ function createInventory(pool){
     const existing=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='pet-fuel'",[id])).rows[0]?.quantity||0);
     if(existing+quantity>50000)throw fail('Capacidad del depósito excedida');
     q={id:code,category,quantity,currency:'uridium',total:quantity/4};
+   }
+   if(category==='petGear'){
+    if(code!=='G-AL1'||quantity!==1)throw fail('Engranaje inválido');
+    const rows=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+    if(!rows.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
+    if(rows.some(x=>x.code===code))throw fail('Engranaje ya adquirido');
+    q={id:code,category,quantity,currency:'uridium',total:7500};
    }
    if(category==='pet'){
     if(code!=='pet-10'||quantity!==1)throw fail('P.E.T. inválido');
@@ -102,6 +109,19 @@ function createInventory(pool){
    return row?Number(row.quantity):null;
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo};
+ // El combustible se cobra antes de activar cada intervalo de vuelo.
+ async function petInterval(id,mode){
+  if(!['passive','loot'].includes(mode))throw fail('Modo inválido');
+  return transaction(id,async c=>{
+   const owned=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
+   if(mode==='loot'&&!owned.some(x=>x.code==='G-AL1'))throw fail('Necesitas el engranaje G-AL1');
+   const cost=10;
+   const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=$2 RETURNING quantity",[id,cost])).rows[0];
+   if(!r)throw fail('Combustible insuficiente');
+   return {fuel:Number(r.quantity)};
+  });
+ }
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval};
 }
 module.exports={createInventory};
