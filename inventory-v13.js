@@ -6,20 +6,20 @@ const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 function createInventory(pool){
  async function ready(){
   await pool.query(`CREATE TABLE IF NOT EXISTS gg_v13_inventory (
-   account_id bigint NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    instance_id uuid NOT NULL, code text NOT NULL, category text NOT NULL,
    level integer NOT NULL DEFAULT 1 CHECK(level BETWEEN 1 AND 16),
    PRIMARY KEY(account_id,instance_id));
    CREATE TABLE IF NOT EXISTS gg_v13_ammo (
-   account_id bigint NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    code text NOT NULL, quantity bigint NOT NULL CHECK(quantity>=0),
    PRIMARY KEY(account_id,code));
    CREATE TABLE IF NOT EXISTS gg_v13_hangar (
-   account_id bigint PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+   account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
    ship text NOT NULL DEFAULT 'phoenix', configs jsonb NOT NULL DEFAULT '[[],[]]',
    active integer NOT NULL DEFAULT 0 CHECK(active IN (0,1)));
    CREATE TABLE IF NOT EXISTS gg_v13_purchases (
-   account_id bigint NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    request_id uuid NOT NULL, response jsonb NOT NULL,
    PRIMARY KEY(account_id,request_id));`);
  }
