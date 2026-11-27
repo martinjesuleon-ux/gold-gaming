@@ -22,4 +22,14 @@ function repairVitals(stats,saved,price,balance){
  // Provisional: restore hull only, not shields. No charge for an intact unit.
  return {price,uridium:balance-price,vitals:vitals(stats,{hp:stats.maxHp,shield:0})};
 }
-module.exports={vitals,damageVitals,repairVitals};
+// A positive configured percentage is required; no reference regeneration rate is assumed.
+function shieldRegenPercent(raw){
+ if(typeof raw!=='string'||!/^\d{1,3}$/.test(raw))return 0;
+ const n=Number(raw);return n>=1&&n<=100?n:0;
+}
+function regenerateShield(stats,saved,percent,elapsedMs){
+ const v=vitals(stats,saved);
+ if(v.destroyed||v.shield>=v.maxShield||!Number.isInteger(percent)||percent<1||percent>100||!Number.isFinite(elapsedMs)||elapsedMs<10000)return v;
+ return vitals(stats,{hp:v.hp,shield:v.shield+Math.max(1,Math.floor(v.maxShield*percent/100))});
+}
+module.exports={vitals,damageVitals,repairVitals,shieldRegenPercent,regenerateShield};
