@@ -8,7 +8,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  const later=(fn,ms)=>{if(closing)return;const t=setTimeout(()=>{timers.delete(t);fn();},ms);timers.add(t);};const id=()=>String(++seq);
  function spawnNPC(boss=false,pos=point()){const n={id:id(),type:boss?'boss':'drone',name:boss?'BOSS · TITAN':'Stellar Drone',x:pos.x,y:pos.y,angle:0,hp:boss?8500:650,maxHp:boss?8500:650,shield:boss?4500:220,maxShield:boss?4500:220,speed:boss?105:155,damage:boss?220:55,reward:boss?3500:180,target:null,dest:point(),lastShot:0};npcs.set(n.id,n);return n;}
  function spawnBox(pos=point()){const b={id:id(),x:pos.x,y:pos.y,value:Math.floor(random(35,101))};boxes.set(b.id,b);return b;}
- function applyLoadout(p,l){if(!l)return;const ratio=p.hp/p.maxHp;p.ship=l.ship;p.maxHp=l.hp;p.maxShield=l.shield;p.speed=l.speed;p.damage=l.damage;p.lasers=l.lasers;p.absorption=l.absorption;p.hp=Math.min(l.hp,Math.max(0,Math.round(l.hp*ratio)));p.shield=Math.min(p.shield,l.shield);p.v13=true;p.ammo=p.ammo||'LCB-10';}
+ function applyLoadout(p,l){if(!l)return;const ratio=Number.isFinite(p.hp)?p.hp/p.maxHp:1;p.ship=l.ship;p.maxHp=l.hp;p.maxShield=l.shield;p.speed=l.speed;p.damage=l.damage;p.lasers=l.lasers;p.absorption=l.absorption;p.hp=Math.min(l.hp,Math.max(0,Math.round(l.hp*ratio)));p.shield=Math.min(Number.isFinite(p.shield)?p.shield:l.shield,l.shield);p.v13=true;p.ammo=p.ammo||'LCB-10';}
  function spawnPlayer(p){Object.assign(p,{x:WORLD.w/2+random(-180,180),y:WORLD.h/2+random(-180,180),hp:p.maxHp,shield:p.maxShield,angle:0,dest:null,target:null,attack:false,deadUntil:0,lastHit:Date.now()});}
  function damage(v,amount){const absorbed=Math.min(v.shield,amount*(v.absorption??1));v.shield-=absorbed;v.hp=Math.max(0,v.hp-(amount-absorbed));v.lastHit=Date.now();}
  function move(v,d,dt){if(!d)return;const dx=d.x-v.x,dy=d.y-v.y,len=Math.hypot(dx,dy);if(len<1)return;v.angle=Math.atan2(dy,dx);const step=Math.min(len,v.speed*dt);v.x=clamp(v.x+dx/len*step,25,WORLD.w-25);v.y=clamp(v.y+dy/len*step,25,WORLD.h-25);}
@@ -40,7 +40,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  else{p.shotPending=true;const ammo=p.ammo,count=p.lasers;const job=accounts.consumeAmmo(p.accountId,ammo,count).then(stock=>{
  if(stock===null){p.attack=false;io.to(p.id).emit('notice','Munición insuficiente');return;}
  io.to(p.id).emit('v13:ammoStock',{code:ammo,quantity:stock});
- if(closing||players.get(p.id)!==p||p.deadUntil||npcs.get(n.id)!==n)return;
+ if(closing||players.get(p.id)!==p||p.deadUntil||!p.attack||p.target!==n.id||distance(p,n)>600||npcs.get(n.id)!==n)return;
  const result=salvo(p,n,ammo,stock+count,Math.random());p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);Object.assign(n,result.target);if(result.attackerShield!==undefined)p.shield=result.attackerShield;finish();
  }).catch(()=>{p.attack=false;io.to(p.id).emit('notice','No se pudo confirmar el consumo de munición');}).finally(()=>{p.shotPending=false;pending.delete(job);});pending.add(job);}
  }}
