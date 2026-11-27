@@ -200,7 +200,7 @@ function ship(v,isMe,npc){
  ctx.fillStyle='#63e6a2';ctx.fillRect(p.x-bw/2,top,bw*graphics.safeRatio(o.hp,o.maxHp),4);
  ctx.fillStyle='#57aaff';ctx.fillRect(p.x-bw/2,top+6,bw*graphics.safeRatio(o.shield,o.maxShield),4);
  ctx.textAlign='center';ctx.font=(boss?'bold 13px':'11px')+' system-ui';ctx.fillStyle=npc?'#ff9b89':isMe?'#ddfff0':'#badbff';ctx.strokeStyle='#060a12';ctx.lineWidth=3;ctx.lineJoin='round';
- const name=(o.clanTag?'['+o.clanTag+'] ':'')+o.name,marks=npc?null:window.ggRankVisual.gateMarks(o.gateRings),nameY=p.y+layout.name+(marks?.offset||0);ctx.strokeText(name,p.x,nameY);ctx.fillText(name,p.x,nameY);if(!npc){const badge=window.ggRankVisual.badge(o.rank);if(badge)ctx.drawImage(badge,p.x-ctx.measureText(name).width/2-20,nameY-13,17,17);window.ggRankVisual.drawGateMarks(ctx,marks,p.x,nameY);if(o.title){ctx.fillStyle='#e9c980';ctx.font='bold 10px system-ui';ctx.strokeText(o.title,p.x,top-7);ctx.fillText(o.title,p.x,top-7);}}
+ const name=(o.clanTag?'['+o.clanTag+'] ':'')+o.name,marks=npc?null:window.ggRankVisual.gateMarks(o.gateRings),nameY=p.y+layout.name+(marks?.offset||0);ctx.strokeText(name,p.x,nameY);ctx.fillText(name,p.x,nameY);if(!npc){const badge=window.ggRankVisual.badge(o.rank);const badgeX=p.x-ctx.measureText(name).width/2-20;if(badge){ctx.drawImage(badge,badgeX,nameY-13,17,17);window.ggRankVisual.drawGateMarks(ctx,marks,badgeX+8.5,nameY);}if(o.title){ctx.fillStyle='#e9c980';ctx.font='bold 10px system-ui';ctx.strokeText(o.title,p.x,top-7);ctx.fillText(o.title,p.x,top-7);}}
  ctx.restore();
 }
 function drawFormation(o,offsets){
