@@ -188,8 +188,17 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const a=Number.isFinite(p.angle)?p.angle:0;
   return {x:clamp(p.x-170*Math.cos(a)-105*Math.sin(a),25,WORLD.w-25),y:clamp(p.y-170*Math.sin(a)+105*Math.cos(a),25,WORLD.h-25)};
  }
+ // Passive holds position until the pilot moves far away; guard follows with a loose leash.
+ function petTravelGoal(p,targetBox){
+  if(targetBox)return targetBox;
+  const d=Math.hypot(p.petX-p.x,p.petY-p.y),passive=p.petMode==='passive';
+  if(d>(passive?900:480))p.petFollowing=true;
+  if(d<(passive?480:260))p.petFollowing=false;
+  if(!p.petFollowing)return {x:p.petX,y:p.petY};
+  return petFollowGoal(p);
+ }
  function setPetMode(p,mode){
-  p.petMode=mode;p.petUntil=0;p.petX=null;p.petY=null;p.petAngle=null;p.petGeneration=(p.petGeneration||0)+1;
+  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;
   io.to(p.id).emit('v14:petState',{mode:'off',fuel:p.petFuel??null,pending:mode!=='off'});
  }
  // Section groups spawn in order. Protegit combat statistics remain provisional.
@@ -668,7 +677,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }).catch(e=>io.to(p.id).emit('notice',e.status?e.message:'Kamikaze no disponible')).finally(()=>{p.kamiPending=false;pending.delete(job);});
   pending.add(job);
  });
- socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','loot'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
+ socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
  function broadcastHades(room){if(room)for(const member of room.players)io.to(member.id).emit('v14:hadesLobby',room);}
  socket.on('v14:hadesLobby',async(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
@@ -800,15 +809,15 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const job=accounts.petInterval(p.accountId,mode).then(result=>{
    if(closing||players.get(p.id)!==p||p.deadUntil||p.petGeneration!==generation)return;
    p.petFuel=result.fuel;p.petUntil=Date.now()+10000;
-   if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)||Math.hypot(p.petX-p.x,p.petY-p.y)>850){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
+   if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
    io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false});
   }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});pending.add(job);
  }
  if(p.petUntil>now&&p.petMode!=='off'){
   let targetBox=null;
   if(p.petMode==='loot'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),700,b=>petEligible(p,b));
-  const goal=targetBox||petFollowGoal(p);
-  if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)||Math.hypot(p.petX-p.x,p.petY-p.y)>850){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
+  if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
+  const goal=petTravelGoal(p,targetBox);
   const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy),deadzone=targetBox?1:22;
   if(len>deadzone){const speed=targetBox?Math.max(550,p.speed+100):Math.min(Math.max(550,p.speed+100),Math.max(85,len*4,p.dest?p.speed:0));const step=Math.min(len,speed*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;p.petAngle=Math.atan2(dy,dx);}
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
