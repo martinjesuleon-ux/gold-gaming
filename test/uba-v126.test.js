@@ -1,0 +1,30 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const {RULES,scoreResult,createMatch,accept,advance,finishRound,createLobby,createUBA}=require('../uba-v126');
+test('UBA eligibility, lobby acceptance and best-of-three round timing',()=>{
+ const a={id:'a',level:14},b={id:'b',level:15},l=createLobby();
+ assert.throws(()=>l.enqueue({id:'c',level:13}),/Nivel 14/);
+ assert.equal(l.enqueue(a,0),null);assert.equal(l.enqueue(a,0),null);
+ const m=l.enqueue(b,0);assert.equal(m.until,40000);assert.equal(l.get('a'),m);
+ accept(m,'a',1000);accept(m,'a',1100);assert.equal(m.phase,'offer');
+ assert.throws(()=>accept(m,'c',1100));accept(m,'b',2000);assert.equal(m.until,17000);
+ advance(m,17000);assert.equal(m.until,332000);assert.equal(m.phase,'fight');
+ finishRound(m,'a',18000);assert.equal(m.round,2);assert.equal(m.until,48000);
+ accept(m,'a',19000);accept(m,'b',19000);advance(m,34000);finishRound(m,'a',35000);
+ assert.equal(m.phase,'finished');assert.equal(m.winner,'a');assert.deepEqual(m.score,[2,0]);
+ l.remove('b');assert.equal(l.get('a'),null);
+ const x=createMatch(a,b,0);advance(x,40000);assert.equal(x.phase,'cancelled');
+});
+test('UBA rating floor and weaker rival bonus',()=>{
+ assert.deepEqual(scoreResult(50,50),{winner:60,loser:50});assert.deepEqual(scoreResult(250,50),{winner:255,loser:50});assert.deepEqual(scoreResult(80,100),{winner:90,loser:95});
+});
+test('UBA rating result is idempotent and never changes honor or currency',{skip:process.env.GG_TEST_DB!=='1'||!process.env.DATABASE_URL},async t=>{
+ const {Pool}=require('pg'),{createAccounts}=require('../accounts');const a=createAccounts(process.env.DATABASE_URL);try{await a.ready();}finally{await a.close();}
+ const pool=new Pool({connectionString:process.env.DATABASE_URL});t.after(()=>pool.end());const ids=[];
+ try{
+ for(let i=0;i<2;i++){const n='U'+randomUUID().replaceAll('-','').slice(0,12),id=(await pool.query('INSERT INTO accounts(username,email,password_hash) VALUES($1,$2,$3) RETURNING id',[n,n+'@example.test','fixture'])).rows[0].id;ids.push(id);await pool.query("INSERT INTO player_progress(account_id,ship,credits,uridium,honor) VALUES($1,'scout',1000,100,200)",[id]);}
+ const svc=createUBA(pool),key=randomUUID();const r=await svc.settle(key,...ids);assert.equal(r.winnerScore,60);assert.equal(r.loserScore,50);assert.deepEqual(await svc.settle(key,...ids),r);await assert.rejects(svc.settle(key,...ids.slice().reverse()),/conflicto/);
+ assert.equal((await svc.status(ids[0])).own.wins,1);assert.equal((await svc.status(ids[1])).own.losses,1);
+ const balances=(await pool.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=ANY($1::uuid[])',[ids])).rows;assert.ok(balances.every(x=>Number(x.credits)===1000&&Number(x.uridium)===100&&Number(x.honor)===200));
+ }finally{for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
+});
