@@ -28,3 +28,12 @@ test('UBA rating result is idempotent and never changes honor or currency',{skip
  const balances=(await pool.query('SELECT credits,uridium,honor FROM player_progress WHERE account_id=ANY($1::uuid[])',[ids])).rows;assert.ok(balances.every(x=>Number(x.credits)===1000&&Number(x.uridium)===100&&Number(x.honor)===200));
  }finally{for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
+test('UBA preview prunes unavailable pilots and never enters combat',()=>{
+ let available=new Set(['a','b','c']);const l=createLobby({eligible:p=>available.has(p.id)});
+ const a={id:'a',level:14},b={id:'b',level:14},c={id:'c',level:14};
+ assert.equal(l.enqueue(a,0),null);available.delete('a');assert.equal(l.enqueue(b,0),null);assert.equal(l.queued('a'),false);
+ const m=l.enqueue(c,100);assert.deepEqual(m.players,['b','c']);accept(m,'b',200);accept(m,'c',300);
+ assert.equal(l.previewTick(15299)[0].phase,'countdown');assert.equal(l.previewTick(15300)[0].phase,'preview-complete');assert.deepEqual(m.score,[0,0]);assert.equal(m.winner,null);
+ l.remove('c');assert.equal(l.get('b'),null);assert.equal(l.get('c'),null);
+ assert.throws(()=>l.enqueue(a,20000),/no disponible/);
+});
