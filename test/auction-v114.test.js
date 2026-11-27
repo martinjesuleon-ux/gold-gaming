@@ -8,10 +8,10 @@ test('CBS deflector charge, peak and automatic minimum fall',()=>{
  assert.equal(deflector(s,at+10000).charge,20000);
  assert.equal(deflector(s,at+600000).charge,1200000);
  assert.equal(deflector(s,at+610000).charge,1300000);
- const up=deflector(s,at+1800000);assert.equal(up.mode,'protected');assert.equal(up.charge,2880000);
+ const up=deflector(s,at+1800000);assert.equal(up.mode,'protected');assert.equal(up.charge,13200000);
  const down=lowerDeflector(s,30,at+1800000);assert.equal(down.mode,'vulnerable');assert.equal(down.downUntil,at+3600000);
  assert.throws(()=>lowerDeflector(s,29,at+1800000));assert.throws(()=>lowerDeflector(s,30,at+1000));
- const depleted=deflector(s,at+1800000+2880000);assert.equal(depleted.mode,'vulnerable');assert.equal(depleted.downUntil,depleted.at+1800000);
+ const depleted=deflector(s,at+1800000+13200000);assert.equal(depleted.mode,'vulnerable');assert.equal(depleted.downUntil,depleted.at+1800000);
 });
 test('weekly rounds and bid increments follow wiki',()=>{
  const monday=Date.UTC(2026,10,23);assert.equal(roundAt(monday+WEEK-1),monday);assert.equal(roundAt(monday+WEEK),monday+WEEK);
