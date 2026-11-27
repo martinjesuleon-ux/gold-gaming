@@ -69,7 +69,7 @@ function join(){if(!profile||!socket.connected||joinPending)return;clearJoinRetr
  socket.timeout(6000).emit('join',profile,(err,res)=>{if(generation!==joinGeneration||!profile||!socket.connected)return;joinPending=false;
  if(err||!res?.ok){const retry=retryJoinDelay(joinAttempts,err,res);if(retry!==null){joinAttempts++;connectionText('Recuperando sesión · intento '+joinAttempts+'/6');joinRetryTimer=setTimeout(()=>{joinRetryTimer=null;join();},retry);return;}
  connectionText(err?'El servidor no respondió. Inicia sesión nuevamente.':res?.error||'No se pudo recuperar la sesión');$('launch').disabled=false;$('hangar').hidden=false;$('hud').hidden=true;joined=false;$('connection').hidden=true;profile=null;recovering=false;return;}
- joinAttempts=0;recovering=false;meId=res.id;world=res.world;joined=true;socket.emit('v13:ammo',selectedAmmo);syncAmmoButtons();selected=null;attacking=false;dest=null;pendingSelectUntil=pendingAttackUntil=0;entities.clear();state={players:[],npcs:[],boxes:[]};$('hangar').hidden=true;$('hud').hidden=false;$('connection').hidden=true;$('launch').disabled=false;$('pilotName').textContent=profile.name;window.dispatchEvent(new Event('gg13:lootRefresh'));});
+ joinAttempts=0;recovering=false;meId=res.id;world=res.world;joined=true;socket.emit('v13:ammo',selectedAmmo);syncAmmoButtons();selected=null;attacking=false;dest=null;pendingSelectUntil=pendingAttackUntil=0;entities.clear();state={players:[],npcs:[],boxes:[]};$('hangar').hidden=true;$('hud').hidden=false;$('connection').hidden=true;$('launch').disabled=false;$('pilotName').textContent=profile.name;window.dispatchEvent(new Event('gg13:refresh'));});
 }
 socket.on('connect',()=>{joinGeneration++;joinPending=false;joinAttempts=0;clearJoinRetry();connectionText(profile?'Recuperando sesión…':'Servidor conectado · listo para despegar');$('launch').disabled=!!profile;if(profile)join();});
 socket.on('disconnect',()=>{joinGeneration++;joinPending=false;clearJoinRetry();recovering=recovering||joined;joined=false;selected=null;attacking=false;dest=null;pendingSelectUntil=pendingAttackUntil=0;dragging=false;entities.clear();state={players:[],npcs:[],boxes:[]};lasers=[];damageNumbers=[];connectionText('Sin conexión · reconectando');$('launch').disabled=true;if(recovering)$('connection').hidden=false;});
@@ -161,8 +161,7 @@ async function buyPetFuel(fill=false){
   if(!r.ok){if(r.status<500)petFuelBuyRequest=null;throw Error(d.error||'Compra no disponible');}
   petFuelBuyRequest=null;notice('Combustible comprado: '+fmt(d.quantity)+' unidades · '+fmt(d.total)+' U');
   const inv=await fetch('/api/v13/inventory',{credentials:'same-origin',cache:'no-store'});
-  if(inv.ok){const snapshot=await inv.json();window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:snapshot}));}
-  window.dispatchEvent(new CustomEvent('gg13:refresh'));
+  if(inv.ok){const snapshot=await inv.json();window.dispatchEvent(new CustomEvent('gg13:inventory',{detail:snapshot}));}else window.dispatchEvent(new Event('gg13:refresh'));
  }catch(e){notice(e.message||'Compra no confirmada. Reintenta con el mismo botón.');}
  finally{petFuelBuyPending=false;renderPetPanel();}
 }
