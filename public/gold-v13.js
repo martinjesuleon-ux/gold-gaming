@@ -52,6 +52,103 @@ function draw(){const ship=cat.ships.find(s=>s.id===draft.ship);preview.replaceC
   const portrait=el('div',null,'gg-hangar-preview');portrait.append(visual.art('pet',{id:pet.code}),el('strong','P.E.T. 10'));identity.append(portrait);
   const fuel=state.ammo.find(a=>a.code==='pet-fuel')?.quantity||0,usage=el('div',null,'gg-hangar-usage');
   usage.append(el('span','Combustible disponible: '+fmt(fuel)),el('span','Módulos adquiridos: '+fmt(ownedGear.length)));identity.append(usage);
+  const progression=section('PROGRESIÓN DEL P.E.T.','NIVELES 0–20'),content=el('div',null,'gg13-grid');
+  progression.append(content);
+  let loading=false;
+  function showProgression(p){
+   if(!progression.isConnected)return;
+   content.replaceChildren();
+   const info=el('section',null,'gg13-tile'),meter=el('progress');
+   meter.max=p.nextExperience||Math.max(1,p.experience);meter.value=p.experience;
+   meter.setAttribute('aria-label','Experiencia del P.E.T.');
+   info.append(el('h3','Nivel '+p.level+' / 20'),el('p',fmt(p.experience)+' EXP'+(p.nextExperience?' / '+fmt(p.nextExperience):' · Nivel máximo')),meter,
+    el('p','Vida máxima por nivel: '+fmt(p.maxHp)+' PV'),el('p','Daño +'+p.damageBonus+' % · Escudo +'+p.shieldBonus+' %'),
+    el('p','Nivel de equipo permitido: '+p.equipmentTier),el('p','Coste de reparación de referencia: '+fmt(p.repair)+' U'));
+   const hull=el('section',null,'gg13-tile'),hullQuote=p.nextHull;
+   hull.append(el('h3','MEJORA DE VIDA'));
+   if(p.hullPurchasesEnabled){
+    hull.append(el('p','Nivel de vida adquirido: '+p.paidHullTier+' / '+p.level));
+    if(hullQuote){
+     const requestId=crypto.randomUUID();
+     hull.append(el('strong',fmt(hullQuote.maxHp)+' PV máximos'),el('p','+'+fmt(hullQuote.addedHp)+' PV · '+fmt(hullQuote.price)+' U'));
+     const upgrade=button('MEJORAR VIDA',async()=>{
+      if(busy||loading||!confirm('¿Mejorar vida máxima a '+fmt(hullQuote.maxHp)+' PV por '+fmt(hullQuote.price)+' uridium?'))return;
+      busy=true;loading=true;upgrade.disabled=true;
+      try{await api('pet/hull',{tier:hullQuote.tier,requestId});await refresh();status.textContent=balance();await readProgression();await readPetEquipment();}
+      catch(e){status.textContent=e.message;}
+      finally{busy=false;loading=false;if(upgrade.isConnected)upgrade.disabled=Number(p.uridium)<hullQuote.price;}
+     });
+     upgrade.disabled=Number(p.uridium)<hullQuote.price;hull.append(upgrade);
+    }else hull.append(el('small',p.level===20?'Vida máxima alcanzada':'Sube de nivel para desbloquear otra mejora'));
+   }else hull.append(el('p','Precio de referencia del nivel: '+fmt(p.hpUpgrade)+' U'),el('small','Compra pendiente de activación'));
+   content.append(info,hull);
+   for(const [type,label] of [['laser','Láseres'],['generator','Generadores'],['gear','Módulos'],['protocol','Protocolos']]){
+    const tile=el('section',null,'gg13-tile'),q=p.nextSlots?.[type];
+    tile.append(el('h3',label),el('strong',p.slots[type]+' / '+p.limits[type]+' ranuras'),el('small',q?'Siguiente ranura: '+fmt(q.price)+' U':p.level===20?'Límite alcanzado':'Más ranuras al subir de nivel'));
+    if(q&&!p.purchasesEnabled)tile.append(el('small','Compra pendiente de activación'));
+    if(q&&p.purchasesEnabled){
+     const requestId=crypto.randomUUID();
+     const b=button('COMPRAR RANURA '+q.slot,async()=>{
+      if(busy||loading||!confirm('¿Comprar por '+fmt(q.price)+' uridium?'))return;
+      busy=true;loading=true;b.disabled=true;
+      try{await api('pet/slots',{type,requestId});await refresh();status.textContent=balance();await readProgression();}
+      catch(e){status.textContent=e.message;}
+      finally{busy=false;loading=false;if(b.isConnected)b.disabled=false;}
+     });b.disabled=Number(p.uridium)<q.price;tile.append(b);
+    }
+    content.append(tile);
+   }
+   if(!p.purchasesEnabled)content.append(el('p','Vista de progresión en pruebas. Los efectos de combate y la obtención de EXP se integrarán por separado.'));
+  }
+  async function readProgression(){try{showProgression(await api('pet/progression'));}catch(e){if(progression.isConnected)content.replaceChildren(el('p','Progresión no disponible: '+e.message),button('REINTENTAR',()=>readProgression()));}}
+  content.append(el('p','Cargando progresión…'));readProgression();
+  const loadout=section('EQUIPAMIENTO INDEPENDIENTE','LÁSERES Y ESCUDOS'),loadoutBody=el('div');loadout.append(loadoutBody);
+  let equipmentLoading=false;
+  async function readPetEquipment(){
+   if(equipmentLoading||!loadout.isConnected)return;
+   equipmentLoading=true;loadoutBody.replaceChildren(el('p','Cargando equipamiento…'));
+   try{
+    const [p,d]=await Promise.all([api('pet/progression'),api('pet/equipment')]);
+    if(!loadout.isConnected)return;
+    const draft={laser:[...d.equipment.laser],generator:[...d.equipment.generator]};
+    function drawEquipment(){
+     if(!loadout.isConnected)return;
+     loadoutBody.replaceChildren(el('p','Daño base equipado: '+fmt(d.stats.damage)+' · Escudo: '+fmt(d.stats.shield)),el('small','Vista de estadísticas guardadas. El equipamiento todavía no modifica el combate.'));
+     for(const [type,category,label] of [['laser','lasers','Láseres'],['generator','shields','Escudos']]){
+      const group=el('section'),grid=el('div',null,'gg-slot-grid');
+      group.append(el('h3',label+' · '+draft[type].length+' / '+p.slots[type]));
+      const free=d.available.filter(i=>i.category===category&&!draft[type].includes(i.instanceId));
+      for(const [index,id] of draft[type].entries()){
+       const item=d.available.find(i=>i.instanceId===id),tile=el('div',null,'gg-hangar-item');
+       if(item)tile.append(visual.art(category,itemData(item)),el('strong',item.code));
+       const remove=button('Retirar',()=>{draft[type].splice(index,1);drawEquipment();});remove.disabled=!d.enabled;tile.append(remove);grid.append(tile);
+      }
+      group.append(grid);
+      if(draft[type].length<p.slots[type]){
+       const select=el('select'),empty=el('option','Seleccionar '+label.toLowerCase());empty.value='';select.append(empty);
+       select.setAttribute('aria-label','Equipo P.E.T. '+label);
+       for(const item of free){const o=el('option',item.code+' · Nv. '+item.level+' · '+item.instanceId.slice(0,6));o.value=item.instanceId;select.append(o);}
+       const add=button('EQUIPAR',()=>{if(!select.value||!free.some(i=>i.instanceId===select.value)||draft[type].length>=p.slots[type])return;draft[type].push(select.value);drawEquipment();});
+       select.disabled=!d.enabled||!free.length;add.disabled=true;select.onchange=()=>{add.disabled=!d.enabled||!select.value;};group.append(select,add);
+      }
+      loadoutBody.append(group);
+     }
+     const save=button('GUARDAR EQUIPAMIENTO',async()=>{
+      if(busy||!d.enabled)return;
+      busy=true;save.disabled=true;
+      try{await api('pet/equipment',{equipment:draft});await refresh();status.textContent='Equipo P.E.T. guardado';await readPetEquipment();}
+      catch(e){status.textContent=e.message;}finally{busy=false;if(save.isConnected)save.disabled=false;}
+     });
+     save.disabled=!d.enabled;
+     loadoutBody.append(save,button('ACTUALIZAR EQUIPO',()=>{if(!busy)readPetEquipment();}));
+     if(!d.enabled)loadoutBody.append(el('small','Edición deshabilitada hasta completar la integración del combate.'));
+    }
+    drawEquipment();
+   }catch(e){if(loadout.isConnected)loadoutBody.replaceChildren(el('p',e.message),button('REINTENTAR',readPetEquipment));}
+   finally{equipmentLoading=false;}
+  }
+  readPetEquipment();
+
   const modules=section('MÓDULOS ADQUIRIDOS',fmt(ownedGear.length)),gear=el('div',null,'gg-slot-grid');
   for(const i of ownedGear){
    const name=i.code==='G-AL1'?'Auto-botín':i.code==='G-KK1'?'Kamikaze':i.code;

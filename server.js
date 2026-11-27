@@ -1,4 +1,5 @@
 'use strict';
+const {eligibleForNpcXp,guardTarget,npcRetaliatesAgainstPet}=require('./pet-combat-rules-v173');
 const {factors:boosterFactors}=require('./boosters-v112');const {clanStationEffects}=require('./stations-v113');const express=require('express');const http=require('node:http');const path=require('node:path');const crypto=require('node:crypto');const {Server}=require('socket.io');const {createAccounts}=require('./accounts');
 const catalogV13=require('./data/catalog-v13.json');const {DEFS,WAVES,SHARED}=require('./gates-v14');const {MAPS,homeBase,galaxyPortals,portals,requiredLevel,population}=require('./maps-v14');const {eligible,damageFactor}=require('./pvp-v15');const {createGroups}=require('./groups-v15');const {npcCargo}=require('./minerals-v17');const {factor}=require('./upgrades-v18');const {MINES,RULES:MR,mineImpact}=require('./mines-v18');const {repairRate}=require('./cpus-v18');const {TECH,isActive:techActive,leechAmount}=require('./assembly-v19');const {points:dronePoints}=require('./drones-v19');const {get:formationDef,bonuses:formationBonus,stats:formationStats,absorption:formationAbsorption,combatFactor,shieldDelta}=require('./formations-v19');const {ABILITIES,definitions:abilityDefinitions,active:abilityActive,activate:activateAbility,heal,speedFactor,incoming,breakCloak}=require('./abilities-v18');const alienStats=require('./data/npcs-v14.json');const {createHadesLobbies}=require('./hades-lobby-v14');const {salvo,hit}=require('./equipment-v13');
 const WORLD={w:12000,h:8000};const SHIPS={scout:{hp:900,shield:450,speed:420,damage:110},tank:{hp:1800,shield:950,speed:255,damage:155}};
@@ -194,12 +195,51 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const d=Math.hypot(p.petX-p.x,p.petY-p.y),passive=p.petMode==='passive';
   if(d>(passive?900:480))p.petFollowing=true;
   if(d<(passive?480:260))p.petFollowing=false;
-  if(!p.petFollowing)return {x:p.petX,y:p.petY};
-  return petFollowGoal(p);
+  if(p.petFollowing)return petFollowGoal(p);
+  if(passive)return {x:p.petX,y:p.petY};
+  // Guard patrols independently around the pilot; passive never patrols.
+  const phase=(Date.now()/6500)+(p.petPatrolPhase||0);
+  return {x:clamp(p.x+310*Math.cos(phase),25,WORLD.w-25),y:clamp(p.y+310*Math.sin(phase),25,WORLD.h-25)};
+ }
+ function shootPetGuard(p,now){
+  if(process.env.GG_PET_GUARD_ENABLED!=='1'||!accounts.petGuardShot||p.petShotPending||now<(p.petNextShot||0))return;
+  const n=npcs.get(p.target),generation=p.petGeneration;
+  const valid=()=>!closing&&players.get(p.id)===p&&p.petGeneration===generation&&npcs.get(n?.id)===n&&guardTarget(p,n,Date.now(),600)&&!safeZone(p)&&!immune(n)&&!abilityActive(p,'ultimate-cloak',Date.now());
+  if(!valid())return;
+  p.petShotPending=true;p.petNextShot=now+1000;
+  const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petGuardShot(p.accountId):null).then(shot=>{
+   if(!shot){p.petNextShot=Date.now()+5000;return;}
+   if(players.get(p.id)!==p)return;
+   io.to(p.id).emit('v13:ammoStock',{code:shot.code,quantity:shot.stock});
+   if(!valid())return;
+   p.petAngle=Math.atan2(n.y-p.petY,n.x-p.petX);
+   laser({x:p.petX,y:p.petY,zone:p.zone,type:'player'},n,shot.code);
+   const result=salvo({damage:shot.damage,lasers:shot.count},n,shot.code,shot.stock+shot.count,Math.random());
+   if(result.damage<=0)return;
+   Object.assign(n,result.target);n.lastHit=Date.now();p.petLastHitNpc=n.id;p.petLastAttackAt=n.lastHit;
+   laserDamage(p,n,result.damage,n.type==='boss'?100:64);
+   finishNPC(p,n);
+  }).catch(()=>{p.petNextShot=Date.now()+5000;}).finally(()=>{p.petShotPending=false;pending.delete(job);});
+  p.writes=job;pending.add(job);
+ }
+ function hitGuardPet(n,p,now){
+  if(process.env.GG_PET_VITALS_ENABLED!=='1'||!accounts.petDamage||!npcRetaliatesAgainstPet(p,n,now)||immune(p))return false;
+  const amount=Math.max(0,Math.round(n.damage));
+  if(!Number.isSafeInteger(amount)||!amount)return false;
+  p.petDamagePending=true;
+  laser(n,{x:p.petX,y:p.petY});
+  // The shot is accepted now. Persist even if the pilot subsequently switches the PET off.
+  const job=p.writes.catch(()=>{}).then(()=>accounts.petDamage(p.accountId,amount)).then(v=>{
+   if(!v||players.get(p.id)!==p)return;
+   p.petVitals={...p.petVitals,...v};
+   if(v.destroyed){setPetMode(p,'off');io.to(p.id).emit('notice','P.E.T. destruido. Repáralo antes de volver a activarlo.');}
+   io.to(p.id).emit('v14:petState',{mode:p.petMode,fuel:p.petFuel??null,pending:!!p.petPending,vitals:p.petVitals});
+  }).catch(()=>{if(players.get(p.id)===p){setPetMode(p,'off');io.to(p.id).emit('notice','No se pudo confirmar el daño del P.E.T.');}}).finally(()=>{p.petDamagePending=false;pending.delete(job);});
+  p.writes=job;pending.add(job);return true;
  }
  function setPetMode(p,mode){
-  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;
-  io.to(p.id).emit('v14:petState',{mode:'off',fuel:p.petFuel??null,pending:mode!=='off'});
+  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;p.petLastHitNpc=null;p.petLastAttackAt=0;
+  io.to(p.id).emit('v14:petState',{mode:'off',fuel:p.petFuel??null,pending:mode!=='off',vitals:p.petVitals||null});
  }
  // Section groups spawn in order. Protegit combat statistics remain provisional.
  function clearGateNPCs(p){for(const [id,n] of npcs)if(n.zone===p.zone&&p.zone!=='world')npcs.delete(id);for(const [id,m] of mines)if(m.zone===p.zone&&p.zone!=='world')mines.delete(id);}
@@ -308,7 +348,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.writes=job;pending.add(job);
  }
  async function refreshPilotSummaries(pilots){if(!accounts.pilotSummary||!pilots.length)return;const rows=await accounts.pilotSummary(pilots.map(p=>p.accountId));const byId=new Map(rows.map(r=>[r.account_id,r]));for(const p of pilots){const r=byId.get(p.accountId);if(!r||players.get(p.id)!==p)continue;p.rank=Number(r.rank);io.to(p.id).emit('gg:pilotSummary',{id:p.accountId,points:r.points,uridium:r.uridium,kills:r.kills,deaths:r.deaths,aliens:r.aliens,keys:r.keys,premiumSeconds:r.premium_seconds,cargo:r.cargo});}}
- const publicPlayer=p=>({id:p.id,name:p.name,rank:p.rank||1,title:p.pilotTitle||null,gateRings:p.gateRings||[],godAllowed:!!p.godAllowed,godMode:!!p.godMode,oneShot:!!p.oneShot,cpus:p.cpus||[],robot:p.robot,repairOn:!!p.repairOn,cloaked:!!p.cloaked,ishUntil:p.ishUntil||0,mineUntil:p.mineUntil||0,abilities:p.abilities||{},technologies:p.technologies||{},jamUntil:p.jamUntil||0,mineralUpgrades:p.mineralUpgrades||{},clanTag:p.clanTag||'',ship:p.ship,design:p.design||null,formation:p.formation||'normal',droneCount:p.droneCount||0,droneRank:p.droneRank||1,droneVisuals:p.droneVisuals||[],formationReadyAt:p.formationReadyAt||0,company:p.company,companyChosen:p.companyChosen,honor:p.honor,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil,pet:p.petUntil>Date.now()&&p.petMode!=='off'&&!p.deadUntil?{mode:p.petMode,x:p.petX,y:p.petY,angle:Number.isFinite(p.petAngle)?p.petAngle:p.angle}:null});
+ const publicPlayer=p=>({id:p.id,name:p.name,rank:p.rank||1,title:p.pilotTitle||null,gateRings:p.gateRings||[],godAllowed:!!p.godAllowed,godMode:!!p.godMode,oneShot:!!p.oneShot,cpus:p.cpus||[],robot:p.robot,repairOn:!!p.repairOn,cloaked:!!p.cloaked,ishUntil:p.ishUntil||0,mineUntil:p.mineUntil||0,abilities:p.abilities||{},technologies:p.technologies||{},jamUntil:p.jamUntil||0,mineralUpgrades:p.mineralUpgrades||{},clanTag:p.clanTag||'',ship:p.ship,design:p.design||null,formation:p.formation||'normal',droneCount:p.droneCount||0,droneRank:p.droneRank||1,droneVisuals:p.droneVisuals||[],formationReadyAt:p.formationReadyAt||0,company:p.company,companyChosen:p.companyChosen,honor:p.honor,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil,pet:p.petUntil>Date.now()&&p.petMode!=='off'&&!p.deadUntil?{mode:p.petMode,x:p.petX,y:p.petY,angle:Number.isFinite(p.petAngle)?p.petAngle:p.angle,vitals:p.petVitals||null}:null});
  function missionEvent(p,type,target,count=1){
   const job=p.writes.catch(()=>{}).then(()=>accounts.missionEvent(p.accountId,type,target,count));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo guardar el progreso de misión');});return job;
  }
@@ -365,9 +405,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  function awardGroup(p,credits,xp,message,uridium=0,honor=0,points=0){
   const ids=(groups.status(p.id)?.members||[p.id]).filter(id=>{const m=players.get(id);return m&&sameZone(p,m)&&!m.deadUntil&&!m.gate;});if(!ids.includes(p.id))ids.push(p.id);
-  const shares=[credits,xp,uridium,honor].map(n=>groups.split(n,ids,p.id));return Promise.allSettled(ids.map(id=>award(players.get(id),Math.round(shares[0][id]*(players.get(id).pilotBonus?.credits||1)),Math.round(shares[1][id]*(formationBonus(players.get(id).formation).npcXp||1)*(players.get(id).pilotBonus?.xp||1)*(players.get(id).boost?.xp||1)),message,shares[2][id],Math.round(shares[3][id]*(formationBonus(players.get(id).formation).honor||1)*(players.get(id).pilotBonus?.honor||1)*(players.get(id).boost?.honor||1)),id===p.id?points:0)));
+  const petEligibility=new Map(ids.map(id=>[id,eligibleForNpcXp(players.get(id),Date.now())]));
+  const shares=[credits,xp,uridium,honor].map(n=>groups.split(n,ids,p.id));return Promise.allSettled(ids.map(id=>award(players.get(id),Math.round(shares[0][id]*(players.get(id).pilotBonus?.credits||1)),Math.round(shares[1][id]*(formationBonus(players.get(id).formation).npcXp||1)*(players.get(id).pilotBonus?.xp||1)*(players.get(id).boost?.xp||1)),message,shares[2][id],Math.round(shares[3][id]*(formationBonus(players.get(id).formation).honor||1)*(players.get(id).pilotBonus?.honor||1)*(players.get(id).boost?.honor||1)),id===p.id?points:0,petEligibility.get(id)===true)));
  }
- function award(p,credits,xp,message,uridium=0,honor=0,points=0){if(closing)return Promise.reject(Error('Servidor cerrando'));const job=p.writes.catch(()=>{}).then(async()=>{const r=await accounts.reward(p.accountId,credits,xp,uridium,honor,points);if(r.rankChanged)p.reloadRequested=true;Object.assign(p,{credits:Number(r.credits),experience:Number(r.experience),level:Number(r.level),honor:Number(r.honor??p.honor)});emitReward(p,message,r.payout||{credits,xp,honor});return p.credits;});p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo confirmar una recompensa en la base de datos.');});return job;}
+ function award(p,credits,xp,message,uridium=0,honor=0,points=0,petEligible=false){if(closing)return Promise.reject(Error('Servidor cerrando'));const job=p.writes.catch(()=>{}).then(async()=>{const r=await accounts.reward(p.accountId,credits,xp,uridium,honor,points,petEligible);if(r.rankChanged)p.reloadRequested=true;Object.assign(p,{credits:Number(r.credits),experience:Number(r.experience),level:Number(r.level),honor:Number(r.honor??p.honor)});emitReward(p,message,r.payout||{credits,xp,honor});return p.credits;});p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo confirmar una recompensa en la base de datos.');});return job;}
  app.disable('x-powered-by');app.use((req,res,next)=>{res.set({'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});next();});app.use(express.json({limit:'8kb'}));accounts.endpoints(app);
  app.get('/health',async(req,res)=>{res.set('Cache-Control','no-store');if(closing)return res.status(503).json({ok:false,database:false});try{await (accounts.health?accounts.health():accounts.ready());res.json({ok:true,database:true,players:players.size});}catch{res.status(503).json({ok:false,database:false});}});
  app.get('/admin',(req,res)=>{res.set('Cache-Control','no-store').sendFile(path.join(__dirname,'public','admin.html'));});
@@ -812,12 +853,19 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  for(const p of players.values()){if(p.ubaReturn||p.invasionReturn)continue;if(now>=(p.nextBoosterCheck||0)){p.nextBoosterCheck=now+1000;updateBoosters(p,now);io.to(p.id).volatile.emit('gg:shipStats',{damage:p.damage*(p.boost?.damage||1),speed:p.speed,config:(p.activeConfig||0)+1});}if(p.gatePending)continue;if(p.deadUntil){if(now>=p.deadUntil){const home=p.company+'-1';changeMap(p,home);spawnPlayer(p);p.protectedUntil=Date.now()+3000;const job=p.writes.catch(()=>{}).then(()=>accounts.saveLocation(p.accountId,p.company,home));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>pending.delete(job));}else continue;}if((p.reloadRequested||p.nextUpgradeAt&&now>=p.nextUpgradeAt)&&!p.reloadPending&&!p.shotPending&&!p.upgradePending){p.nextUpgradeAt=0;p.reloadRequested=false;p.reloadPending=true;p.attack=false;const job=Promise.resolve().then(()=>accounts.combatLoadout(p.accountId)).then(l=>{if(players.get(p.id)!==p)return;if(p.deadUntil){p.reloadRequested=true;return;}if(!l)throw Error('Sin configuración guardada');applyLoadout(p,l);io.to(p.id).emit('notice','Configuración '+(l.active+1)+' activa · '+l.lasers+' láseres');io.to(p.id).emit('v13:loadoutApplied',{active:l.active,lasers:l.lasers,damage:l.damage});}).catch(()=>{if(players.get(p.id)===p)io.to(p.id).emit('notice','No se pudo activar el equipo. Guarda de nuevo en el hangar.');}).finally(()=>{p.reloadPending=false;pending.delete(job);});pending.add(job);}generatorTick(p,now);abilityTick(p,now,dt);move(p,p.dest,dt);if(p.dest&&distance(p,p.dest)<2)p.dest=null;p.shield=clamp(p.shield+shieldDelta(p,dt)+(now-p.lastHit>6500?35*dt:0),0,p.maxShield);
  if(p.petMode&&p.petMode!=='off'&&now>=p.petUntil&&!p.petPending){
   const mode=p.petMode,generation=p.petGeneration;p.petPending=true;
-  const job=accounts.petInterval(p.accountId,mode).then(result=>{
+  const job=p.writes.catch(()=>{}).then(()=>accounts.petInterval(p.accountId,mode)).then(async result=>{
+   if(process.env.GG_PET_VITALS_ENABLED==='1'&&accounts.petVitals){
+    const v=await accounts.petVitals(p.accountId);
+    if(v.destroyed)throw Object.assign(Error('El P.E.T. está destruido. Repáralo primero'),{status:400});
+    if(players.get(p.id)!==p||p.petGeneration!==generation||p.deadUntil)return;
+    const recovered=accounts.petRegenerate&&p.petVitals&&!p.attack&&!p.petDamagePending?await accounts.petRegenerate(p.accountId):null;
+    if(players.get(p.id)===p&&p.petGeneration===generation)p.petVitals={...v,...(recovered||{})};
+   }
    if(closing||players.get(p.id)!==p||p.deadUntil||p.petGeneration!==generation)return;
    p.petFuel=result.fuel;p.petUntil=Date.now()+10000;
    if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
-   io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false});
-  }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});pending.add(job);
+   io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false,vitals:p.petVitals||null});
+  }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});p.writes=job;pending.add(job);
  }
  if(p.petUntil>now&&p.petMode!=='off'){
   let targetBox=null;
@@ -825,8 +873,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
   const goal=petTravelGoal(p,targetBox);
   const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy),deadzone=targetBox?1:22;
-  if(len>deadzone){const speed=targetBox?Math.max(550,p.speed+100):Math.min(Math.max(550,p.speed+100),Math.max(85,len*4,p.dest?p.speed:0));const step=Math.min(len,speed*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;p.petAngle=Math.atan2(dy,dx);}
+  if(len>deadzone){const desired=targetBox?Math.max(550,p.speed+100):Math.min(Math.max(550,p.speed+100),Math.max(85,len*3,p.dest?p.speed:0));const speed=p.petSpeed=Math.min(desired,(p.petSpeed||0)+900*dt);const step=Math.min(len,speed*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;p.petAngle=Math.atan2(dy,dx);}
+  if(len<=deadzone)p.petSpeed=0;
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
+  if(p.petMode==='guard')shootPetGuard(p,now);
  }
  if(!p.gate)for(const b of boxes.inZone(zoneOf(p)))if(distance(p,b)<52)collectBox(p,b);
  collectSpaceball(p,now);collectIce(p,now);
@@ -847,7 +897,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }).catch(()=>{p.attack=false;io.to(p.id).emit('notice','No se pudo confirmar el consumo de munición');}).finally(()=>{p.shotPending=false;pending.delete(job);if(players.get(p.id)===p&&p.attack&&!p.deadUntil&&!p.gatePending&&!p.upgradePending&&!p.reloadPending&&Date.now()>=(p.autoRetry||0)){const now=Date.now();const choices=[];if(p.cpus?.includes('AROL-X')&&now>=(p.rocketUntil||0))choices.push('rocket');if(p.launcher&&p.cpus?.includes('RL-LB1')&&now>=(p.ordnanceUntil?.hellstorm||0))choices.push('shell');if(choices.length){const choice=choices[p.autoTurn%choices.length||0];p.autoTurn=(p.autoTurn||0)+1;const ack=r=>{if(!r.ok)p.autoRetry=Date.now()+2000;};if(choice==='rocket')shootRocket(p,p.autoRocket||'R-310',ack);else shootOrdnance(p,p.autoShell||'ECO-10',ack);}}});pending.add(job);}
  }}
  const npcPilotsByZone=groupByZone(players.values(),zoneOf);
- for(const n of npcs.values()){if(n.empUntil>now){n.target=null;continue;}let target=players.get(n.target);if(!target||target.cloaked||abilityActive(target,'ultimate-cloak',now)||target.deadUntil||target.gatePending||safeZone(target)||!sameZone(n,target)||(!n.gateNPC&&distance(n,target)>1000)){target=nearestEligible(n,npcPilotsByZone.get(zoneOf(n))||[],n.gateNPC?Infinity:n.type==='boss'?850:310,p=>!p.deadUntil&&!p.gatePending&&!p.cloaked&&!abilityActive(p,'ultimate-cloak',now)&&sameZone(p,n)&&!safeZone(p));n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100&&!safeZone(target)&&!(target.protectedUntil>now)){n.lastShot=now;laser(n,target);if(Math.random()<(n.accuracyUntil>now?.6:1)*(1-(formationBonus(target.formation).evasion||0))*(1-(target.pilotBonus?.evasion||0)))damage(target,n.damage*(abilityActive(target,'prism',now)?.1:1));if(target.hp<=0&&!target.deadUntil){recordRankDeath(target);if(target.gate){saveGate(target,'death');continue;}target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else if(!n.gateNPC){if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
+ for(const n of npcs.values()){if(n.empUntil>now){n.target=null;continue;}let target=players.get(n.target);if(!target||target.cloaked||abilityActive(target,'ultimate-cloak',now)||target.deadUntil||target.gatePending||safeZone(target)||!sameZone(n,target)||(!n.gateNPC&&distance(n,target)>1000)){target=nearestEligible(n,npcPilotsByZone.get(zoneOf(n))||[],n.gateNPC?Infinity:n.type==='boss'?850:310,p=>!p.deadUntil&&!p.gatePending&&!p.cloaked&&!abilityActive(p,'ultimate-cloak',now)&&sameZone(p,n)&&!safeZone(p));n.target=target?.id||null;}if(target){const d=distance(n,target);if(d>270)move(n,target,dt);else n.angle=Math.atan2(target.y-n.y,target.x-n.x);if(d<460&&now-n.lastShot>1100&&!safeZone(target)&&!(target.protectedUntil>now)){n.lastShot=now;if(hitGuardPet(n,target,now))continue;laser(n,target);if(Math.random()<(n.accuracyUntil>now?.6:1)*(1-(formationBonus(target.formation).evasion||0))*(1-(target.pilotBonus?.evasion||0)))damage(target,n.damage*(abilityActive(target,'prism',now)?.1:1));if(target.hp<=0&&!target.deadUntil){recordRankDeath(target);if(target.gate){saveGate(target,'death');continue;}target.deadUntil=now+4000;setPetMode(target,'off');target.attack=false;target.target=null;target.dest=null;io.to(target.id).emit('notice','Nave destruida. Reaparición en 4 segundos.');}}}else if(!n.gateNPC){if(distance(n,n.dest)<8)n.dest=point();move(n,n.dest,dt);}}
  updateMines(now);updateDefense(now);tickUBA(now);tickInvasion(now);tickHitac(now);tickIce(now,dt);if(spaceballGame)spaceball.advance(spaceballGame,now);
  if(++tick%2===0&&players.size){const zones=buildZoneSnapshots({players:players.values(),npcs:npcs.values(),mines:mines.values(),boxes:[...boxes.values()].filter(b=>MAPS[b.zone]),zoneOf,publicPlayer,isHidden:p=>abilityActive(p,'ultimate-cloak',now),common:zone=>({time:now,map:MAPS[zone]?zone:null,spaceball:zone==='4-4'?spaceballView(now):null,hitac:hitacView(zone),ice:iceView(zone),base:homeBase(zone,WORLD.w,WORLD.h),portals:MAPS[zone]?portals(zone,WORLD.w,WORLD.h):[]})});for(const z of zones.values())for(const viewer of z.viewers)io.to(viewer.id).volatile.emit('state',snapshotFor(z,viewer));}},50);
  const close=onceAsync(async()=>{closing=true;clearInterval(loop);clearInterval(maintenance);clearInterval(calendarTimer);clearInterval(rankingTimer);for(const t of timers)clearTimeout(t);await new Promise(resolve=>io.close(resolve));while(pending.size)await Promise.allSettled([...pending]);await accounts.close();});return{app,server,io,close};}

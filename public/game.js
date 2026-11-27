@@ -133,7 +133,20 @@ socket.on('v14:hadesLobby',room=>{hadesLobby=room;window.dispatchEvent(new Custo
 socket.on('disconnect',()=>{hadesLobby=null;});
 socket.on('v14:gateState',s=>{gateState={...s,localUntil:s.phase==='between'?performance.now()+1000*(s.seconds||10):0};entities.clear();selected=null;attacking=false;dest=null;notice(s.inside?(s.gate||'Puerta').toUpperCase()+' · Oleada '+s.wave+'/'+s.total+' · Vidas '+s.lives+(s.phase==='countdown'?' · Inicio en '+s.seconds+' s':s.phase==='between'?' · Portal de salida abierto durante 10 s':''):'De vuelta al sector');window.dispatchEvent(new CustomEvent('gg14:gateState',{detail:s}));});
 socket.on('disconnect',()=>{gateState={inside:false};});
-let petMode='off',petFuel=null,petPending=false,petOwned=null,petGear=null;
+let petMode='off',petFuel=null,petPending=false,petOwned=null,petGear=null,petVitals=null,petVitalsLoading=false,petRepairPending=false,petVitalsEpoch=0,petRepairRequest=null;
+async function refreshPetVitals(){
+ if(petOwned!==true||petVitalsLoading)return;
+ petVitalsLoading=true;const epoch=petVitalsEpoch;
+ try{const response=await fetch('/api/v13/pet/vitals',{credentials:'same-origin',cache:'no-store'});if(!response.ok)return;const v=await response.json();if(epoch===petVitalsEpoch&&petOwned===true){petVitals=v.enabled?v:null;renderPetPanel();}}
+ catch{}finally{petVitalsLoading=false;}
+}
+async function repairPet(){
+ if(petRepairPending||!joined||!petVitals?.enabled||!petVitals.destroyed)return;
+ if(!confirm('¿Reparar el P.E.T. por '+fmt(petVitals.repairPrice)+' uridium?'))return;
+ petRepairPending=true;petRepairRequest=petRepairRequest||crypto.randomUUID();renderPetPanel();
+ try{const r=await fetch('/api/v13/pet/repair',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:petRepairRequest})});const d=await r.json();if(!r.ok){if(r.status<500)petRepairRequest=null;throw Error(d.error||'No se pudo reparar');}petRepairRequest=null;petVitals={...petVitals,...d.vitals};notice('P.E.T. reparado');await refreshPetVitals();}
+ catch(e){notice(e.message||'Reparación no disponible');}finally{petRepairPending=false;renderPetPanel();}
+}
 function renderPetPanel(){
  const panel=document.querySelector('.gg-window[data-key="pet"]');if(!panel)return;
  let controls=panel.querySelector('.pet-controls');
@@ -142,7 +155,10 @@ function renderPetPanel(){
   const make=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text)n.textContent=text;return n;};
   const top=make('div','gg-pet-top'),portrait=make('div','gg-pet-portrait'),art=window.ggShopVisual.art('pet',{id:'pet-10',name:'P.E.T. 10'}),stats=make('div','gg-pet-stats');portrait.append(art);top.append(portrait,stats);controls.append(top);
   const info=make('p','gg-pet-status'),fuelLabel=make('p','gg-pet-fuel'),meter=make('progress');meter.max=50000;meter.setAttribute('aria-label','Combustible P.E.T.');stats.append(info,fuelLabel,meter);
-  const unavailable=make('small','gg-pet-unavailable','Vida, escudo y nivel: —');unavailable.title='El servidor aún no publica estos atributos del P.E.T.';stats.append(unavailable);
+  const unavailable=make('small','gg-pet-unavailable','Vida y escudo: —');stats.append(unavailable);
+  const hpLabel=make('small','gg-pet-hp-label'),hpBar=make('progress','gg-pet-hp-bar'),shieldLabel=make('small','gg-pet-shield-label'),shieldBar=make('progress','gg-pet-shield-bar');
+  hpBar.setAttribute('aria-label','Vida del P.E.T.');shieldBar.setAttribute('aria-label','Escudo del P.E.T.');stats.append(hpLabel,hpBar,shieldLabel,shieldBar);
+  const repair=make('button','gg-pet-repair','Reparar');repair.type='button';repair.onclick=repairPet;stats.append(repair);
   const actions=make('div','gg-pet-actions'),power=make('button','gg-pet-power','▶'),store=make('button','gg-pet-shop','+'),modes=make('select','gg-pet-mode-select');
   power.type='button';power.onclick=()=>{if(!joined||petPending)return;const mode=petMode==='off'?'passive':'off';socket.emit('v14:pet',mode);};
   store.type='button';store.title='Tienda de P.E.T. y combustible';store.setAttribute('aria-label',store.title);store.onclick=()=>window.gg13Open?.('Tienda');
@@ -156,14 +172,23 @@ function renderPetPanel(){
  info.dataset.phase=petPending?'pending':petMode==='off'?'off':'active';
  setHudText(fuelLabel,'Combustible '+(petFuel===null?'—':fmt(petFuel))+' / 50.000');
  if(petFuel===null)meter.removeAttribute('value');else setHudValue(meter,Math.max(0,Math.min(50000,petFuel)));
- const active=petMode!=='off';power.disabled=petPending||petOwned!==true;setHudText(power,active?'■':'▶');power.title=active?'Apagar P.E.T.':'Activar P.E.T.';power.setAttribute('aria-label',power.title);power.setAttribute('aria-pressed',String(active));
+ const active=petMode!=='off';power.disabled=petPending||petOwned!==true||!!petVitals?.destroyed||petRepairPending;
+ const vitalsAvailable=!!petVitals?.enabled;
+ controls.querySelector('.gg-pet-unavailable').hidden=vitalsAvailable;
+ for(const [key,label,max] of [['hp','Vida','maxHp'],['shield','Escudo','maxShield']]){
+  const l=controls.querySelector('.gg-pet-'+key+'-label'),b=controls.querySelector('.gg-pet-'+key+'-bar');
+  l.hidden=b.hidden=!vitalsAvailable;
+  if(vitalsAvailable){setHudText(l,label+' '+fmt(petVitals[key])+' / '+fmt(petVitals[max]));b.max=Math.max(1,petVitals[max]);setHudValue(b,Math.max(0,Math.min(b.max,petVitals[key])));}
+ }
+ const repair=controls.querySelector('.gg-pet-repair');repair.hidden=!vitalsAvailable||!petVitals.destroyed;repair.disabled=petRepairPending||!joined;setHudText(repair,petRepairPending?'Reparando…':'Reparar · '+fmt(petVitals?.repairPrice||0)+' U');
+ if(petVitals?.destroyed)setHudText(info,'P.E.T. destruido');setHudText(power,active?'■':'▶');power.title=active?'Apagar P.E.T.':'Activar P.E.T.';power.setAttribute('aria-label',power.title);power.setAttribute('aria-pressed',String(active));
  modes.disabled=petPending||petOwned!==true||!active;modes.value=petMode==='loot'?'loot':petMode==='guard'?'guard':'passive';modes.querySelector('[value="loot"]').disabled=petGear===null||!petGear.has('G-AL1');modes.querySelector('[value="kami"]').disabled=petGear===null||!petGear.has('G-KK1');
  controls.querySelector('.gg-pet-kami').disabled=petPending||!active||petOwned!==true||petGear===null||!petGear.has('G-KK1');
  setHudText(gear,petGear===null?'Módulos: —':(petGear.has('G-AL1')?'Auto-botín':'Sin auto-botín')+' · '+(petGear.has('G-KK1')?'Kamikaze':'Sin kamikaze'));
 }
-socket.on('v14:petState',s=>{petMode=s.mode;petFuel=s.fuel;petPending=!!s.pending;renderPetPanel();});
-window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);petOwned=e.detail.items.some(i=>i.category==='pet');petGear=new Set(e.detail.items.map(i=>i.code).filter(code=>['G-AL1','G-KK1'].includes(code)));renderPetPanel();});
-socket.on('disconnect',()=>{petMode='off';petFuel=null;petPending=false;petOwned=null;petGear=null;renderPetPanel();});
+socket.on('v14:petState',s=>{petMode=s.mode;petFuel=s.fuel;petPending=!!s.pending;if(s.vitals?.enabled){petVitalsEpoch++;petVitals=s.vitals;}renderPetPanel();if(petOwned===true&&!petVitals)refreshPetVitals();});
+window.addEventListener('gg13:inventory',e=>{petFuel=Number(e.detail.ammo?.find(a=>a.code==='pet-fuel')?.quantity||0);petOwned=e.detail.items.some(i=>i.category==='pet');petGear=new Set(e.detail.items.map(i=>i.code).filter(code=>['G-AL1','G-KK1'].includes(code)));if(!petOwned){petVitals=null;petVitalsEpoch++;}renderPetPanel();if(petOwned)refreshPetVitals();});
+socket.on('disconnect',()=>{petMode='off';petFuel=null;petPending=false;petOwned=null;petGear=null;petVitals=null;petVitalsEpoch++;petRepairRequest=null;renderPetPanel();});
 document.addEventListener('DOMContentLoaded',()=>queueMicrotask(renderPetPanel));
 const ammoCodes=['LCB-10','MCB-25','MCB-50','UCB-100','SAB-50','RSB-75'];let selectedAmmo='LCB-10';const ammoStock={};
 const rocketCodes=['R-310','PLT-2026','PLT-2021','PLT-3030'];let rocketBusy=false,rocketUntil=0;
@@ -327,6 +352,7 @@ function drawPet(p,v,alpha){
  const q=screen(position.x,position.y);if(q.x<-50||q.y<-50||q.x>W+50||q.y>H+50)return;
  ctx.save();ctx.translate(q.x,q.y);ctx.save();ctx.rotate(Number.isFinite(position.angle)?position.angle:0);
  window.ggGraphics161.draw(ctx,'pet','#5ae5ff');ctx.restore();
+ const pv=p.pet.vitals;if(pv?.enabled){const bar=(y,value,max,color)=>{ctx.fillStyle='#17212d';ctx.fillRect(-21,y,42,4);ctx.fillStyle=color;ctx.fillRect(-21,y,42*Math.max(0,Math.min(1,value/Math.max(1,max))),4);};bar(-28,pv.hp,pv.maxHp,'#4ee07a');bar(-22,pv.shield,pv.maxShield,'#52a9ff');}
  ctx.font='10px system-ui';ctx.textAlign='center';ctx.fillStyle='#c2e7f5';ctx.strokeStyle='#060a12';ctx.lineWidth=3;ctx.strokeText('P.E.T.',0,28);ctx.fillText('P.E.T.',0,28);ctx.restore();
 }
 let kamiEffects=[];

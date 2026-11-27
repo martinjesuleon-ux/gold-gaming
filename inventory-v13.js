@@ -5,6 +5,7 @@ const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
 const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
+const {assertShipDoesNotUsePet}=require('./pet-equipment-rules-v173');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const {specialGateQuantity}=require('./uridium-event-v157');
@@ -20,6 +21,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    code text NOT NULL, quantity bigint NOT NULL CHECK(quantity>=0),
    PRIMARY KEY(account_id,code));
+   CREATE TABLE IF NOT EXISTS gg_pet_equipment_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,equipment jsonb NOT NULL DEFAULT '{"laser":[],"generator":[]}');
    CREATE TABLE IF NOT EXISTS gg_v13_hangar (
    account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
    ship text NOT NULL DEFAULT 'phoenix', configs jsonb NOT NULL DEFAULT '[[],[]]',
@@ -119,6 +121,8 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(design!==null&&(!catalog.designs.some(d=>d.id===design&&d.ship===ship)||!rows.some(x=>x.category==='ship-designs'&&x.code===design)))throw fail('Diseño no adquirido o incompatible');
    const owned=new Map(rows.filter(x=>['lasers','engines','shields','drones','launchers','cpus','robots'].includes(x.category)).map(x=>[x.instanceId,x]));
    const computed=configurations(ship,configs,owned);
+   const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment;
+   assertShipDoesNotUsePet(configs,petEquipment);
    await c.query('INSERT INTO gg_v13_hangar(account_id,ship,configs,active,design) VALUES($1,$2,$3,$4,$5) ON CONFLICT(account_id) DO UPDATE SET ship=EXCLUDED.ship,configs=EXCLUDED.configs,active=EXCLUDED.active,design=EXCLUDED.design',[id,ship,JSON.stringify(configs),active,design]);
    return {ok:true,stats:computed[active]};
   });
@@ -180,7 +184,16 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const owned=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
    if(mode==='loot'&&!owned.some(x=>x.code==='G-AL1'))throw fail('Necesitas el engranaje G-AL1');
-   const cost=10;
+   if(process.env.GG_PET_VITALS_ENABLED==='1'){
+    const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
+    if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido. Repáralo primero');
+   }
+   // The source table does not specify its time unit. Enable only with an explicit 10-second period.
+   let cost=10;
+   if(process.env.GG_PET_FUEL_TABLE_PERIOD_MS==='10000'){
+    const row=(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0];
+    cost=require('./pet-progression-v173').levelForExperience(Number(row?.experience||0)).fuel;
+   }
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=$2 RETURNING quantity",[id,cost])).rows[0];
    if(!r)throw fail('Combustible insuficiente');
    return {fuel:Number(r.quantity)};
