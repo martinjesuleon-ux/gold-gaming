@@ -108,7 +108,7 @@ test('adaptive labels clear ten drone formations at all rotations, bars stay bou
 
 test('dark-space background cache regenerates only when viewport dimensions change',()=>{
  let canvases=0,draws=0;const gradient={addColorStop(){}};
- const context=()=>new Proxy({createRadialGradient:()=>gradient,drawImage(){draws++;}},{get:(t,k)=>k in t?t[k]:()=>{}});
+ const context=()=>new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient,drawImage(){draws++;}},{get:(t,k)=>k in t?t[k]:()=>{}});
  const window={document:{createElement(){canvases++;return {getContext:()=>context()};}}};
  vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161,c=context();
  g.sky(c,1280,720);g.sky(c,1280,720);assert.equal(canvases,1);assert.equal(draws,2);
