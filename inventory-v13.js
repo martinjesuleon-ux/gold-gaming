@@ -427,7 +427,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
      for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['green-key',keys]])await addStack(c,id,code,n);
      const item=itemDraw('hades',g.completions===0,crypto.randomInt(1000)),quantity=specialGateQuantity(item,specialFactor);
      for(let i=0;i<quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,'lasers']);
-     g.completions++;payouts[id]={balance,uridium:u,xp,honor,ammo,disks,xenomit:0,vouchers:0,keys,item,itemQuantity:quantity};await logGateReward(c,id,'hades',g.completions,payouts[id]);
+     g.completions++;payouts[id]={balance,uridium:u,xp,honor,ammo,disks,xenomit:0,vouchers:0,keys,item,itemQuantity:quantity,specialFactor};await logGateReward(c,id,'hades',g.completions,payouts[id]);
     }
     g.wave=nextWave;g.lives=lives;if(complete||failed)g.built=false;if(outcome==='clear'||failed)g.kills=[];await saveGateRow(c,id,g);
    }
@@ -463,9 +463,9 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   });
  }
  async function gateRewardLog(id){
-  const rows=(await pool.query('SELECT gate,completion,payout,created_at FROM gg_gate_reward_log WHERE account_id=$1 ORDER BY created_at DESC LIMIT 100',[id])).rows;
+  const rows=(await pool.query('SELECT gate,completion,payout,created_at FROM gg_gate_reward_log WHERE account_id=$1 ORDER BY created_at DESC,gate,completion DESC LIMIT 100',[id])).rows;
   const completed=(await pool.query('SELECT gate,completions FROM gg_v14_gates WHERE account_id=$1 AND completions>0 ORDER BY gate',[id])).rows;
-  return {entries:rows,completed:completed.map(g=>{const [uridium,xp,honor,ammo,disks,xenomit,vouchers,keys]=REWARDS[g.gate]||[];return {...g,baseReward:{uridium,xp,honor,ammo,disks,xenomit,vouchers,keys}};})};
+  return {entries:rows.map(r=>({...r,payout:{...r.payout,balance:undefined}})),completed:completed.map(g=>{const [uridium,xp,honor,ammo,disks,xenomit,vouchers,keys]=REWARDS[g.gate]||[];return {...g,baseReward:{uridium,xp,honor,ammo,disks,xenomit,vouchers,keys}};})};
  }
  async function logGateReward(c,id,gate,completion,payout){await c.query('INSERT INTO gg_gate_reward_log(account_id,gate,completion,payout) VALUES($1,$2,$3,$4)',[id,gate,completion,JSON.stringify(payout)]);}
  async function gateAdvance(id,expectedWave,outcome,gate='alpha'){
@@ -491,7 +491,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
      const category=require('./gate-reward-category-v191').rewardCategory(item);
      for(let i=0;i<itemQuantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,category]);
     }
-    g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance,item,itemQuantity,...(gate==='kronos'?{extras:{'UBR-100':500,'RSB-75':5000,'gate-energy':250}}:{})};await logGateReward(c,id,gate,g.completions,payout);
+    g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance,item,itemQuantity,specialFactor,...(gate==='kronos'?{extras:{'UBR-100':500,'RSB-75':5000,'gate-energy':250}}:{})};await logGateReward(c,id,gate,g.completions,payout);
    }
    if(complete||failed){g.built=false;g.wave=0;g.lives=0;g.kills=[];}
    else if(outcome==='clear'){g.wave++;g.kills=[];}

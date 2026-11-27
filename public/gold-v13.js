@@ -592,7 +592,7 @@ async function mineralMenu(tab){
 function gateRewardText(p){const labels={uridium:'Uridium',xp:'Experiencia',honor:'Honor',ammo:'UCB-100',disks:'Discos de registro',xenomit:'Xenomit',vouchers:'Vales de reparación',keys:'Llaves verdes'};return Object.entries(labels).filter(([k])=>Number(p?.[k])>0).map(([k,label])=>fmt(p[k])+' '+label).concat(p?.item?[fmt(p.itemQuantity||1)+' '+p.item]:[],Object.entries(p?.extras||{}).map(([k,n])=>fmt(n)+' '+k));}
 window.addEventListener('gg17:gateReward',e=>{
  const r=e.detail;document.getElementById('gg-gate-reward')?.remove();const box=el('section',null,'gg-gate-reward');box.id='gg-gate-reward';box.setAttribute('role','status');
- box.append(el('h2',r.gate.toUpperCase()+' COMPLETADA'),el('p','Recompensas acreditadas'));
+ box.append(el('h2',r.gate.toUpperCase()+' COMPLETADA'),el('p','Recompensas acreditadas'));if(r.payout?.specialFactor===2)box.append(el('strong','Evento recompensas especiales ×2'));
  for(const line of gateRewardText(r.payout))box.append(el('p',line));
  box.append(button('VER REGISTRO',()=>{box.remove();open('Registro');}),button('CERRAR',()=>box.remove()));document.body.append(box);
 });
@@ -604,7 +604,7 @@ async function activityMenu(){
  for(const g of data.completed){const tile=el('section',null,'gg13-tile');tile.append(el('h3',g.gate.toUpperCase()+' · '+g.completions+' completadas'),el('p','Premio base por finalización'),el('p',gateRewardText(g.baseReward).join(' · ')));body.append(tile);}
  body.append(el('h3','Historial de pagos confirmados'));
  if(!data.entries.length)body.append(el('p','El detalle individual comienza con esta actualización. Las finalizaciones anteriores siguen contabilizadas arriba.'));
- for(const r of data.entries){const tile=el('section',null,'gg13-tile');tile.append(el('strong',r.gate.toUpperCase()+' · N.º '+r.completion),el('small',new Date(r.created_at).toLocaleString('es-CL')),el('p',gateRewardText(r.payout).join(' · ')));body.append(tile);}
+ const filter=el('select'),results=el('div');filter.setAttribute('aria-label','Filtrar historial por puerta');for(const gate of ['',...new Set(data.entries.map(r=>r.gate))]){const o=el('option',gate?gate.toUpperCase():'Todas las puertas');o.value=gate;filter.append(o);}function drawHistory(){results.replaceChildren();const entries=data.entries.filter(r=>!filter.value||r.gate===filter.value);results.append(el('small',entries.length+' pagos mostrados · últimos 100 registros disponibles'));for(const r of entries){const tile=el('section',null,'gg13-tile');tile.append(el('strong',r.gate.toUpperCase()+' · N.º '+r.completion),el('small',new Date(r.created_at).toLocaleString('es-CL')),el('p',gateRewardText(r.payout).join(' · ')));if(r.payout?.specialFactor===2)tile.append(el('small','Evento especiales ×2'));else if(r.payout?.specialFactor===1)tile.append(el('small','Recompensas normales'));results.append(tile);}}filter.onchange=drawHistory;body.append(filter,results);drawHistory();
  body.append(el('h3','Actividad de esta sesión'));
  for(const r of (window.gg17Activity?.()||[]))body.append(el('p',new Date(r.at).toLocaleTimeString('es-CL')+' · '+r.message));
  }catch(e){body.append(el('p',e.message));}
