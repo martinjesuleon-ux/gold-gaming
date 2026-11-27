@@ -69,7 +69,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  function gateWave(p,withCountdown=true){
   if(!p.gate)return;
-  const g=p.gate,def=DEFS[g.gate];if(g.countdownPending)return;g.countdownPending=true;
+  const g=p.gate,def=DEFS[g.gate];if(g.countdownPending||g.completed)return;g.countdownPending=true;
   if(g.gate==='hades')for(const member of groupPilots(g))member.gateWaiting=false;
   else p.gateWaiting=false;
   const launch=()=>{
@@ -84,6 +84,24 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   };
   if(withCountdown){if(g.gate==='hades')groupState(g,'countdown',{seconds:def.countdown});else io.to(p.id).emit('v14:gateState',{inside:true,gate:g.gate,wave:g.wave+1,total:def.waves,lives:g.lives,phase:'countdown',seconds:def.countdown});later(launch,def.countdown*1000);}
   else launch();
+ }
+ // Intermission starts only after the database confirms the completed wave.
+ function gateIntermission(p,completed=false){
+  const g=p.gate;if(!g||g.closed)return;
+  const leader=g.gate==='hades'?players.get(g.leader):p;if(!leader||leader.gate!==g)return;
+  const members=g.gate==='hades'?groupPilots(g):[p];
+  const until=Date.now()+10000;
+  g.exitPortal={id:'gg:exit',kind:'exit',to:'BASE',x:clamp(leader.x+(leader.x>WORLD.w/2?-90:90),25,WORLD.w-25),y:leader.y};
+  g.intermissionUntil=until;g.completed=completed;
+  for(const member of members){
+   member.gateWaiting=true;member.attack=false;member.target=null;
+   io.to(member.id).emit('v14:gateState',{inside:true,gate:g.gate,wave:completed?DEFS[g.gate].waves:g.wave+1,total:DEFS[g.gate].waves,lives:g.lives,phase:'between',seconds:10,until,completed,exitPortal:g.exitPortal,leader:member.id===leader.id});
+  }
+  later(()=>{
+   if(players.get(leader.id)!==leader||leader.gate!==g||g.closed||!leader.gateWaiting||g.intermissionUntil!==until)return;
+   if(completed){if(g.gate==='hades')endHades(g,'Hades completada');else{returnFromGate(leader);refreshGalaxy(leader).catch(()=>{});io.to(leader.id).emit('v14:gateState',{inside:false});}return;}
+   g.intermissionUntil=0;g.exitPortal=null;gateWave(leader,false);
+  },10000);
  }
  function returnFromGate(p,repair=false){
   const old={hp:p.hp,shield:p.shield,lastHit:p.lastHit};const home=p.gateReturn;
@@ -106,10 +124,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   queueHades(g,()=>accounts.hadesAdvance(g.accounts,wave,outcome)).then(result=>{
    if(g.closed)return;
    g.lives=result.lives;g.wave=result.wave;g.kills=result.kills;
-   if(result.complete){for(const member of groupPilots(g)){const pay=result.payouts[member.accountId];if(pay)Object.assign(member,{credits:Number(pay.balance.credits),experience:Number(pay.balance.experience),level:Number(pay.balance.level)});}endHades(g,'Hades completada · +20.000 uridium por piloto');return;}
+   if(result.complete){for(const member of groupPilots(g)){const pay=result.payouts[member.accountId];if(pay)Object.assign(member,{credits:Number(pay.balance.credits),experience:Number(pay.balance.experience),level:Number(pay.balance.level)});}for(const member of groupPilots(g)){member.gatePending=false;io.to(member.id).emit('notice','Hades completada · +20.000 uridium por piloto');}g.transition=false;gateIntermission(p,true);return;}
    if(result.failed){endHades(g,'Hades cerrada: el grupo agotó sus vidas');return;}
    if(outcome==='death'){const dead=players.get(deadId);if(dead?.gate===g){dead.hp=dead.maxHp;dead.shield=dead.maxShield;dead.lastHit=Date.now();dead.dest=null;dead.target=null;dead.attack=false;dead.protectedUntil=Date.now()+3000;setPetMode(dead,'off');}groupState(g,'combat');}
-   else{for(const member of groupPilots(g))member.gateWaiting=true;groupState(g,'between');}
+   else gateIntermission(p);
    g.transition=false;for(const member of groupPilots(g))member.gatePending=false;
   }).catch(()=>{});
  }
@@ -120,8 +138,9 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const wave=p.gate.wave,gate=p.gate.gate;
   const job=p.writes.catch(()=>{}).then(()=>accounts.gateAdvance(p.accountId,wave,outcome,gate)).then(async r=>{if(r.complete)await accounts.missionEvent(p.accountId,'gate',gate).catch(()=>{});
    if(players.get(p.id)!==p)return;
-   if(outcome==='death'||r.complete||r.failed){if(r.payout?.balance)Object.assign(p,{credits:Number(r.payout.balance.credits),experience:Number(r.payout.balance.experience),level:Number(r.payout.balance.level)});returnFromGate(p,outcome==='death');refreshGalaxy(p).catch(()=>{});io.to(p.id).emit('v14:gateState',{inside:false,...r});io.to(p.id).emit('notice',r.complete?DEFS[r.gate].name+' completada · +'+r.payout.uridium+' uridium':r.failed?'Puerta perdida':'Vida perdida · vuelve a entrar desde Portales');}
-   else{p.gate={gate:r.gate,wave:r.wave,lives:r.lives,kills:[]};p.gateWaiting=true;io.to(p.id).emit('v14:gateState',{inside:true,gate:r.gate,wave:r.wave+1,total:DEFS[r.gate].waves,lives:r.lives,phase:'between'});}
+   if(r.complete){if(r.payout?.balance)Object.assign(p,{credits:Number(r.payout.balance.credits),experience:Number(r.payout.balance.experience),level:Number(r.payout.balance.level)});io.to(p.id).emit('notice',DEFS[r.gate].name+' completada · +'+r.payout.uridium+' uridium');gateIntermission(p,true);}
+   else if(outcome==='death'||r.failed){if(r.payout?.balance)Object.assign(p,{credits:Number(r.payout.balance.credits),experience:Number(r.payout.balance.experience),level:Number(r.payout.balance.level)});returnFromGate(p,outcome==='death');refreshGalaxy(p).catch(()=>{});io.to(p.id).emit('v14:gateState',{inside:false,...r});io.to(p.id).emit('notice',r.complete?DEFS[r.gate].name+' completada · +'+r.payout.uridium+' uridium':r.failed?'Puerta perdida':'Vida perdida · vuelve a entrar desde Portales');}
+   else{p.gate={gate:r.gate,wave:r.wave,lives:r.lives,kills:[]};gateIntermission(p);}
   }).catch(()=>{if(players.get(p.id)===p){returnFromGate(p,outcome==='death');io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice','No se pudo guardar la puerta. Vuelve a entrar.');}}).finally(()=>{p.gatePending=false;pending.delete(job);});
   p.writes=job;pending.add(job);
  }
@@ -253,8 +272,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    const arrival=portals(portal.to,WORLD.w,WORLD.h).find(x=>x.to===portal.from);changeMap(p,portal.to,arrival);missionEvent(p,'map',portal.to);p.protectedUntil=Date.now()+3000;ack({ok:true,map:p.zone});
   }catch{ack({ok:false,error:'No se pudo guardar el salto'});}finally{p.gatePending=false;}
  });
- socket.on('v14:gateNext',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&(p.gate.gate!=='hades'||p.gate.leader===p.id))gateWave(p);});
- socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&!p.shotPending&&!p.deadUntil){if(p.gate.gate==='hades'){if(p.gate.leader===p.id)endHades(p.gate,'El grupo regresó a la base');}else{returnFromGate(p);socket.emit('v14:gateState',{inside:false});}}});
+ socket.on('v14:gateNext',()=>{const p=players.get(socket.id);if(allowed()&&p?.gateWaiting)io.to(p.id).emit('notice','La siguiente ronda comienza automáticamente');});
+ socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&!p.shotPending&&!p.deadUntil&&p.gate.exitPortal&&Date.now()<p.gate.intermissionUntil){if(distance(p,p.gate.exitPortal)>125){io.to(p.id).emit('notice','Acércate al portal de salida');return;}if(p.gate.gate==='hades'){if(p.gate.leader===p.id)endHades(p.gate,'El grupo regresó a la base');}else{returnFromGate(p);refreshGalaxy(p).catch(()=>{});socket.emit('v14:gateState',{inside:false});}}});
  socket.on('disconnect',()=>{const p=players.get(socket.id);if(p?.gate?.gate==='hades')endHades(p.gate,'Hades en pausa: un piloto se desconectó');else if(p?.gate)clearGateNPCs(p);broadcastHades(hadesLobbies.leave(socket.id));const oldGroup=groups.status(socket.id)?.members||[];groups.leave(socket.id);players.delete(socket.id);notifyGroup(oldGroup);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
  // Run independently of simulation; never overlap or block a simulation tick.
  let maintenanceBusy=false;
