@@ -5,8 +5,14 @@ const TYPES=['alien','box','distance'];
 const fail=message=>Object.assign(Error(message),{status:400});
 function createAchievements(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_achievement_counters(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,kind text NOT NULL,value bigint NOT NULL DEFAULT 0 CHECK(value>=0),PRIMARY KEY(account_id,kind));
- CREATE TABLE IF NOT EXISTS gg_achievement_titles(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,title text);`);}
+ CREATE TABLE IF NOT EXISTS gg_achievement_titles(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,title text);
+ CREATE TABLE IF NOT EXISTS gg_flight_checkpoints(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,request_id uuid NOT NULL,distance integer NOT NULL CHECK(distance>0 AND distance<=10000000),created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(account_id,request_id));`);}
  async function add(id,kind,count=1){if(!TYPES.includes(kind)||!Number.isSafeInteger(count)||count<1||count>10000000)throw fail('Contador inválido');await pool.query('INSERT INTO gg_achievement_counters(account_id,kind,value) VALUES($1,$2,$3) ON CONFLICT(account_id,kind) DO UPDATE SET value=gg_achievement_counters.value+EXCLUDED.value',[id,kind,count]);}
+ async function checkpointFlight(id,count,requestId){
+  if(!Number.isSafeInteger(count)||count<1||count>10000000||typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Checkpoint inválido');
+  await pool.query(`WITH recorded AS (INSERT INTO gg_flight_checkpoints(account_id,request_id,distance) VALUES($1,$2,$3) ON CONFLICT(account_id,request_id) DO NOTHING RETURNING account_id,distance)
+  INSERT INTO gg_achievement_counters(account_id,kind,value) SELECT account_id,'distance',distance FROM recorded ON CONFLICT(account_id,kind) DO UPDATE SET value=gg_achievement_counters.value+EXCLUDED.value`,[id,requestId,count]);
+ }
  async function read(id){
   const gates=(await pool.query('SELECT gate,completions FROM gg_v14_gates WHERE account_id=$1 AND completions>0 ORDER BY gate',[id])).rows;
   const unlocked=gates.filter(g=>Object.hasOwn(TITLES,g.gate)).map(g=>({id:g.gate,name:TITLES[g.gate]}));
@@ -32,6 +38,6 @@ function createAchievements(pool){
  }
  async function select(id,title){if(title!==null&&!Object.hasOwn(TITLES,title))throw fail('Título inválido');const d=await read(id);if(title!==null&&!d.unlocked.some(t=>t.id===title))throw fail('Título no desbloqueado');
   await pool.query('INSERT INTO gg_achievement_titles(account_id,title) VALUES($1,$2) ON CONFLICT(account_id) DO UPDATE SET title=EXCLUDED.title',[id,title]);return status(id);}
- return {ready,add,read,readMany,status,select};
+ return {ready,add,checkpointFlight,read,readMany,status,select};
 }
 module.exports={TITLES,createAchievements};
