@@ -27,6 +27,16 @@ function finishRound(m,winner,now=Date.now()){
   m.phase='finished';m.winner=m.score[0]===m.score[1]?null:m.players[m.score[0]>m.score[1]?0:1];m.until=0;
  }else{m.round++;m.phase='offer';m.accepted=[];m.until=now+RULES.nextAcceptMs;}return m;
 }
+// An abandonment after the first real combat round is a match loss.
+function forfeit(m,id){
+ if(!m.started||!m.players.includes(id)||!['fight','offer','countdown'].includes(m.phase))return false;
+ m.winner=m.players.find(p=>p!==id);m.phase='finished';m.until=0;m.reason='forfeit';return true;
+}
+function expireOffer(m,now){
+ if(m.phase!=='offer'||now<m.until)return false;
+ if(m.started&&m.accepted.length===1)return forfeit(m,m.players.find(id=>!m.accepted.includes(id)));
+ return false;
+}
 function createLobby({eligible=()=>true}={}){
  const waiting=new Map(),matches=new Map();
  function enqueue(p,now=Date.now()){
@@ -70,4 +80,4 @@ function createUBA(pool){
  }
  return {ready,status,settle};
 }
-module.exports={RULES,scoreResult,createMatch,accept,advance,finishRound,createLobby,createUBA};
+module.exports={RULES,scoreResult,createMatch,accept,advance,finishRound,forfeit,expireOffer,createLobby,createUBA};
