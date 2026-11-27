@@ -884,4 +884,21 @@
       "duration": 3000
     }
   ]
+,
+  "resources": [
+    {
+      "id": "promerium",
+      "name": "Promerium",
+      "price": 10000,
+      "packSize": 1000,
+      "currency": "uridium"
+    },
+    {
+      "id": "seprom",
+      "name": "Seprom",
+      "price": 50000,
+      "packSize": 1000,
+      "currency": "uridium"
+    }
+  ]
 }
