@@ -17,6 +17,14 @@ async function rewardFactorRead(c,id,kind,now=Date.now()){
  const row=(await c.query('SELECT until_ms FROM gg_booster_active WHERE account_id=$1 AND code=$2 AND until_ms>$3',[id,code,now])).rows[0];
  return rewardFactor({[code]:row?.until_ms},kind,now);
 }
+function premiumPrice(total,active=false){
+ if(!Number.isSafeInteger(total)||total<0)throw Error('Precio inválido');
+ return active?Number((BigInt(total)*95n+99n)/100n):total;
+}
+async function premiumRead(c,id,now=Date.now()){
+ const row=(await c.query("SELECT until_ms FROM gg_booster_active WHERE account_id=$1 AND code='PREMIUM' AND until_ms>$2",[id,now])).rows[0];
+ return Number(row?.until_ms)>now;
+}
 function scaleReward(reward,factor){
  if(factor!==1&&factor!==2)throw Error('Multiplicador inválido');
  return Object.fromEntries(Object.entries(reward).map(([k,n])=>{if(!Number.isSafeInteger(n)||n<0||!Number.isSafeInteger(n*factor))throw Error('Recompensa inválida');return [k,n*factor];}));
@@ -57,4 +65,4 @@ function createBoosters(pool){
  }
  return {ready:()=>ready(pool),read:id=>read(pool,id),status:id=>view(pool,id),action};
 }
-module.exports={CATALOG,createBoosters,ready,read,extend,factors,rewardFactor,rewardFactorRead,scaleReward};
+module.exports={CATALOG,createBoosters,ready,read,extend,factors,rewardFactor,rewardFactorRead,scaleReward,premiumPrice,premiumRead};
