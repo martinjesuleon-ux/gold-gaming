@@ -129,3 +129,13 @@ test('sprite cache retains recently used hulls when many palettes are rendered',
 test('HUD resize work is coalesced and avoids unchanged style mutations',()=>{
  const hud=read('gold-hud.js');assert.match(hud,/if\(layoutQueued\)return/);assert.match(hud,/getPropertyValue\(name\)!==next/);assert.match(hud,/requestAnimationFrame/);assert.match(hud,/attributeFilter:\['hidden'\]/);
 });
+
+test('HUD values are only written when changed and radar grid is cached',()=>{
+ const game=read('game.js'),window={},vmContext={};
+ vm.runInNewContext(game.slice(game.indexOf('function setHudText('),game.indexOf('function updateHud('))+';this.setHudText=setHudText;this.setHudValue=setHudValue;',vmContext);
+ let writes=0,value='42';const node={get textContent(){return value;},set textContent(v){writes++;value=v;}};
+ vmContext.setHudText(node,42);assert.equal(writes,0);vmContext.setHudText(node,43);assert.equal(writes,1);
+ const meter={get value(){return value;},set value(v){writes++;value=String(v);}};vmContext.setHudValue(meter,43);assert.equal(writes,1);vmContext.setHudValue(meter,44);assert.equal(writes,2);
+ assert.match(game,/if\(!radarGrid\|\|radarGrid.width!==w\|\|radarGrid.height!==h\)/);
+ assert.match(game,/if\(!mini.closest\('\[hidden\]'\)\)radar\(\)/);
+});
