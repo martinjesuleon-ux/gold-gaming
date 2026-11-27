@@ -185,23 +185,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function recordRankDeath(p,radiation=false){if(p.deathRecorded||!accounts.recordDeath)return;p.deathRecorded=true;const requestId=p.deathRequestId||crypto.randomUUID();const job=p.writes.catch(()=>{}).then(()=>accounts.recordDeath(p.accountId,radiation,requestId));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo registrar la baja');});}
  function finishCombat(p,n,pvp,independentPet=false){if(pvp){n.lastHit=Date.now();if(!independentPet&&!immune(n)&&canPvp(p,n))recordPilotAggression(n,p,n.lastHit);if(n.hp<=0&&!n.deadUntil){n.deadUntil=Date.now()+4000;n.attack=false;n.target=null;n.dest=null;setPetMode(n,'off');if(!independentPet||p.target===n.id){p.attack=false;p.target=null;}const job=p.writes.catch(()=>{}).then(()=>accounts.pvpReward(p.accountId,n.accountId,n.ship,(formationBonus(p.formation).honor||1)*(p.pilotBonus?.honor||1),dronePoints(p.ship,n.ship,true))).then(async r=>{if(r.rankChanged)p.reloadRequested=true;Object.assign(p,{credits:Number(r.balance.credits),experience:Number(r.balance.experience),level:Number(r.balance.level),honor:Number(r.balance.honor)});emitReward(p,'Piloto eliminado',r.reward);if(r.reward.honor>=0)await accounts.missionEvent(p.accountId,'pilot',n.ship);});p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo guardar recompensa PvP');});io.to(n.id).emit('notice','Nave destruida por '+p.name);}return;}finishNPC(p,n);}
  function finishNPC(p,n,deferGate=false,independentPet=false){n.target=p.id;if(n.hp<=0&&npcs.get(n.id)===n){npcs.delete(n.id);if(!p.gate)dropCargo(p,n);if(!independentPet||p.target===n.id){p.target=null;p.attack=false;}if(p.gate?.gate==='hades'){const g=p.gate,wave=g.wave;queueHades(g,()=>accounts.hadesKill(g.accounts,wave,n.gateKillKey,{credits:n.reward,xp:n.xpReward,uridium:n.uridiumReward,honor:n.honorReward},p.accountId,dronePoints(p.ship,n.name))).then(r=>{if(r.rankChanged)p.reloadRequested=true;if(!r.duplicate)awaitAchievementHades(p);if(r.balances)for(const member of groupPilots(g)){const b=r.balances[member.accountId];if(b){Object.assign(member,{credits:Number(b.credits),experience:Number(b.experience),level:Number(b.level)});if(r.payouts?.[member.accountId])emitReward(member,n.name+' eliminado',r.payouts[member.accountId]);}}}).catch(()=>{});if(!deferGate&&!([...npcs.values()].some(x=>sameZone(p,x)&&!x.gateShielded)))nextGateGroup(p);return;}if(p.gate){const g=p.gate;const job=p.writes.catch(()=>{}).then(()=>accounts.gateKill(p.accountId,g.gate,g.wave,n.gateKillKey,{credits:Math.round(n.reward*(p.pilotBonus?.credits||1)),xp:Math.round(n.xpReward*(formationBonus(p.formation).npcXp||1)*(p.pilotBonus?.xp||1)*(p.boost?.xp||1)),uridium:n.uridiumReward,honor:Math.round(n.honorReward*(formationBonus(p.formation).honor||1)*(p.pilotBonus?.honor||1)*(p.boost?.honor||1))},dronePoints(p.ship,n.name))).then(async r=>{if(r.rankChanged)p.reloadRequested=true;if(!r.duplicate)await accounts.missionEvent(p.accountId,'alien',n.name).catch(()=>{});if(r.balance){Object.assign(p,{credits:Number(r.balance.credits),experience:Number(r.balance.experience),level:Number(r.balance.level)});if(!r.duplicate&&r.payout)emitReward(p,n.name+' eliminado',r.payout);}});p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);if(players.get(p.id)===p&&p.gate===g&&!p.gatePending){returnFromGate(p);io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice','No se pudo guardar el enemigo. Vuelve a entrar.');}});if(!deferGate&&!([...npcs.values()].some(x=>sameZone(p,x)&&!x.gateShielded)))nextGateGroup(p);return;}awardGroup(p,n.reward,n.xpReward??(n.type==='boss'?500:50),n.name+' eliminado',n.uridiumReward||0,n.honorReward||0,dronePoints(p.ship,n.name)).catch(()=>{});missionEvent(p,'alien',n.name);if(n.mapNPC)later(()=>spawnMapNPC(n.name,n.zone),5000);}}
- // PET navigation is shared by all visual themes; collection rules remain unchanged.
- function petFollowGoal(p){
-  const a=Number.isFinite(p.angle)?p.angle:0;
-  return {x:clamp(p.x-170*Math.cos(a)-105*Math.sin(a),25,WORLD.w-25),y:clamp(p.y-170*Math.sin(a)+105*Math.cos(a),25,WORLD.h-25)};
- }
- // Passive holds position until the pilot moves far away; guard follows with a loose leash.
- function petTravelGoal(p,targetBox){
-  if(targetBox)return targetBox;
-  const d=Math.hypot(p.petX-p.x,p.petY-p.y),passive=p.petMode==='passive';
-  if(d>(passive?900:480))p.petFollowing=true;
-  if(d<(passive?480:260))p.petFollowing=false;
-  if(p.petFollowing)return petFollowGoal(p);
-  if(passive)return {x:p.petX,y:p.petY};
-  // Guard patrols independently around the pilot; passive never patrols.
-  const phase=(Date.now()/6500)+(p.petPatrolPhase||0);
-  return {x:clamp(p.x+310*Math.cos(phase),25,WORLD.w-25),y:clamp(p.y+310*Math.sin(phase),25,WORLD.h-25)};
- }
+ const petNavigation=require('./pet-navigation-v187');
+ function petFollowGoal(p){return petNavigation.followGoal(p,WORLD);}
  function tickPetRepair(p,now){
   if(p.petMode!=='repair'||p.petUntil<=now||!p.petRepairStarted||p.petRepairTickPending)return;
   if(p.deadUntil||p.attack||p.lastHit>=p.petRepairStarted||p.petRepairUntil&&now>=p.petRepairUntil||p.petVitals?.destroyed||p.petVitals?.hp>=p.petVitals?.maxHp){setPetMode(p,'passive');return;}
@@ -928,11 +913,19 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(p.petMode==='loot'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),p.petLootRange||700,b=>petEligible(p,b));
   if(p.petMode==='resource'&&!p.gate)targetBox=nearestEligible(p,boxes.inZone(zoneOf(p)),p.petLootRange||700,b=>petResourceEligible(p,b,now));
   if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
-  const goal=petTravelGoal(p,targetBox);
-  const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy),deadzone=targetBox?1:22;
-  if(len>deadzone){const desired=targetBox?Math.max(550,p.speed+100):Math.min(Math.max(550,p.speed+100),Math.max(85,len*3,p.dest?p.speed:0));const speed=p.petSpeed=Math.min(desired,(p.petSpeed||0)+900*dt);const step=Math.min(len,speed*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;p.petAngle=Math.atan2(dy,dx);}
-  if(len<=deadzone)p.petSpeed=0;
-  if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
+  let pursuit=null;
+  if(['guard','combo-guard'].includes(p.petMode)&&require('./pet-test-kit-v175').guardEnabled(p.accountId)&&!safeZone(p)&&!abilityActive(p,'ultimate-cloak',now)){
+   // Pursuit uses the same owner range and aggression rules as firing, but evaluates from the owner's position.
+   const nearOwner={...p,petX:p.x,petY:p.y};
+   const npc=selectGuardTarget(nearOwner,[...npcs.values()].filter(n=>!immune(n)),now,600);
+   const pilotEnabled=require('./pet-test-kit-v175').testKitEnabled(p.accountId)||process.env.GG_PET_GUARD_PVP_ENABLED==='1';
+   const pilot=pilotEnabled?selectPilotGuardTarget(nearOwner,players.values(),now,600,(a,b)=>canPvp(a,b)&&!immune(b)):null;
+   const target=pilot&&(!npc||distance(p,pilot)<distance(p,npc))?pilot:npc;
+   if(target)pursuit={x:target.x,y:target.y,kind:'combat'};
+  }
+  const goal=petNavigation.travelGoal(p,targetBox||pursuit,now,WORLD);
+  petNavigation.advance(p,goal,dt);
+  if(targetBox&&goal.kind==='pickup'&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
   if(['guard','combo-guard'].includes(p.petMode))shootPetGuard(p,now);
   if(p.petComboRepair){if(p.petComboRepair.until>now&&!p.deadUntil&&!p.petVitals?.destroyed){heal(p,'hp',p.petComboRepair.repairPerSecond*dt);}else{p.petComboRepair=null;io.to(p.id).emit('v14:petCombo',null);}}if(p.petMode==='repair')tickPetRepair(p,now);
   if(['locate-resource','locate-enemy'].includes(p.petMode)&&now>=(p.petLocateNext||0)){p.petLocateNext=now+1000;const mode=p.petMode;const marker=!p.gate?require('./pet-support-gears-v178').locatorMarker(p,mode==='locate-resource'?boxes.inZone(zoneOf(p)):npcs.values(),p.petLootRange,mode,now):null;io.to(p.id).emit('v14:petLocator',marker); }
