@@ -84,3 +84,5 @@ test('performance monitor samples frames and rate limits real server round trips
 test('graphics quality profiles change rendering only and retain full game entities',()=>{
  const game=read('game.js'),hud=read('gold-hud.js');assert.match(game,/low:\{dpr:1,stars:1,glow:0\}/);assert.match(game,/medium:\{dpr:1.5,stars:2,glow:.5\}/);assert.match(game,/high:\{dpr:2,stars:3,glow:1\}/);assert.match(game,/qualityProfiles\[quality\].dpr/);assert.match(game,/qualityProfiles\[quality\].stars/);assert.match(game,/qualityProfiles\[quality\].glow/);assert.match(game,/for\(const n of state.npcs\)/);assert.match(hud,/window.ggSetQuality\?\.\(preferences.quality\)/);
 });
+
+test('classic hangar groups equipment and displays rank ladder',()=>{const ui=read('gold-v13.js'),css=read('gold-v13.css');for(const label of ['LÁSERES','LANZAMISILES','GENERADORES','EXTRAS'])assert.ok(ui.includes("group('"+label+"'"));assert.match(ui,/gg-empty-slot/);assert.match(ui,/ggRankVisual.list/);assert.match(css,/gg-hangar-wide/);});
