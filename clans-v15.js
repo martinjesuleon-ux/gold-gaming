@@ -6,6 +6,8 @@ function createClans(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_v15_clans(id uuid PRIMARY KEY,name text NOT NULL,tag text NOT NULL,leader uuid NOT NULL REFERENCES accounts(id),credits bigint NOT NULL DEFAULT 0,uridium bigint NOT NULL DEFAULT 0,credit_tax integer NOT NULL DEFAULT 0 CHECK(credit_tax BETWEEN 0 AND 5),uridium_tax integer NOT NULL DEFAULT 0 CHECK(uridium_tax BETWEEN 0 AND 3));
  CREATE UNIQUE INDEX IF NOT EXISTS gg_v15_clans_name ON gg_v15_clans(lower(name));CREATE UNIQUE INDEX IF NOT EXISTS gg_v15_clans_tag ON gg_v15_clans(lower(tag));
  CREATE TABLE IF NOT EXISTS gg_v15_clan_members(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,clan_id uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,permissions text[] NOT NULL DEFAULT '{}');
+ ALTER TABLE gg_v15_clan_members ADD COLUMN IF NOT EXISTS credit_tax_at timestamptz NOT NULL DEFAULT now();
+ ALTER TABLE gg_v15_clan_members ADD COLUMN IF NOT EXISTS uridium_tax_at timestamptz NOT NULL DEFAULT now();
  CREATE TABLE IF NOT EXISTS gg_v15_clan_requests(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,clan_id uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,PRIMARY KEY(account_id,clan_id));
  CREATE TABLE IF NOT EXISTS gg_v15_clan_diplomacy(source uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,target uuid NOT NULL REFERENCES gg_v15_clans(id) ON DELETE CASCADE,state text NOT NULL CHECK(state IN ('war','alliance')),PRIMARY KEY(source,target));`);}
  async function membership(c,id){return (await c.query('SELECT c.*,m.permissions FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1',[id])).rows[0]||null;}
@@ -34,6 +36,24 @@ function createClans(pool){
  }else throw fail('Acción inválida');
  await c.query('COMMIT');return view(id);
  }catch(e){await c.query('ROLLBACK').catch(()=>{});if(e.code==='23505')throw fail('Nombre, etiqueta o membresía ya existe');if(e.code==='23503')throw fail('Clan o piloto no disponible');throw e;}finally{c.release();}}
- return {ready,view,action,membership:id=>membership(pool,id)};
+ // Charge once per elapsed period, on the current balance. No retroactive catch-up.
+ async function collectTaxes(){
+  const due=(await pool.query("SELECT account_id FROM gg_v15_clan_members WHERE credit_tax_at<=now()-interval '24 hours' OR uridium_tax_at<=now()-interval '7 days' ORDER BY LEAST(credit_tax_at,uridium_tax_at) LIMIT 20")).rows;
+  const changed=[];
+  for(const {account_id:id} of due){const c=await pool.connect();try{await c.query('BEGIN');
+   const p=(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rows[0];
+   const m=(await c.query("SELECT m.clan_id,c.credit_tax,c.uridium_tax,m.credit_tax_at<=now()-interval '24 hours' AS cd,m.uridium_tax_at<=now()-interval '7 days' AS ud FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=$1 FOR UPDATE OF m,c",[id])).rows[0];
+   if(p&&m&&(m.cd||m.ud)){
+    const credits=m.cd?BigInt(p.credits)*BigInt(m.credit_tax)/100n:0n,uridium=m.ud?BigInt(p.uridium)*BigInt(m.uridium_tax)/1000n:0n;
+    const balance=(await c.query('UPDATE player_progress SET credits=credits-$2,uridium=uridium-$3,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium',[id,String(credits),String(uridium)])).rows[0];
+    await c.query('UPDATE gg_v15_clans SET credits=credits+$2,uridium=uridium+$3 WHERE id=$1',[m.clan_id,String(credits),String(uridium)]);
+    await c.query('UPDATE gg_v15_clan_members SET credit_tax_at=CASE WHEN $2 THEN now() ELSE credit_tax_at END,uridium_tax_at=CASE WHEN $3 THEN now() ELSE uridium_tax_at END WHERE account_id=$1',[id,m.cd,m.ud]);
+    await c.query('COMMIT');if(credits||uridium)changed.push({id,credits:String(credits),uridium:String(uridium),balance});
+   }else await c.query('COMMIT');
+  }catch(e){await c.query('ROLLBACK').catch(()=>{});console.error('Clan tax:',e.code||e.message);}finally{c.release();}}
+  return changed;
+ }
+ async function tags(ids){if(!ids.length)return [];return (await pool.query('SELECT m.account_id,c.tag FROM gg_v15_clan_members m JOIN gg_v15_clans c ON c.id=m.clan_id WHERE m.account_id=ANY($1::uuid[])',[ids])).rows;}
+ return {ready,view,action,collectTaxes,tags,membership:id=>membership(pool,id)};
 }
 module.exports={createClans,PERMISSIONS};
