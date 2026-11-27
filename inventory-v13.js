@@ -28,7 +28,13 @@ function createInventory(pool){
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    gate text NOT NULL, pieces jsonb NOT NULL DEFAULT '[]',
    multiplier integer NOT NULL DEFAULT 1 CHECK(multiplier BETWEEN 1 AND 6),
+   wave integer NOT NULL DEFAULT 0 CHECK(wave BETWEEN 0 AND 10),
+   lives integer NOT NULL DEFAULT 3 CHECK(lives BETWEEN 0 AND 3),
+   completions integer NOT NULL DEFAULT 0 CHECK(completions>=0),
    PRIMARY KEY(account_id,gate));
+   ALTER TABLE gg_v14_gate_state ADD COLUMN IF NOT EXISTS wave integer NOT NULL DEFAULT 0 CHECK(wave BETWEEN 0 AND 10);
+   ALTER TABLE gg_v14_gate_state ADD COLUMN IF NOT EXISTS lives integer NOT NULL DEFAULT 3 CHECK(lives BETWEEN 0 AND 3);
+   ALTER TABLE gg_v14_gate_state ADD COLUMN IF NOT EXISTS completions integer NOT NULL DEFAULT 0 CHECK(completions>=0);
    CREATE TABLE IF NOT EXISTS gg_v14_gate_spins (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    request_id uuid NOT NULL, response jsonb NOT NULL,
@@ -147,7 +153,7 @@ function createInventory(pool){
  }
  async function gateStatus(id){
   return transaction(id,async(c,p)=>{
-   const row=(await c.query("SELECT pieces,multiplier FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0]||{pieces:[],multiplier:1};
+   const row=(await c.query("SELECT pieces,multiplier,wave,lives,completions FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0]||{pieces:[],multiplier:1,wave:0,lives:3,completions:0};
    const energy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
    return {gates:GATES,alpha:{...ALPHA,...row,required:ALPHA.pieces,pieces:row.pieces,ready:row.pieces.length===ALPHA.pieces},energy,balance:p,provisional:true};
   });
@@ -157,7 +163,7 @@ function createInventory(pool){
   return transaction(id,async(c,p)=>{
    const previous=(await c.query('SELECT response FROM gg_v14_gate_spins WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
    if(previous)return previous.response;
-   const row=(await c.query("SELECT pieces,multiplier FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0]||{pieces:[],multiplier:1};
+   const row=(await c.query("SELECT pieces,multiplier,wave,lives,completions FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0]||{pieces:[],multiplier:1,wave:0,lives:3,completions:0};
    if(row.pieces.length>=ALPHA.pieces)throw fail('Puerta completa');
    const next=spinAlpha(row,crypto.randomInt(100),crypto.randomInt(1,35),useMultiplier);
    const energy=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='gate-energy' AND quantity>=1 RETURNING quantity",[id])).rows[0];
@@ -174,6 +180,27 @@ function createInventory(pool){
    return result;
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin};
+ // Only the game server may call these transitions; no HTTP endpoint exposes them.
+ async function gateCheckpoint(id){
+  return transaction(id,async c=>{
+   const row=(await c.query("SELECT pieces,wave,lives,completions FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0];
+   if(!row||row.pieces.length!==ALPHA.pieces||row.lives<1||row.wave>=ALPHA.waves)throw fail('Alpha no está disponible');
+   return {wave:row.wave,lives:row.lives,completions:row.completions};
+  });
+ }
+ async function gateAdvance(id,expectedWave,outcome){
+  if(!Number.isInteger(expectedWave)||expectedWave<0||expectedWave>=ALPHA.waves||!['clear','death'].includes(outcome))throw fail('Progreso inválido');
+  return transaction(id,async c=>{
+   const row=(await c.query("SELECT pieces,wave,lives,completions FROM gg_v14_gate_state WHERE account_id=$1 AND gate='alpha'",[id])).rows[0];
+   if(!row||row.pieces.length!==ALPHA.pieces||row.wave!==expectedWave||row.lives<1)throw fail('La puerta cambió; vuelve a entrar');
+   const complete=outcome==='clear'&&row.wave+1===ALPHA.waves;
+   const failed=outcome==='death'&&row.lives===1;
+   const wave=complete||failed?0:row.wave+(outcome==='clear'?1:0);
+   const lives=complete||failed?ALPHA.lives:row.lives-(outcome==='death'?1:0);
+   await c.query("UPDATE gg_v14_gate_state SET wave=$2,lives=$3,pieces=$4,multiplier=CASE WHEN $5 THEN 1 ELSE multiplier END,completions=completions+$6 WHERE account_id=$1 AND gate='alpha'",[id,wave,lives,JSON.stringify(complete||failed?[]:row.pieces),complete||failed,complete?1:0]);
+   return {wave,lives,complete,failed,completions:row.completions+(complete?1:0)};
+  });
+ }
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateCheckpoint,gateAdvance};
 }
 module.exports={createInventory};
