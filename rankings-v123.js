@@ -1,5 +1,5 @@
 'use strict';
-const DAY=86400000;
+const DAY=86400000,RANK_REFRESH_MS=3000;
 const NAMES=['','Piloto espacial básico','Piloto espacial','Piloto espacial jefe','Sargento básico','Sargento','Sargento jefe','Teniente básico','Teniente','Teniente jefe','Capitán básico','Capitán','Capitán jefe','Comandante básico','Comandante','Comandante jefe','Coronel básico','Coronel','Coronel jefe','General básico','General','General jefe','Buscado','Administrador'];
 function rankPoints(p){if(Number(p.honor)<0||p.admin)return 0;return Math.max(0,Math.floor(Number(p.experience||0)/100000+Number(p.honor||0)/100+Number(p.level||0)*100+Number(p.days||0)*6+Number(p.kills||0)*4+Number(p.allyKills||0)*10-Number(p.deaths||0)*4-Number(p.radiation||0)*8));}
 function warPoints(age){return age<0?0:age<7*DAY?75:age<30*DAY?50:age<60*DAY?25:12;}
@@ -20,14 +20,21 @@ function createRankings(pool){
  CREATE TABLE IF NOT EXISTS gg_rank_deaths(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,radiation boolean NOT NULL DEFAULT false,at timestamptz NOT NULL DEFAULT now());
  ALTER TABLE gg_rank_deaths ADD COLUMN IF NOT EXISTS request_id uuid;
  CREATE UNIQUE INDEX IF NOT EXISTS gg_rank_death_request ON gg_rank_deaths(account_id,request_id);
- CREATE TABLE IF NOT EXISTS gg_rank_clock(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),day bigint NOT NULL);`);}
- async function refresh(){
+ CREATE TABLE IF NOT EXISTS gg_rank_clock(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),day bigint NOT NULL);
+ ALTER TABLE gg_rank_clock ADD COLUMN IF NOT EXISTS refreshed_at bigint NOT NULL DEFAULT 0;`);}
+ let running=null,lastLocalRefresh=0;
+ function refresh(){
+  if(running)return running;
+  if(lastLocalRefresh&&Date.now()-lastLocalRefresh<RANK_REFRESH_MS)return Promise.resolve(false);
+  running=recalculate().then(changed=>{lastLocalRefresh=Date.now();return changed;}).finally(()=>{running=null;});return running;
+ }
+ async function recalculate(){
  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413004)');
  const now=Date.now(),day=Math.floor(now/DAY);
  // Existing accounts without a registration timestamp begin tracking from migration day.
- await c.query(`INSERT INTO gg_rank_profiles(account_id,registered_at) SELECT id,COALESCE(NULLIF(to_jsonb(a)->>'created_at','')::timestamptz,now()) FROM accounts a ON CONFLICT DO NOTHING`);
- const last=(await c.query('SELECT day FROM gg_rank_clock WHERE singleton=true')).rows[0];
- if(Number(last?.day)===day){await c.query('COMMIT');return false;}
+ const inserted=await c.query(`INSERT INTO gg_rank_profiles(account_id,registered_at) SELECT id,COALESCE(NULLIF(to_jsonb(a)->>'created_at','')::timestamptz,now()) FROM accounts a ON CONFLICT DO NOTHING`);
+ const last=(await c.query('SELECT day,refreshed_at FROM gg_rank_clock WHERE singleton=true')).rows[0];
+ if(!inserted.rowCount&&Number(last?.day)===day&&now-Number(last?.refreshed_at||0)<RANK_REFRESH_MS){await c.query('COMMIT');return false;}
  const rows=(await c.query(`SELECT p.account_id AS id,p.experience,p.honor,p.level,COALESCE(l.company,1) AS company,r.admin,r.highest,
  GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (now()-r.registered_at))/86400)) AS days,
  (SELECT count(*) FROM gg_rank_kills k WHERE k.attacker=p.account_id AND NOT k.ally) AS kills,
@@ -35,8 +42,9 @@ function createRankings(pool){
  (SELECT count(*) FROM gg_rank_kills k WHERE k.victim=p.account_id)+(SELECT count(*) FROM gg_rank_deaths d WHERE d.account_id=p.account_id AND NOT d.radiation) AS deaths,
  (SELECT count(*) FROM gg_rank_deaths d WHERE d.account_id=p.account_id AND d.radiation) AS radiation
  FROM player_progress p JOIN gg_rank_profiles r USING(account_id) LEFT JOIN gg_v14_location l USING(account_id)`)).rows;
- for(const p of ranks(rows))await c.query('UPDATE gg_rank_profiles SET rank=$2,points=$3,highest=CASE WHEN $2<=21 THEN GREATEST(highest,$2) ELSE highest END,calculated_at=$4 WHERE account_id=$1',[p.id,p.rank,p.points,now]);
- await c.query('INSERT INTO gg_rank_clock(singleton,day) VALUES(true,$1) ON CONFLICT(singleton) DO UPDATE SET day=EXCLUDED.day',[day]);await c.query('COMMIT');return true;
+ const result=ranks(rows);
+ if(result.length)await c.query(`UPDATE gg_rank_profiles r SET rank=v.rank,points=v.points,highest=CASE WHEN v.rank<=21 THEN GREATEST(r.highest,v.rank) ELSE r.highest END,calculated_at=$4 FROM unnest($1::uuid[],$2::int[],$3::bigint[]) AS v(id,rank,points) WHERE r.account_id=v.id AND (r.rank IS DISTINCT FROM v.rank OR r.points IS DISTINCT FROM v.points OR r.calculated_at=0 OR (v.rank<=21 AND r.highest<v.rank))`,[result.map(p=>p.id),result.map(p=>p.rank),result.map(p=>p.points),now]);
+ await c.query('INSERT INTO gg_rank_clock(singleton,day,refreshed_at) VALUES(true,$1,$2) ON CONFLICT(singleton) DO UPDATE SET day=EXCLUDED.day,refreshed_at=EXCLUDED.refreshed_at',[day,now]);await c.query('COMMIT');return true;
  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
  async function status(id,board='rank'){
   if(!['rank','xp','honor','clan','war'].includes(board))throw Object.assign(Error('Clasificación inválida'),{status:400});
@@ -59,4 +67,4 @@ function createRankings(pool){
  async function death(id,radiation=false,requestId=null){await pool.query('INSERT INTO gg_rank_deaths(account_id,radiation,request_id) VALUES($1,$2,$3) ON CONFLICT(account_id,request_id) DO NOTHING',[id,!!radiation,requestId]);}
  return {ready,refresh,status,pilotSummary,death};
 }
-module.exports={rankPoints,warPoints,ranks,NAMES,createRankings};
+module.exports={rankPoints,warPoints,ranks,NAMES,createRankings,RANK_REFRESH_MS};
