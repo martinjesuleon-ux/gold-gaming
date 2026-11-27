@@ -19,7 +19,26 @@
    path(c,[[29,0],[17,-10],[-6,-13],[-20,-8],[-15,0],[-20,8],[-6,13],[17,10]],armor,color);path(c,[[22,0],[4,-8],[-9,0],[4,8]],inset,color);path(c,[[12,0],[2,-4],[-3,0],[2,4]],'#e7f5ff',color,.6);
   }
  }
- function drone(c,color){engine(c,-7,0,color);path(c,[[10,0],[2,-6],[-7,-7],[-10,-2],[-6,0],[-10,2],[-7,7],[2,6]],gradient(c,7,[[0,'#a9b1c0'],[.25,'#394454'],[.5,'#101724'],[1,'#536070']]),color,.9);path(c,[[6,0],[0,-3],[-5,0],[0,3]],color,'#f2e5e5',.4);}
+ const droneHulls=Object.freeze({
+ flax:[[9,0],[3,-5],[-6,-5],[-10,0],[-6,5],[3,5]],
+ iris:[[11,0],[3,-7],[-7,-8],[-10,-3],[-5,0],[-10,3],[-7,8],[3,7]],
+ apis:[[12,0],[4,-5],[0,-10],[-9,-8],[-12,-3],[-6,0],[-12,3],[-9,8],[0,10],[4,5]],
+ zeus:[[13,0],[7,-6],[-2,-11],[-10,-10],[-13,-5],[-8,0],[-13,5],[-10,10],[-2,11],[7,6]]
+ });
+ function droneKind(code){return Object.hasOwn(droneHulls,code)?'drone-'+code:'drone';}
+ function drone(c,color,kind){
+  const code=kind.slice(6),hull=droneHulls[code]||droneHulls.iris;
+  const metal=gradient(c,11,[[0,'#c1ccd5'],[.25,'#506477'],[.55,'#18232f'],[1,'#627282']]);
+  const core=gradient(c,5,[[0,color],[.5,'#243745'],[1,color]]);
+  engine(c,-8,0,color);path(c,hull,metal,color,.8);
+  for(const side of [-1,1]){
+   const y=(code==='zeus'||code==='apis'?8:5)*side;
+   path(c,[[3,2*side],[-2,y],[-7,y*.8],[-5,2*side]],'#263846',color,.6);
+   if(code==='zeus'||code==='apis')path(c,[[-1,y],[-6,y],[-5,y*.65]],color);
+  }
+  path(c,[[7,0],[0,-3],[-5,0],[0,3]],core,color,.6);
+  path(c,[[5,0],[0,-1.5],[-2,0],[0,1.5]],color);
+ }
  function pet(c,color){engine(c,-10,0,color);for(const side of [-1,1])path(c,[[12,4*side],[-2,12*side],[-13,8*side],[-7,3*side]],'#213c54',color);path(c,[[18,0],[4,-6],[-10,-4],[-13,0],[-10,4],[4,6]],gradient(c,8,[[0,'#9db5cc'],[.5,'#19364b'],[1,'#344e62']]),color);path(c,[[9,0],[1,-3],[-4,0],[1,3]],'#f7ce70');}
  function npcStyle(name,type){
   const raw=String(name||'').toLowerCase().trim(),tier=/^uber[- ]/.test(raw)?'uber':/^emperor[- ]/.test(raw)?'emperor':/^boss\b/.test(raw)||type==='boss'?'boss':'normal';
@@ -93,7 +112,7 @@
   path(c,[[nose*.4,0],[nose*.15,-body*.17],[nose*.02,0]],'#e7faff');
   if(style===3)for(const side of [-1,1])path(c,[[nose*.65,body*.4*side],[nose*.4,body*.78*side],[nose*.12,body*.64*side],[nose*.35,body*.3*side]],color);
  }
- function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key))return cache.get(key);const size=kind==='drone'?42:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind==='drone')drone(c,color);else if(kind==='pet')pet(c,color);else if(['crystal','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=64)cache.clear();cache.set(key,value);return value;}
+ function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key))return cache.get(key);const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind.startsWith('drone'))drone(c,color,kind);else if(kind==='pet')pet(c,color);else if(['crystal','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=64)cache.clear();cache.set(key,value);return value;}
  function draw(c,kind,color){const s=sprite(kind,color);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
  function portal(c,color,t){
   const center=c.createRadialGradient(0,0,3,0,0,46);center.addColorStop(0,'#03060d');center.addColorStop(.45,'#0b1625');center.addColorStop(.78,color+'24');center.addColorStop(1,color+'00');c.fillStyle=center;c.beginPath();c.arc(0,0,46,0,Math.PI*2);c.fill();
@@ -102,5 +121,5 @@
  }
  const droneColors=Object.freeze({Havoc:'#ff3838',Hercules:'#398dff',Spartan:'#ff8a24'});
  function droneColor(design){return Object.hasOwn(droneColors,design)?droneColors[design]:'#aab4bd';}
- root.ggGraphics161={draw,portal,droneColor,npcStyle,playerStyle};
+ root.ggGraphics161={draw,portal,droneColor,droneKind,npcStyle,playerStyle};
 })(window);

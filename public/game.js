@@ -142,7 +142,7 @@ function drawFormation(o){const count=Math.min(10,Math.max(0,Number(o.droneCount
  else if(f==='wave'){x=(i-(count-1)/2)*18;y=62+Math.sin(i*.8)*18;}
  else if(f==='bat'||f==='moth'||f==='star'){x=Math.cos(a)*(i%2?45:87);y=Math.sin(a)*(i%2?45:87);}
  else if(f==='diamond'){const k=radius/(Math.abs(Math.cos(a))+Math.abs(Math.sin(a)));x=Math.cos(a)*k;y=Math.sin(a)*k;}
- ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=window.ggGraphics161.droneColor(drone?.design);window.ggGraphics161.draw(ctx,'drone',color);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();}}
+ ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=window.ggGraphics161.droneColor(drone?.design);window.ggGraphics161.draw(ctx,window.ggGraphics161.droneKind(drone?.code),color);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();}}
 function drawPet(p){
  if(!p.pet||!Number.isFinite(p.pet.x)||!Number.isFinite(p.pet.y))return;
  const q=screen(p.pet.x,p.pet.y);ctx.save();ctx.translate(q.x,q.y);window.ggGraphics161.draw(ctx,'pet','#5ae5ff');ctx.font='10px system-ui';ctx.textAlign='center';ctx.fillStyle='#c2e7f5';ctx.fillText('P.E.T.',0,20);ctx.restore();

@@ -66,3 +66,15 @@ test('all detailed player hulls and equipped designs render with finite geometry
  for(const {kind,color} of variants){graphics.draw(c,kind,color);const prior=canvases;graphics.draw(c,kind,color);assert.equal(canvases,prior);}
  assert.equal(draws,variants.length*2);assert.ok(canvases<=variants.length);
 });
+
+test('four VANT hulls render independently of equipped design colors',()=>{
+ let canvases=0;
+ const gradient={addColorStop(){}},context=()=>new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient},{get:(t,k)=>k in t?t[k]:()=>{}});
+ const window={document:{createElement(){canvases++;return {getContext:()=>context()};}}};
+ vm.runInNewContext(read('graphics-v161.js'),{window});
+ const g=window.ggGraphics161,c=context(),codes=['flax','iris','apis','zeus'],designs=[null,'Havoc','Hercules','Spartan'];
+ assert.equal(new Set(codes.map(g.droneKind)).size,4);
+ assert.equal(g.droneKind('unknown'),'drone');
+ for(const code of codes)for(const design of designs){g.draw(c,g.droneKind(code),g.droneColor(design));g.draw(c,g.droneKind(code),g.droneColor(design));}
+ assert.equal(canvases,16);assert.match(read('game.js'),/droneKind\(drone\?\.code\)/);
+});
