@@ -840,16 +840,20 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const links=maps.flatMap(m=>portals(m.id,WORLD.w,WORLD.h).map(r=>({from:r.from,to:r.to,level:requiredLevel(r,p.company)})));
   ack({ok:true,current:MAPS[p.zone]?p.zone:null,company:p.company,level:p.level,insideGate:!!p.gate,maps,links});
  });
- socket.on('v14:jump',async(portalId,ack)=>{
+ socket.on('v14:jump',(portalId,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
-  if(!p||p.gate||p.gatePending||p.deadUntil||p.shotPending||p.reloadPending)return ack({ok:false,error:'Salto no disponible'});
+  if(closing||!p||p.gate||p.gatePending||p.deadUntil||p.shotPending||p.reloadPending)return ack({ok:false,error:'Salto no disponible'});
   const portal=portals(p.zone,WORLD.w,WORLD.h).find(x=>x.id===portalId);
   if(!portal||distance(p,portal)>180)return ack({ok:false,error:'Acércate al portal'});
   const level=requiredLevel(portal,p.company);if(p.level<level)return ack({ok:false,error:'Necesitas nivel '+level});
   p.gatePending=true;p.attack=false;p.dest=null;
-  try{await accounts.saveLocation(p.accountId,p.company,portal.to);if(players.get(p.id)!==p)return;
+  const company=p.company;
+  const job=p.writes.catch(()=>{}).then(async()=>{
+   await accounts.saveLocation(p.accountId,company,portal.to);
+   if(closing||players.get(p.id)!==p)return;
    const arrival=portals(portal.to,WORLD.w,WORLD.h).find(x=>x.to===portal.from);changeMap(p,portal.to,arrival);missionEvent(p,'map',portal.to);p.protectedUntil=Date.now()+3000;ack({ok:true,map:p.zone});
-  }catch{ack({ok:false,error:'No se pudo guardar el salto'});}finally{p.gatePending=false;}
+  }).catch(()=>{if(players.get(p.id)===p&&!closing)ack({ok:false,error:'No se pudo guardar el salto'});}).finally(()=>{p.gatePending=false;pending.delete(job);});
+  p.writes=job;pending.add(job);
  });
  socket.on('v14:gateNext',()=>{const p=players.get(socket.id);if(allowed()&&p?.gateWaiting)io.to(p.id).emit('notice','La siguiente ronda comienza automáticamente');});
  socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&!p.shotPending&&!p.deadUntil&&p.gate.exitPortal&&Date.now()<p.gate.intermissionUntil){if(distance(p,p.gate.exitPortal)>125){io.to(p.id).emit('notice','Acércate al portal de salida');return;}if(p.gate.gate==='hades'){if(p.gate.leader===p.id)endHades(p.gate,'El grupo regresó a la base');}else{returnFromGate(p);refreshGalaxy(p).catch(()=>{});socket.emit('v14:gateState',{inside:false});}}});
