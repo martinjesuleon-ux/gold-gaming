@@ -1,13 +1,13 @@
 'use strict';
-const catalog=require('./data/catalog-v13.json');
+const catalog=require('./data/catalog-v13.json');const {extraStats}=require('./cpus-v18');
 const lookup=(list,id)=>list.find(x=>x.id===id);
 const requireRule=(ok,msg)=>{if(!ok)throw new Error(msg);};
 function quote(category,id,quantity=1){
- const allowed=['ships','lasers','ammo','shields','engines','rockets','specialRockets','launchers','launcherAmmo','mines','designs'];
+ const allowed=['ships','lasers','ammo','shields','engines','rockets','specialRockets','launchers','launcherAmmo','mines','designs','cpus','robots'];
  requireRule(allowed.includes(category),'Categoría inválida');
  const item=lookup(catalog[category],id);
  requireRule(item&&item.price!==null&&['credits','uridium'].includes(item.currency),'Objeto no disponible');
- requireRule(Number.isSafeInteger(quantity)&&quantity>0&&quantity<=(['ammo','rockets','specialRockets','launcherAmmo','mines'].includes(category)?100000:['ships','designs'].includes(category)?1:100),'Cantidad inválida');
+ requireRule(Number.isSafeInteger(quantity)&&quantity>0&&quantity<=(['ammo','rockets','specialRockets','launcherAmmo','mines'].includes(category)?100000:['ships','designs','cpus','robots'].includes(category)?1:100),'Cantidad inválida');
  return {id,category,quantity,currency:item.currency,total:item.price*quantity};
 }
 function stats(shipId,items,droneItems=[]){
@@ -23,12 +23,13 @@ function stats(shipId,items,droneItems=[]){
   if(laser){requireRule(laser.id!=='LF-P01','Láser exclusivo P.E.T.');lasers++;damage+=laser.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep);}
   else if(gen){generators++;shield+=gen.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep);absorption=Math.max(absorption,gen.absorption);}
   else if(engine){generators++;speed+=engine.speed;}
-  else if(catalog.launchers.some(x=>x.id===item.code)){requireRule(!launcher&&ship.extras>=1,'Solo un lanzador por configuración');launcher=item.code;}
+  else if(catalog.launchers.some(x=>x.id===item.code)||catalog.cpus.some(x=>x.id===item.code)||catalog.robots.some(x=>x.id===item.code)){}
   else throw Error('Equipo aún no admitido');
  }
+ const extras=extraStats(ship,items);launcher=extras.launcher;
  requireRule(lasers<=ship.lasers&&generators<=ship.generators,'Espacios de equipamiento excedidos');
  for(const item of droneItems){const l=lookup(catalog.lasers,item.code),g=lookup(catalog.shields,item.code);requireRule((l&&l.id!=='LF-P01')||g,'Equipo VANT inválido');const level=item.level??1;requireRule(Number.isInteger(level)&&level>=1&&level<=16,'Nivel inválido');if(l){lasers++;damage+=l.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep);}else{shield+=g.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep);absorption=Math.max(absorption,g.absorption);}}
- return {hp:ship.hp,shield:Math.round(shield),speed,damage:Math.round(damage),absorption:shield?absorption:.5,lasers,generators,...(launcher?{launcher}:{})};
+ return {hp:ship.hp,shield:Math.round(shield),speed,damage:Math.round(damage),absorption:shield?absorption:.5,lasers,generators,...(launcher?{launcher}:{}),...(extras.used?{cpus:extras.cpus,robot:extras.robot,extrasUsed:extras.used,extraSlots:ship.extras+extras.slots}:{})};
 }
 function configurations(shipId,configs,owned){
  requireRule(Array.isArray(configs)&&configs.length===2&&owned instanceof Map,'Configuraciones inválidas');
