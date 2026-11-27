@@ -176,7 +176,7 @@ let cbsMarkers=[],cbsMarkerMap=null,cbsPoll=0,cbsLoading=false;
 function refreshCBS(t){
  if(!joined||cbsLoading||!state.map||gateState.inside)return;
  if(cbsMarkerMap===state.map&&t<cbsPoll)return;
- const map=state.map;cbsMarkerMap=map;cbsMarkers=[];cbsPoll=t+15000;cbsLoading=true;
+ const map=state.map;if(cbsMarkerMap!==map)cbsMarkers=[];cbsMarkerMap=map;cbsPoll=t+15000;cbsLoading=true;
  fetch('/api/v13/stations',{credentials:'same-origin'}).then(r=>{if(!r.ok)throw Error('CBS');return r.json();}).then(d=>{if(state.map===map)cbsMarkers=d.asteroids.filter(a=>a.map===map);}).catch(()=>{}).finally(()=>{cbsLoading=false;});
 }
 function drawCBS(t){
