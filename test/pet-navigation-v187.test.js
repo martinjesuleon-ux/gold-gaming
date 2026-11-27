@@ -1,0 +1,20 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {followGoal,travelGoal,advance}=require('../pet-navigation-v187');
+test('PET follows a moving pilot, approaches combat and respects its leash',()=>{
+ const world={w:10000,h:10000},p={x:1000,y:1000,angle:0,petX:1000,petY:1000,petMode:'passive',speed:400};
+ assert.equal(travelGoal(p,null,1000,world).kind,'hold');
+ p.dest={x:2000,y:1000};assert.equal(travelGoal(p,null,1000,world).kind,'follow');
+ delete p.dest;p.petMode='guard';assert.equal(travelGoal(p,null,1000,world).kind,'patrol');
+ p.petX=500;p.petY=1000;
+ let g=travelGoal(p,{x:1500,y:1000,kind:'combat'},1000,world);
+ assert.equal(g.kind,'combat');assert.equal(g.x,1140);
+ for(let i=0;i<100;i++)advance(p,g,.05);
+ assert.ok(Math.hypot(p.petX-1500,p.petY-1000)<=420);
+ g=travelGoal(p,{x:1500,y:1000,kind:'combat'},1000,world);assert.equal(g.x,p.petX);
+ p.petX=20;p.petY=20;assert.equal(travelGoal(p,{x:1500,y:1000},1000,world).kind,'follow');
+ assert.equal(followGoal({x:0,y:0,angle:0},world).x,25);
+ p.petX=1000;p.petY=1000;g=travelGoal(p,{x:1100,y:1000},1000,world);assert.equal(g.kind,'pickup');
+ for(let i=0;i<100;i++)advance(p,g,.05);
+ assert.ok(Math.abs(p.petX-1100)<=1);assert.equal(p.petSpeed,0);
+});
