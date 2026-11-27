@@ -1,6 +1,6 @@
 'use strict';
 const crypto=require('node:crypto'),net=require('node:net');
-const {MILESTONES,availableMilestones}=require('./referral-milestones-v222');
+const {MILESTONES,availableMilestones,pendingRewards}=require('./referral-milestones-v222');
 const LEVEL=15,TTL=30*86400000;
 const RECRUIT=Object.freeze({'green-key':5,'log-disk':5,'UCB-100':5000,'RSB-75':2500});
 const REFERRER=Object.freeze({'green-key':10,'log-disk':20,'gate-energy':50,'UCB-100':8000,'RSB-75':3500});
@@ -97,7 +97,7 @@ function createReferrals(pool){
   for(const r of pending)await qualify(r.recruit_id);
   const blocked=!!(await pool.query('SELECT blocked FROM gg_referral_network_v222 WHERE account_id=$1',[id])).rows[0]?.blocked;
   const counts=(await pool.query('SELECT count(*)::int AS total,count(qualified_at)::int AS qualified FROM gg_referrals_v222 WHERE referrer_id=$1',[id])).rows[0];
-  const history=(await pool.query('SELECT milestone,reward,claimed_at FROM gg_referral_milestones_v222 WHERE account_id=$1 ORDER BY milestone',[id])).rows;return {referrer:id,blocked,total:blocked?0:counts.total,qualified:blocked?0:counts.qualified,requiredLevel:LEVEL,history,milestones:MILESTONES,available:availableMilestones(counts.qualified,history.map(r=>Number(r.milestone)),blocked)};
+  const history=(await pool.query('SELECT milestone,reward,claimed_at FROM gg_referral_milestones_v222 WHERE account_id=$1 ORDER BY milestone',[id])).rows;return {referrer:id,blocked,total:blocked?0:counts.total,qualified:blocked?0:counts.qualified,requiredLevel:LEVEL,history,pendingRewards:pendingRewards(history),milestones:MILESTONES,available:availableMilestones(counts.qualified,history.map(r=>Number(r.milestone)),blocked)};
  }
  return {ready,register,loginIP,qualify,status,claim,settleDue};
 }
