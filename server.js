@@ -9,12 +9,12 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function spawnNPC(boss=false,pos=point()){const n={id:id(),type:boss?'boss':'drone',name:boss?'BOSS · TITAN':'Stellar Drone',x:pos.x,y:pos.y,angle:0,hp:boss?8500:650,maxHp:boss?8500:650,shield:boss?4500:220,maxShield:boss?4500:220,speed:boss?105:155,damage:boss?220:55,reward:boss?3500:180,target:null,dest:point(),lastShot:0};npcs.set(n.id,n);return n;}
  function spawnBox(pos=point()){const b={id:id(),x:pos.x,y:pos.y,value:Math.floor(random(35,101))};boxes.set(b.id,b);return b;}
  function applyLoadout(p,l){if(!l)return;const ratio=Number.isFinite(p.hp)?p.hp/p.maxHp:1;p.ship=l.ship;p.maxHp=l.hp;p.maxShield=l.shield;p.speed=l.speed;p.damage=l.damage;p.lasers=l.lasers;p.absorption=l.absorption;p.hp=Math.min(l.hp,Math.max(0,Math.round(l.hp*ratio)));p.shield=Math.min(Number.isFinite(p.shield)?p.shield:l.shield,l.shield);p.v13=true;p.ammo=p.ammo||'LCB-10';}
- function spawnPlayer(p){Object.assign(p,{x:WORLD.w/2+random(-180,180),y:WORLD.h/2+random(-180,180),hp:p.maxHp,shield:p.maxShield,angle:0,dest:null,target:null,attack:false,deadUntil:0,lastHit:Date.now()});}
+ function spawnPlayer(p){p.petMode='off';p.petUntil=0;p.petGeneration=(p.petGeneration||0)+1;Object.assign(p,{x:WORLD.w/2+random(-180,180),y:WORLD.h/2+random(-180,180),hp:p.maxHp,shield:p.maxShield,angle:0,dest:null,target:null,attack:false,deadUntil:0,lastHit:Date.now()});}
  function damage(v,amount){const absorbed=Math.min(v.shield,amount*(v.absorption??1));v.shield-=absorbed;v.hp=Math.max(0,v.hp-(amount-absorbed));v.lastHit=Date.now();}
  function move(v,d,dt){if(!d)return;const dx=d.x-v.x,dy=d.y-v.y,len=Math.hypot(dx,dy);if(len<1)return;v.angle=Math.atan2(dy,dx);const step=Math.min(len,v.speed*dt);v.x=clamp(v.x+dx/len*step,25,WORLD.w-25);v.y=clamp(v.y+dy/len*step,25,WORLD.h-25);}
  function laser(a,b){io.to('world').emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player'});}
  for(let i=0;i<npcCount;i++)spawnNPC(false,i<5?{x:WORLD.w/2+random(480,1000),y:WORLD.h/2+random(-650,650)}:point());for(let i=0;i<boxCount;i++)spawnBox(i<5?{x:WORLD.w/2+random(-420,420),y:WORLD.h/2+random(-420,420)}:point());
- const publicPlayer=p=>({id:p.id,name:p.name,ship:p.ship,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil});
+ const publicPlayer=p=>({id:p.id,name:p.name,ship:p.ship,x:p.x,y:p.y,angle:p.angle,hp:p.hp,maxHp:p.maxHp,shield:p.shield,maxShield:p.maxShield,credits:p.credits,experience:p.experience,level:p.level,target:p.target,attack:p.attack,deadUntil:p.deadUntil,pet:p.petUntil>Date.now()&&p.petMode!=='off'&&!p.deadUntil?{mode:p.petMode,x:p.petX,y:p.petY}:null});
  function award(p,credits,xp,message){if(closing)return Promise.reject(Error('Servidor cerrando'));const job=p.writes.catch(()=>{}).then(async()=>{const r=await accounts.reward(p.accountId,credits,xp);Object.assign(p,{credits:Number(r.credits),experience:Number(r.experience),level:Number(r.level)});io.to(p.id).emit('notice',message+(xp?` · +${xp} EXP`:''));return p.credits;});p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo confirmar una recompensa en la base de datos.');});return job;}
  app.disable('x-powered-by');app.use((req,res,next)=>{res.set({'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});next();});app.use(express.json({limit:'8kb'}));accounts.endpoints(app);
  app.get('/health',async(req,res)=>{try{await accounts.ready();res.json({ok:true,database:true,players:players.size});}catch{res.status(503).json({ok:false,database:false});}});
@@ -28,9 +28,34 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  socket.on('move',data=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||!validPoint(data))return;p.dest={x:clamp(data.x,25,WORLD.w-25),y:clamp(data.y,25,WORLD.h-25)};});socket.on('select',target=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil)return;const n=npcs.get(target);p.target=n&&distance(p,n)<1800?n.id:null;p.attack=false;});socket.on('attack',on=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||typeof on!=='boolean')return;p.attack=on&&npcs.has(p.target);});
  socket.on('v13:ammo',code=>{const p=players.get(socket.id);if(allowed()&&p&&catalogV13.ammo.some(a=>a.id===code))p.ammo=code;});
  socket.on('v13:reload',async()=>{const p=players.get(socket.id);if(!allowed()||!p||p.deadUntil||p.shotPending||p.attack||p.reloadPending||Date.now()-p.lastHit<6500)return;p.reloadPending=true;try{const l=await accounts.combatLoadout?.(p.accountId);if(players.get(socket.id)===p&&!p.deadUntil&&!p.attack&&Date.now()-p.lastHit>=6500)applyLoadout(p,l);}catch{socket.emit('notice','No se pudo actualizar equipamiento');}finally{p.reloadPending=false;}});
+ function setPetMode(p,mode){
+  p.petMode=mode;p.petUntil=0;p.petGeneration=(p.petGeneration||0)+1;
+  io.to(p.id).emit('v14:petState',{mode:'off',fuel:p.petFuel??null,pending:mode!=='off'});
+ }
+ socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','loot'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
  socket.on('disconnect',()=>{const p=players.get(socket.id);players.delete(socket.id);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
  let last=Date.now();const loop=setInterval(()=>{if(closing)return;const now=Date.now(),dt=Math.min((now-last)/1000,.1);last=now;
  for(const p of players.values()){if(p.deadUntil){if(now>=p.deadUntil)spawnPlayer(p);else continue;}move(p,p.dest,dt);if(p.dest&&distance(p,p.dest)<2)p.dest=null;if(now-p.lastHit>6500)p.shield=Math.min(p.maxShield,p.shield+35*dt);
+ if(p.petMode&&p.petMode!=='off'&&now>=p.petUntil&&!p.petPending){
+  const mode=p.petMode,generation=p.petGeneration;p.petPending=true;
+  const job=accounts.petInterval(p.accountId,mode).then(result=>{
+   if(closing||players.get(p.id)!==p||p.deadUntil||p.petGeneration!==generation)return;
+   p.petFuel=result.fuel;p.petUntil=Date.now()+10000;
+   p.petX=p.x-55*Math.cos(p.angle);p.petY=p.y-55*Math.sin(p.angle);
+   io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel,pending:false});
+  }).catch(e=>{if(players.get(p.id)!==p||p.petGeneration!==generation)return;setPetMode(p,'off');io.to(p.id).emit('notice',e.status===400?e.message:'P.E.T. no disponible');}).finally(()=>{p.petPending=false;pending.delete(job);});pending.add(job);
+ }
+ if(p.petUntil>now&&p.petMode!=='off'){
+  let targetBox=null,best=700;
+  if(p.petMode==='loot')for(const b of boxes.values()){const d=distance(p,b);if(d<best){best=d;targetBox=b;}}
+  const goal=targetBox||{x:p.x-70*Math.cos(p.angle),y:p.y-70*Math.sin(p.angle)};
+  if(Math.hypot(p.petX-p.x,p.petY-p.y)>850){p.petX=p.x;p.petY=p.y;}
+  const dx=goal.x-p.petX,dy=goal.y-p.petY,len=Math.hypot(dx,dy);
+  if(len>1){const step=Math.min(len,Math.max(550,p.speed+100)*dt);p.petX+=dx/len*step;p.petY+=dy/len*step;}
+  if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35&&boxes.delete(targetBox.id)){
+   award(p,targetBox.value,10,'P.E.T.: +'+targetBox.value+' créditos').then(()=>later(()=>spawnBox(),6500),()=>later(()=>spawnBox(),6500));
+  }
+ }
  for(const b of boxes.values())if(distance(p,b)<52){boxes.delete(b.id);award(p,b.value,10,`Caja: +${b.value} créditos`).then(()=>later(()=>spawnBox(),6500),()=>later(()=>spawnBox(),6500));}
  const n=npcs.get(p.target);if(!n){p.target=null;p.attack=false;}else if(p.attack&&!p.reloadPending&&distance(p,n)<=(p.v13?600:650)&&now-p.lastShot>=(p.v13?(catalogV13.ammo.find(a=>a.id===p.ammo)?.intervalMs||1000):450)&&!p.shotPending){
  p.lastShot=now;
