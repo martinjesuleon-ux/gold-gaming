@@ -29,7 +29,6 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  });
  const routeV13=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){res.status(e.status||(/^[0-9A-Z]{5}$/.test(e.code||'')?503:400)).json({error:e.status?e.message:'No se pudo completar la operación'});}};
  app.get('/api/v13/upgrades',routeV13(req=>upgrades.status(req.pilotV13.id)));
- app.post('/api/v13/upgrades',routeV13(req=>upgrades.charge(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/minerals',routeV13(req=>minerals.status(req.pilotV13.id)));
  app.post('/api/v13/minerals',routeV13(req=>minerals.action(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/daily',routeV13(req=>daily.status(req.pilotV13.id)));
