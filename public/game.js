@@ -285,17 +285,20 @@ function drawFormation(o,offsets){
 // Visual-only interpolation: server positions remain authoritative for combat and rewards.
 function smoothPetPosition(previous,pet,alpha){
  if(!pet||!Number.isFinite(pet.x)||!Number.isFinite(pet.y))return null;
- if(!previous||Math.hypot(pet.x-previous.x,pet.y-previous.y)>1100)return {x:pet.x,y:pet.y};
- const dx=pet.x-previous.x,dy=pet.y-previous.y;
- return {x:Math.abs(dx)<.01?pet.x:previous.x+dx*alpha,y:Math.abs(dy)<.01?pet.y:previous.y+dy*alpha};
+ const angle=Number.isFinite(pet.angle)?pet.angle:0;
+ if(!previous||Math.hypot(pet.x-previous.x,pet.y-previous.y)>1100)return {x:pet.x,y:pet.y,angle};
+ const dx=pet.x-previous.x,dy=pet.y-previous.y,prior=Number.isFinite(previous.angle)?previous.angle:angle;
+ const da=Math.atan2(Math.sin(angle-prior),Math.cos(angle-prior));
+ return {x:Math.abs(dx)<.01?pet.x:previous.x+dx*alpha,y:Math.abs(dy)<.01?pet.y:previous.y+dy*alpha,angle:prior+da*alpha};
 }
 function drawPet(p,v,alpha){
- const gold=(window.ggVisualTheme?.current()||'gold')==='gold';
- const valid=p.pet&&Number.isFinite(p.pet.x)&&Number.isFinite(p.pet.y);
- if(v)v.petVisual=gold?smoothPetPosition(v.petVisual,p.pet,alpha):null;
- if(!valid)return;
- const position=gold&&v?.petVisual?v.petVisual:p.pet;
- const q=screen(position.x,position.y);if(q.x<-50||q.y<-50||q.x>W+50||q.y>H+50)return;ctx.save();ctx.translate(q.x,q.y);window.ggGraphics161.draw(ctx,'pet','#5ae5ff');ctx.font='10px system-ui';ctx.textAlign='center';ctx.fillStyle='#c2e7f5';ctx.strokeStyle='#060a12';ctx.lineWidth=3;ctx.strokeText('P.E.T.',0,23);ctx.fillText('P.E.T.',0,23);ctx.restore();
+ if(v)v.petVisual=smoothPetPosition(v.petVisual,p.pet,alpha);
+ if(!p.pet||!Number.isFinite(p.pet.x)||!Number.isFinite(p.pet.y))return;
+ const position=v?.petVisual||p.pet;
+ const q=screen(position.x,position.y);if(q.x<-50||q.y<-50||q.x>W+50||q.y>H+50)return;
+ ctx.save();ctx.translate(q.x,q.y);ctx.save();ctx.rotate(Number.isFinite(position.angle)?position.angle:0);
+ window.ggGraphics161.draw(ctx,'pet','#5ae5ff');ctx.restore();
+ ctx.font='10px system-ui';ctx.textAlign='center';ctx.fillStyle='#c2e7f5';ctx.strokeStyle='#060a12';ctx.lineWidth=3;ctx.strokeText('P.E.T.',0,28);ctx.fillText('P.E.T.',0,28);ctx.restore();
 }
 let kamiEffects=[];
 socket.on('v16:kamikazeEffect',e=>{kamiEffects.push({...e,born:performance.now()});});
