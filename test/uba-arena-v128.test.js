@@ -14,3 +14,11 @@ test('two-round live arena lifecycle keeps distinct matches and original pilot s
  const arena=createArena(m,pilots,now+15000);arena.fighters[0].x=1000;arena.fighters[1].x=1300;command(arena,m,'a',{action:'attack',on:true});tickArena(arena,m,now+15100,()=>0);assert.ok(arena.closed);}
  assert.equal(m.phase,'finished');assert.equal(m.winner,'a');assert.deepEqual(m.score,[2,0]);assert.deepEqual(pilots,initial);assert.deepEqual(l.all(),[m]);l.remove('a');assert.deepEqual(l.all(),[]);
 });
+test('paid arena shots use equipped lasers, selected ammo, cooldown and private stock',async()=>{
+ const {tickArenaPaid}=require('../uba-arena-v128'),{m,a}=setup();a.fighters[0].lasers=3;a.fighters[1].lasers=2;a.fighters[0].damage=10;a.fighters[0].x=1000;a.fighters[1].x=1300;
+ command(a,m,'a',{action:'ammo',code:'MCB-50'});command(a,m,'a',{action:'attack',on:true});command(a,m,'b',{action:'attack',on:true});
+ const shots=await tickArenaPaid(a,m,async plans=>{assert.equal(plans.length,2);assert.equal(plans[0].count,3);assert.equal(plans[0].code,'MCB-50');return {a:97,b:null};},15101,()=>.99);
+ assert.equal(shots.length,1);assert.equal(a.fighters[1].hp,94);assert.equal(a.fighters[1].shield,16);assert.equal(a.fighters[1].attack,false);assert.equal(viewArena(a,'a').fighters[0].stock,97);assert.equal(viewArena(a,'b').fighters[0].stock,undefined);
+ assert.equal((await tickArenaPaid(a,m,()=>{throw Error('unexpected shot')},15201)).length,0);
+ command(a,m,'a',{action:'ammo',code:'SAB-50'});await tickArenaPaid(a,m,async()=>({a:94}),16101,()=>.99);assert.equal(a.fighters[1].hp,94);assert.equal(a.fighters[1].shield,0);
+});
