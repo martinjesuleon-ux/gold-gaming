@@ -7,7 +7,8 @@ function upcomingEvents(rows,bonuses,now=Date.now()){
  return out.sort((a,b)=>Date.parse(a.startAt)-Date.parse(b.startAt)||a.kind.localeCompare(b.kind)).slice(0,12);
 }
 function createSnapshotCache(load,{ttl=3000,clock=Date.now}={}){
- let cached=null,expires=0,inflight=null;
- return async function read(){if(cached&&clock()<expires)return cached;if(inflight)return inflight;inflight=Promise.resolve().then(load).then(value=>{cached=value;expires=clock()+ttl;return value;}).finally(()=>{inflight=null;});return inflight;};
+ let cached=null,expires=0,inflight=null,generation=0;
+ async function read(){if(cached&&clock()<expires)return cached;if(inflight)return inflight;const epoch=generation;const job=Promise.resolve().then(load).then(value=>{if(epoch===generation){cached=value;expires=clock()+ttl;}return value;}).finally(()=>{if(inflight===job)inflight=null;});inflight=job;return job;}
+ read.invalidate=()=>{generation++;cached=null;expires=0;inflight=null;};return read;
 }
 module.exports={NAMES,upcomingEvents,createSnapshotCache};
