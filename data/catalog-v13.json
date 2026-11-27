@@ -186,8 +186,8 @@
     {
       "id": "LF-4",
       "damage": 200,
-      "price": null,
-      "currency": null
+      "price": 100000,
+      "currency": "uridium"
     },
     {
       "id": "Odysseus",
