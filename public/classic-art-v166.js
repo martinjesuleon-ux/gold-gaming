@@ -137,22 +137,35 @@
   const gem=linear(c,-24,-28,26,28,[[0,'#e6f8ff'],[.25,color],[.5,'#203c58'],[.75,color],[1,'#0e243c']]);
   const seam='#718b9b';
   if(species==='kristallin'||species==='kristallon'){
-   const big=species==='kristallon',reach=big?43:35;
-   for(const side of [-1,1]){
-    const tips=big?[[30,0],[19,17],[-2,reach],[-13,27],[-31,31],[-24,9],[-13,0]]:[[29,0],[9,13],[-7,reach],[-17,23],[-30,16],[-20,5],[-13,0]];
-    polygon(c,tips.map(([x,y])=>[x,y*side]),steel,seam,.8);
-    polygon(c,[[23,4*side],[9,18*side],[-7,(reach-3)*side],[-13,20*side],[-21,12*side],[-5,5*side]],gem,color,.8);
-    polygon(c,[[9,18*side],[-7,(reach-3)*side],[-2,12*side]],'#dbf4ffb0',color,.5);
-    polygon(c,[[-2,12*side],[-13,20*side],[-21,12*side]],'#122c47',seam,.5);
-    polygon(c,[[9,18*side],[-2,12*side],[3,8*side],[16,9*side]],'#81b4dc',seam,.45);
-    polygon(c,[[-7,(reach-3)*side],[-13,20*side],[-10,25*side]],'#edfaff',color,.4);
-    if(elite){c.fillStyle=radial(c,-9,18*side,9,[[0,'#e8faff'],[.24,color],[1,'#143a6100']]);c.fillRect(-18,18*side-9,18,18);}
-    if(big){polygon(c,[[16,10*side],[30,19*side],[17,31*side],[5,23*side]],steel,color,.8);polygon(c,[[20,15*side],[26,19*side],[17,27*side]],gem,color,.6);}
-    if(elite){polygon(c,[[-24,12*side],[-36,24*side],[-24,32*side],[-15,21*side]],steel,color,1);polygon(c,[[-31,24*side],[-24,29*side],[-20,22*side]],gem);}
+   // References IMG_5849 and IMG_5850: compact, irregular crystal clusters,
+   // not winged craft. Independently drawn facets and deterministic silhouettes.
+   const big=species==='kristallon',reach=big?46:38;
+   const rand=seeded(big?19741:8429), count=big?15:10;
+   const pale=elite?'#cceeff':'#e4faff', deep=elite?'#5086b3':'#739db4';
+   const facets=[];
+   for(let i=0;i<count;i++){
+    const angle=i*Math.PI*2/count+(rand()-.5)*.38;
+    const dx=Math.cos(angle),dy=Math.sin(angle),px=-dy,py=dx;
+    const r=reach*(.68+rand()*.30), w=reach*(.12+rand()*.16), base=reach*(.11+rand()*.17);
+    const cx=dx*base+(rand()-.5)*5,cy=dy*base+(rand()-.5)*5;
+    const tip=[dx*r,dy*r],l=[cx+px*w,cy+py*w],right=[cx-px*w,cy-py*w];
+    const heel=[-dx*reach*.22,-dy*reach*.22],ridge=[dx*r*.53+px*w*.14,dy*r*.53+py*w*.14];
+    facets.push({tip,l,right,heel,ridge});
    }
-   polygon(c,[[36,0],[15,-12],[-4,-14],[-24,-8],[-31,0],[-24,8],[-4,14],[15,12]],steel,seam,1);
-   polygon(c,[[25,0],[9,-9],[-8,-9],[-16,0],[-8,9],[9,9]],gem,color,.8);
-   polygon(c,[[19,0],[5,-4],[-4,0],[5,4]],'#e9fbff',color,.5);
+   const aura=radial(c,0,0,reach*1.12,[[0,'#d9f4ff66'],[.66,'#a2cde321'],[1,'#a2cde300']]);
+   c.fillStyle=aura;c.fillRect(-reach*1.12,-reach*1.12,reach*2.24,reach*2.24);
+   for(const {tip,l,right,heel,ridge} of facets){
+    polygon(c,[tip,l,heel,right],linear(c,...tip,...heel,[[0,'#f5fdff'],[.42,pale],[1,deep]]),'#e0f7ff91',.7);
+    polygon(c,[tip,l,ridge],'#f7fdffe0');
+    polygon(c,[tip,ridge,right],'#85b6d2c0');
+    polygon(c,[l,heel,ridge],'#bce7f4a8');
+    polygon(c,[right,ridge,heel],'#3f668d90');
+    c.strokeStyle='#f7fdffb0';c.lineWidth=.5;c.beginPath();c.moveTo(...tip);c.lineTo(...ridge);c.lineTo(...heel);c.stroke();
+   }
+   const core=Array.from({length:big?11:8},(_,i)=>{const a=i*Math.PI*2/(big?11:8),r=reach*(.27+rand()*.17);return [Math.cos(a)*r,Math.sin(a)*r];});
+   polygon(c,core,radial(c,-4,-6,reach*.45,[[0,'#ffffff'],[.4,'#e5faff'],[1,'#7eb1cc']]),'#eafaff',.65);
+   for(let i=0;i<core.length;i++){const p=core[i],q=core[(i+1)%core.length];polygon(c,[p,q,[(rand()-.5)*10,(rand()-.5)*10]],i%3===0?'#ffffffb0':i%3===1?'#a8d9eac0':'#d4f2f9a0','#e7fbff70',.4);}
+   for(let i=0;i<(big?22:12);i++){const a=rand()*Math.PI*2,r=reach*(.70+rand()*.31);c.fillStyle=i%3?'#c1e4f380':'#f1fcff';c.fillRect(Math.cos(a)*r,Math.sin(a)*r,.8+rand()*1.1,.8+rand()*1.1);}
   }else if(species==='mordon'||species==='devolarium'){
    const heavy=species==='devolarium',w=heavy?34:27;
    for(const side of [-1,1]){
