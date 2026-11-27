@@ -124,3 +124,6 @@
 #hud[data-focus-mode=true] .gg-window[data-key=pet],#hud[data-focus-mode=true] .gg-window[data-key=group],#hud[data-focus-mode=true] .gg-window[data-key=chip],#hud[data-focus-mode=true] .gg-window[data-key=module]{display:none!important}
 .gg-layout-settings input[type=range]{display:block;width:100%;margin:9px 0;accent-color:#79d6f2}
 @media(max-width:650px){#hud .gg-tool:not(.gg-right){grid-template-columns:repeat(6,36px)}#hud[data-control-size=compact] .gg-tool:not(.gg-right){grid-template-columns:repeat(6,28px)}#hud[data-control-size=large] .gg-tool:not(.gg-right){grid-template-columns:repeat(5,38px)}}
+
+#hud #gg-performance{position:fixed;bottom:0;left:8px;display:flex;gap:8px;padding:3px 8px;border:1px solid #456779;background:#101e2be8;color:#cce2ef;font:11px system-ui;font-variant-numeric:tabular-nums;z-index:6;pointer-events:none}
+@media(max-width:650px){#hud #gg-performance{bottom:135px}}

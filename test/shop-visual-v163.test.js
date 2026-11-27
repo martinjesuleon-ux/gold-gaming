@@ -69,9 +69,18 @@ test('HUD layout preferences validate sizes and clamp draggable windows inside v
  const vm=require('node:vm'),context={window:{innerWidth:800,innerHeight:600}};vm.runInNewContext(src+';this.clamp=clampPosition',context);
  assert.equal(JSON.stringify(context.clamp(-40,900,200,100)),JSON.stringify({x:0,y:500}));
  assert.equal(JSON.stringify(context.clamp(90,40,900,700)),JSON.stringify({x:0,y:0}));
- assert.match(hud,/localStorage.setItem\(preferenceKey/);assert.match(hud,/pointerdown/);assert.match(hud,/preferences=\{size:'normal',labels:true,opacity:95,focus:false,positions:\{\}\}/);assert.match(css,/gg-custom-position/);assert.match(css,/data-control-size=large/);
+ assert.match(hud,/localStorage.setItem\(preferenceKey/);assert.match(hud,/pointerdown/);assert.match(hud,/preferences=\{size:'normal',labels:true,opacity:95,focus:false,performance:false,quality:'high',positions:\{\}\}/);assert.match(css,/gg-custom-position/);assert.match(css,/data-control-size=large/);
 });
 
 test('HUD transparency and combat focus remain local and preserve essential controls',()=>{
  const hud=read('gold-hud.js'),css=read('gold-hud.css');assert.match(hud,/Math.max\(45,Math.min\(100,raw.opacity\)\)/);assert.match(hud,/--gg-panel-opacity/);assert.match(hud,/--gg-right-top/);assert.match(hud,/--gg-target-top/);assert.match(css,/data-focus-mode=true/);assert.match(css,/rgb\(23 38 49 \/ var\(--gg-panel-opacity/);assert.doesNotMatch(css,/data-focus-mode=true[^{}]*\.arsenal\s*\{/);
+});
+
+test('performance monitor samples frames and rate limits real server round trips',()=>{
+ const game=read('game.js'),hud=read('gold-hud.js'),server=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','server.js'),'utf8');
+ assert.match(game,/perfFrames\*1000\/elapsed/);assert.match(game,/t-perfProbeAt>=5000/);assert.match(game,/socket.timeout\(3000\).emit\('gg:latency'/);assert.match(game,/generation!==perfGeneration/);assert.match(game,/document.hidden\|\|!panel\|\|panel.hidden/);assert.match(hud,/monitor.hidden=!preferences.performance/);assert.match(server,/now-lastLatencyProbe<2500/);assert.match(server,/!players.has\(socket.id\)/);
+});
+
+test('graphics quality profiles change rendering only and retain full game entities',()=>{
+ const game=read('game.js'),hud=read('gold-hud.js');assert.match(game,/low:\{dpr:1,stars:1,glow:0\}/);assert.match(game,/medium:\{dpr:1.5,stars:2,glow:.5\}/);assert.match(game,/high:\{dpr:2,stars:3,glow:1\}/);assert.match(game,/qualityProfiles\[quality\].dpr/);assert.match(game,/qualityProfiles\[quality\].stars/);assert.match(game,/qualityProfiles\[quality\].glow/);assert.match(game,/for\(const n of state.npcs\)/);assert.match(hud,/window.ggSetQuality\?\.\(preferences.quality\)/);
 });
