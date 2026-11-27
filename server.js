@@ -156,10 +156,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(boxCount>0&&!['4-4','4-5'].includes(zone))for(let i=0;i<(/^4-[123]$/.test(zone)?100:boxCount);i++)spawnBox(point(),zone);
  }
  function changeMap(p,zone,pos){const sock=io.sockets.sockets.get(p.id);sock?.leave(zoneOf(p));p.zone=zone;p.petAggressors=new Map();initMap(zone);sock?.join(zone);p.x=pos?.x??WORLD.w/2;p.y=pos?.y??WORLD.h/2;p.dest=null;p.target=null;p.attack=false;setPetMode(p,'off');sock?.emit('v14:map',{map:zone});sock?.emit('v16:basePortals',{map:zone,portals:personalPortals(p)});}
- function groupView(id){const g=groups.status(id);return {group:g?{...g,members:g.members.map(id=>({id,name:players.get(id)?.name||'Piloto',map:players.get(id)?.zone}))}:null,invite:groups.pending(id),pilots:[...players.values()].filter(p=>p.id!==id&&!p.gate).map(p=>({id:p.id,name:p.name}))};}
+ function groupView(id){const g=groups.status(id);return {group:g?{...g,members:g.members.map(id=>({id,name:players.get(id)?.name||'Piloto',map:players.get(id)?.zone}))}:null,invite:(()=>{const i=groups.pending(id);return i?{...i,name:players.get(i.from)?.name||'Piloto'}:null;})(),pilots:[...players.values()].filter(p=>p.id!==id&&!p.gate&&!p.deadUntil&&!p.gatePending&&p.hp>0&&!groups.status(p.id)).map(p=>({id:p.id,name:p.name}))};}
  function notifyGroup(ids){for(const id of ids){const p=players.get(id);if(p){p.group=groups.status(id)?.id||null;io.to(id).emit('v15:group',groupView(id));}}}
  function canPvp(a,b){return !!b&&!abilityActive(b,'ultimate-cloak',Date.now())&&!b.cloaked&&eligible(a,{...b,safe:safeZone(b)})&&!safeZone(a)&&!(a.hadesPending||b.hadesPending);}
- function groupMates(p,radius){return [...players.values()].filter(q=>q!==p&&!q.deadUntil&&!q.gatePending&&q.hp>0&&p.group&&q.group===p.group&&sameZone(q,p)&&distance(p,q)<=radius);}
+ function groupMates(p,radius){return (groups.status(p.id)?.members||[]).map(id=>players.get(id)).filter(q=>q&&q!==p&&!q.deadUntil&&!q.gatePending&&q.hp>0&&sameZone(q,p)&&distance(p,q)<=radius);}
  function protectDamage(v,amount){if(!v.group||!amount)return amount;const protector=groupMates(v,700).find(q=>abilityActive(q,'protect',Date.now()));if(!protector)return amount;const redirected=Math.min(protector.shield,amount*.25);if(!protector.godMode){protector.shield-=redirected;protector.lastHit=Date.now();}return amount-redirected;}
  function technologyLeech(p,n,before){if(techActive(p.technologies,'energy-leech',Date.now()))heal(p,'hp',leechAmount(before,n));}
  function markFactor(p,n,now){return n.markUntil>now&&n.markGroup&&n.markGroup===p.group?1.05:1;}
@@ -414,7 +414,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   else io.to(p.id).emit('notice',title);
  }
  function awardGroup(p,credits,xp,message,uridium=0,honor=0,points=0){
-  const ids=(groups.status(p.id)?.members||[p.id]).filter(id=>{const m=players.get(id);return m&&sameZone(p,m)&&!m.deadUntil&&!m.gate;});if(!ids.includes(p.id))ids.push(p.id);
+  const ids=(groups.status(p.id)?.members||[p.id]).filter(id=>{const m=players.get(id);return m&&sameZone(p,m)&&m.hp>0&&!m.deadUntil&&!m.gate&&!m.gatePending&&!m.ubaReturn&&!m.invasionReturn;});if(!ids.includes(p.id))ids.push(p.id);
   const petEligibility=new Map(ids.map(id=>[id,eligibleForNpcXp(players.get(id),Date.now())]));
   const shares=[credits,xp,uridium,honor].map(n=>groups.split(n,ids,p.id));return Promise.allSettled(ids.map(id=>award(players.get(id),Math.round(shares[0][id]*(players.get(id).pilotBonus?.credits||1)),Math.round(shares[1][id]*(formationBonus(players.get(id).formation).npcXp||1)*(players.get(id).pilotBonus?.xp||1)*(players.get(id).boost?.xp||1)),message,shares[2][id],Math.round(shares[3][id]*(formationBonus(players.get(id).formation).honor||1)*(players.get(id).pilotBonus?.honor||1)*(players.get(id).boost?.honor||1)),id===p.id?points:0,petEligibility.get(id)===true)));
  }
@@ -809,10 +809,12 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  socket.on('v15:group', (data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);if(!p)return ack({ok:false,error:'Conéctate primero'});
   try{
-   const action=data?.action,old=groups.status(p.id)?.members||[p.id];let affected=[...old];
+   const action=data?.action,old=groups.status(p.id)?.members||[p.id];let affected=[...old,...groups.invitees(p.id)];
    if(action==='create')groups.create(p.id);
    else if(action==='invite'){const target=players.get(data.target);if(!target||p.gate||target.gate)throw Error('Piloto no disponible');groups.invite(p.id,target.id);affected.push(target.id);io.to(target.id).emit('notice',p.name+' te invitó a un grupo');}
    else if(action==='accept'){if(p.gate)throw Error('Sal de la puerta primero');const g=groups.accept(p.id,data.from);affected.push(...g.members);}
+   else if(action==='decline')groups.decline(p.id,data.from);
+   else if(action==='transfer')groups.transfer(p.id,data.target);
    else if(action==='leave')groups.leave(p.id);
    else if(action==='kick'){groups.kick(p.id,data.target);affected.push(data.target);}
    else if(action!=='status')throw Error('Acción inválida');
@@ -848,7 +850,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  });
  socket.on('v14:gateNext',()=>{const p=players.get(socket.id);if(allowed()&&p?.gateWaiting)io.to(p.id).emit('notice','La siguiente ronda comienza automáticamente');});
  socket.on('v14:gateLeave',()=>{const p=players.get(socket.id);if(allowed()&&p?.gate&&p.gateWaiting&&!p.gatePending&&!p.shotPending&&!p.deadUntil&&p.gate.exitPortal&&Date.now()<p.gate.intermissionUntil){if(distance(p,p.gate.exitPortal)>125){io.to(p.id).emit('notice','Acércate al portal de salida');return;}if(p.gate.gate==='hades'){if(p.gate.leader===p.id)endHades(p.gate,'El grupo regresó a la base');}else{returnFromGate(p);refreshGalaxy(p).catch(()=>{});socket.emit('v14:gateState',{inside:false});}}});
- socket.on('disconnect',()=>{leaveInvasion(players.get(socket.id));if(invasionLobby.leave(socket.id))notifyInvasion();leaveUBA(socket.id,true);const p=players.get(socket.id);if(p?.gate?.gate==='hades')endHades(p.gate,'Hades en pausa: un piloto se desconectó');else if(p?.gate)clearGateNPCs(p);broadcastHades(hadesLobbies.leave(socket.id));const oldGroup=groups.status(socket.id)?.members||[];groups.leave(socket.id);if(p)flushFlight(p);players.delete(socket.id);notifyGroup(oldGroup);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
+ socket.on('disconnect',()=>{leaveInvasion(players.get(socket.id));if(invasionLobby.leave(socket.id))notifyInvasion();leaveUBA(socket.id,true);const p=players.get(socket.id);if(p?.gate?.gate==='hades')endHades(p.gate,'Hades en pausa: un piloto se desconectó');else if(p?.gate)clearGateNPCs(p);broadcastHades(hadesLobbies.leave(socket.id));const oldGroup=[...(groups.status(socket.id)?.members||[]),...groups.invitees(socket.id)];groups.leave(socket.id);if(p)flushFlight(p);players.delete(socket.id);notifyGroup(oldGroup);if(p)p.writes.catch(()=>{}).finally(()=>{if(active.get(p.accountId)===p)active.delete(p.accountId);});});});
  // Run independently of simulation; never overlap or block a simulation tick.
  let calendarBusy=false;const calendarTimer=setInterval(()=>{if(closing||calendarBusy||!accounts.eventCalendar)return;calendarBusy=true;const job=runDue(accounts.eventCalendar,dispatchScheduled).catch(e=>console.error('Calendar:',e.code||e.message)).finally(()=>{calendarBusy=false;pending.delete(job);});pending.add(job);},5000);
  let rankingBusy=false;
