@@ -54,5 +54,5 @@ async function tickArenaPaid(arena,match,authorize,now=Date.now(),random=Math.ra
   return shots;
  }finally{arena.busy=false;}
 }
-function viewArena(arena){return {width:WIDTH,height:HEIGHT,round:arena.round,closed:arena.closed,fighters:arena.fighters.map(({id,name,x,y,hp,maxHp,shield,maxShield,attack,ammo,stock})=>({id,name,x,y,hp,maxHp,shield,maxShield,attack,ammo,stock}))};}
+function viewArena(arena,viewer=null){return {width:WIDTH,height:HEIGHT,round:arena.round,closed:arena.closed,fighters:arena.fighters.map(({id,name,x,y,hp,maxHp,shield,maxShield,attack,ammo,stock})=>({id,name,x,y,hp,maxHp,shield,maxShield,attack,ammo:viewer===id?ammo:undefined,stock:viewer===id?stock:undefined}))};}
 module.exports={createArena,command,tickArena,tickArenaPaid,viewArena,WIDTH,HEIGHT,RANGE,COOLDOWN};
