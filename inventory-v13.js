@@ -110,7 +110,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
-   return {balance:p,hangar,items,ammo,petEquipment};
+   return {balance:p,hangar,items,ammo,petEquipment,petGearEquipEnabled:process.env.GG_PET_GEAR_EQUIP_ENABLED==='1'&&process.env.GG_PET_EQUIPMENT_ENABLED==='1'};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
@@ -188,7 +188,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
  async function petInterval(id,mode){
   if(!['passive','guard','loot'].includes(mode))throw fail('Modo inválido');
   return transaction(id,async c=>{
-   const owned=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   const owned=(await c.query("SELECT instance_id AS \"instanceId\",category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
    if(!owned.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
    if(mode==='loot'&&!owned.some(x=>x.code==='G-AL1'))throw fail('Necesitas el engranaje G-AL1');
    if(mode==='loot')await requireMountedGear(c,id,owned,'G-AL1');
