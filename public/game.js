@@ -22,6 +22,10 @@ window.gg14GateNext=()=>{if(joined)socket.emit('v14:gateNext');};
 window.gg14GateLeave=()=>{if(joined)socket.emit('v14:gateLeave');};
 window.gg14GateState=()=>gateState;
 window.gg15Pilot=()=>state.players.find(p=>p.id===meId)||null;
+window.gg18Charge=data=>new Promise((resolve,reject)=>{
+ if(!joined||!socket.connected)return reject(Error('Conéctate primero'));
+ socket.timeout(10000).emit('v18:upgrade',data,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'No se pudo cargar mineral'));else resolve(r);});
+});
 window.gg17God=enabled=>new Promise((resolve,reject)=>{
  if(!joined||!socket.connected)return reject(Error('Conéctate primero'));
  socket.timeout(8000).emit('v17:god',enabled,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'No se pudo cambiar DIOS'));else resolve(r.enabled);});
