@@ -1,6 +1,7 @@
 'use strict';
 // Wiki multipliers. One mineral = ten rounds; generator rounds use a
 // provisional ten-second interval of active use, not real-time expiry.
+const catalog=require('./data/catalog-v13.json');
 const BONUS={prometid:{laser:1.1,rocket:1.1},duranium:{speed:1.1,shield:1.1},promerium:{laser:1.3,rocket:1.3,speed:1.2,shield:1.2},seprom:{laser:1.6,rocket:1.6,shield:1.4}};
 const SLOTS=['laser','rocket','speed','shield'];
 function factor(upgrades,slot){const u=upgrades?.[slot];return u&&u.rounds>0?BONUS[u.code]?.[slot]||1:1;}
@@ -19,9 +20,9 @@ function createUpgrades(pool){
  let next;try{next=load(await read(c,id),d.slot,d.code,d.quantity);}catch(e){throw fail(e.message);}
  const taken=await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,d.code,d.quantity]);if(!taken.rowCount)throw fail('Mineral insuficiente');await save(c,id,next);const result={upgrades:next,bonus:BONUS,slots:SLOTS};await c.query('INSERT INTO gg_v18_upgrade_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,d.requestId,JSON.stringify(result)]);return result;});}
  // Atomically reserve ammunition and one mineral-enhanced salvo.
- async function shot(id,code,count){return tx(id,async c=>{const r=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,code,count])).rows[0];if(!r)return null;
- const upgrades=await read(c,id),{next,factors}=consume(upgrades,['laser']);if(upgrades.laser?.rounds>0)await save(c,id,next);
- return {stock:Number(r.quantity),factor:factors.laser,upgrades:next};});}
+ async function shot(id,code,count,slot='laser'){if(!['laser','rocket'].includes(slot)||!Number.isSafeInteger(count)||count<1||count>100||!(slot==='rocket'?count===1&&catalog.rockets.some(r=>r.id===code):catalog.ammo.some(a=>a.id===code)))throw fail('Munición inválida');return tx(id,async c=>{const r=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,code,count])).rows[0];if(!r)return null;
+ const upgrades=await read(c,id),{next,factors}=consume(upgrades,[slot]);if(upgrades[slot]?.rounds>0)await save(c,id,next);
+ return {stock:Number(r.quantity),factor:factors[slot],upgrades:next};});}
  async function generatorRound(id,slots){return tx(id,async c=>{const upgrades=await read(c,id),{next,factors}=consume(upgrades,slots.filter(k=>k==='speed'||k==='shield'));if(slots.some(k=>upgrades[k]?.rounds>0))await save(c,id,next);return {upgrades:next,factors};});}
  return {ready,status,charge,shot,generatorRound};
 }
