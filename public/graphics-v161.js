@@ -51,22 +51,22 @@
   path(c,[[15,0],[4,-4],[-5,-3],[-9,0],[-5,3],[4,4]],'#16374d',color,.7);
   path(c,[[9,0],[2,-2.5],[-3,0],[2,2.5]],'#f7ce70','#fff2ba',.5);
  }
- function npcStyle(name,type){
+ function npcStyle(name,type,theme=root.ggVisualTheme?.current()||'gold'){
   const raw=String(name||'').toLowerCase().trim(),tier=/^uber[- ]/.test(raw)?'uber':/^emperor[- ]/.test(raw)?'emperor':/^boss\b/.test(raw)||type==='boss'?'boss':'normal';
   const n=raw.replace(/^(boss|uber|emperor)[- ]+/,'');
   // StreuneR (capital final R) is a separate NPC in the catalog; leave it and all elites unchanged.
   if(String(name||'').trim()==='Streuner'&&tier==='normal')return {kind:'streuner-original',color:'#b94c3e',tier};
-  if(root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.alien&&tier==='normal'){
+  if(theme==='classic'&&root.ggClassicArt?.alien&&tier==='normal'){
    if(n==='lordakia')return {kind:'classic-lordakia',color:'#4c9d45',tier};
    if(n==='saimon')return {kind:'classic-saimon',color:'#77899d',tier};
   }
   const classicSpecies=Object.hasOwn({kristallin:1,kristallon:1,mordon:1,devolarium:1,cubikon:1},n);
-  if(root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.largeAlien&&classicSpecies){
+  if(theme==='classic'&&root.ggClassicArt?.largeAlien&&classicSpecies){
    const palette={kristallin:'#62b9e7',kristallon:'#5c98df',mordon:'#b3a78a',devolarium:'#a47551',cubikon:'#d7b96a'};
    return {kind:'classic-'+n+(tier==='normal'?'':'-'+tier),color:tier==='uber'?'#b77bff':tier==='emperor'?'#ffd077':tier==='boss'?'#70a7ff':palette[n],tier};
   }
   const classicRaiders={sibelon:'#be9b75',sibelonit:'#ac8758',lordakium:'#9e83b4',interceptor:'#8fb5ba',vagrant:'#8e776c',marauder:'#b87b56',barracuda:'#71949d',saboteur:'#a198c7',annihilator:'#b85c52','deadly battleray':'#d9a86b'};
-  if(root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.raider&&Object.hasOwn(classicRaiders,n)){
+  if(theme==='classic'&&root.ggClassicArt?.raider&&Object.hasOwn(classicRaiders,n)){
    return {kind:'classic-'+n.replaceAll(' ','-')+(tier==='normal'?'':'-'+tier),color:tier==='uber'?'#b77bff':tier==='emperor'?'#ffd077':tier==='boss'?'#70a7ff':classicRaiders[n],tier};
   }
   let family='alien',color='#ff795f';
@@ -156,7 +156,7 @@
  goliath:[33,30,25,15,4],spearhead:[40,17,24,7,0],aegis:[29,27,25,17,1],citadel:[30,32,28,22,3]
  });
  const designColors=Object.freeze({Diminisher:'#e36c45',Sentinel:'#5a93e7',Solace:'#69d8c1',Spectrum:'#aa83ee',Venom:'#87e363',Lightning:'#f5c349',Bastion:'#4798ec',Enforcer:'#f05b51',Centaur:'#eab671',Exalted:'#e2d5b2',Veteran:'#7ab9c4',Goal:'#73d58c',Referee:'#e5e7ec',Kick:'#e4954f',Revenge:'#ef7056',Avenger:'#71c0ff',Saturn:'#d6b2ee','aegis-veteran':'#72b4c9','aegis-elite':'#e9bd67','citadel-veteran':'#72b4c9','citadel-elite':'#e9bd67','spearhead-veteran':'#72b4c9','spearhead-elite':'#e9bd67'});
- function playerStyle(ship,design,isMe){const id=String(ship||'').toLowerCase();const known=Object.hasOwn(shipProfiles,id),equipped=Object.hasOwn(designColors,design),classic=root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.pilot;return {kind:known?(classic?'classic-ship-'+id+(equipped?':'+design:''):'ship-'+id):id==='tank'?'tank':'scout',color:equipped?designColors[design]:isMe?'#76f5bd':'#77c6ff'};}
+ function playerStyle(ship,design,isMe,theme=root.ggVisualTheme?.current()||'gold'){const id=String(ship||'').toLowerCase();const known=Object.hasOwn(shipProfiles,id),equipped=Object.hasOwn(designColors,design),classic=theme==='classic'&&root.ggClassicArt?.pilot;return {kind:known?(classic?'classic-ship-'+id+(equipped?':'+design:''):'ship-'+id):id==='tank'?'tank':'scout',color:equipped?designColors[design]:isMe?'#76f5bd':'#77c6ff'};}
  function playerHull(c,id,color){
   const [nose,wing,back,body,style]=shipProfiles[id],armor=gradient(c,wing,[[0,'#bdc9d4'],[.16,'#657587'],[.38,'#243442'],[.5,'#101a24'],[.68,'#53687b'],[1,'#15222e']]),accent=gradient(c,wing,[[0,color],[.4,'#15343b'],[.6,'#101d28'],[1,color]]);
   for(const side of [-1,1]){
@@ -186,8 +186,8 @@
   path(c,[[nose*.4,0],[nose*.15,-body*.17],[nose*.02,0]],'#e7faff');
   if(style===3)for(const side of [-1,1])path(c,[[nose*.65,body*.4*side],[nose*.4,body*.78*side],[nose*.12,body*.64*side],[nose*.35,body*.3*side]],color);
  }
- function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),theme=root.ggVisualTheme?.current()||'gold',key=theme+':'+kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(theme==='classic'&&kind.startsWith('classic-ship-')&&root.ggClassicArt?.pilot)root.ggClassicArt.pilot(c,kind,color);else if(theme==='classic'&&kind==='streuner-original'&&root.ggClassicArt?.streuner)root.ggClassicArt.streuner(c,color);else if(theme==='classic'&&kind==='ship-goliath'&&root.ggClassicArt?.goliath)root.ggClassicArt.goliath(c,color);else if(theme==='classic'&&['classic-lordakia','classic-saimon'].includes(kind)&&root.ggClassicArt?.alien)root.ggClassicArt.alien(c,kind,color);else if(theme==='classic'&&/^classic-(kristallin|kristallon|mordon|devolarium|cubikon)(-|$)/.test(kind)&&root.ggClassicArt?.largeAlien)root.ggClassicArt.largeAlien(c,kind,color);else if(theme==='classic'&&/^classic-(sibelonit|sibelon|lordakium|interceptor|vagrant|marauder|barracuda|saboteur|annihilator|deadly-battleray)(-|$)/.test(kind)&&root.ggClassicArt?.raider)root.ggClassicArt.raider(c,kind,color);else if(theme==='classic'&&kind.startsWith('drone')&&root.ggClassicArt?.vant)root.ggClassicArt.vant(c,kind,color);else if(kind.startsWith('drone'))drone(c,color,kind);else if(theme==='classic'&&kind==='pet'&&root.ggClassicArt?.pet)root.ggClassicArt.pet(c,color);else if(kind==='pet')pet(c,color);else if(kind==='streuner-original')streunerHull(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);if(theme==='classic')root.ggClassicArt?.finish(c,kind,color,size);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
- function draw(c,kind,color){const s=sprite(kind,color);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
+ function sprite(kind,color,theme=root.ggVisualTheme?.current()||'gold'){theme=theme==='classic'?'classic':'gold';const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=theme+':'+kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(theme==='classic'&&kind.startsWith('classic-ship-')&&root.ggClassicArt?.pilot)root.ggClassicArt.pilot(c,kind,color);else if(theme==='classic'&&kind==='streuner-original'&&root.ggClassicArt?.streuner)root.ggClassicArt.streuner(c,color);else if(theme==='classic'&&kind==='ship-goliath'&&root.ggClassicArt?.goliath)root.ggClassicArt.goliath(c,color);else if(theme==='classic'&&['classic-lordakia','classic-saimon'].includes(kind)&&root.ggClassicArt?.alien)root.ggClassicArt.alien(c,kind,color);else if(theme==='classic'&&/^classic-(kristallin|kristallon|mordon|devolarium|cubikon)(-|$)/.test(kind)&&root.ggClassicArt?.largeAlien)root.ggClassicArt.largeAlien(c,kind,color);else if(theme==='classic'&&/^classic-(sibelonit|sibelon|lordakium|interceptor|vagrant|marauder|barracuda|saboteur|annihilator|deadly-battleray)(-|$)/.test(kind)&&root.ggClassicArt?.raider)root.ggClassicArt.raider(c,kind,color);else if(theme==='classic'&&kind.startsWith('drone')&&root.ggClassicArt?.vant)root.ggClassicArt.vant(c,kind,color);else if(kind.startsWith('drone'))drone(c,color,kind);else if(theme==='classic'&&kind==='pet'&&root.ggClassicArt?.pet)root.ggClassicArt.pet(c,color);else if(kind==='pet')pet(c,color);else if(kind==='streuner-original')streunerHull(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);if(theme==='classic')root.ggClassicArt?.finish(c,kind,color,size);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
+ function draw(c,kind,color,theme){const s=sprite(kind,color,theme);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
  function portal(c,color,t){
   if(root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.portal){root.ggClassicArt.portal(c,color,t);return;}
   const center=c.createRadialGradient(0,0,3,0,0,46);center.addColorStop(0,'#03060d');center.addColorStop(.45,'#0b1625');center.addColorStop(.78,color+'24');center.addColorStop(1,color+'00');c.fillStyle=center;c.beginPath();c.arc(0,0,46,0,Math.PI*2);c.fill();
@@ -226,7 +226,7 @@
   return out;
  }
  function labelLayout(o,visual,npc,scale=1,angle=0,offsets=[]){
-  const kind=visual.kind,base=kind==='crystal-elite'?44:/^classic-(sibelon|lordakium|deadly-battleray|annihilator)/.test(kind)?46:kind.startsWith('classic-kristallon')?47:kind.startsWith('classic-kristallin')?40:kind.startsWith('classic-devolarium')?45:kind.startsWith('classic-mordon')?40:kind.startsWith('classic-cubikon')?47:kind==='cube'?35:(kind.startsWith('ship-')||kind.startsWith('classic-ship-'))?46:36;
+  const kind=visual.kind,base=kind==='crystal-elite'?44:/^classic-(sibelon|lordakium|deadly-battleray|annihilator)/.test(kind)?46:kind.startsWith('classic-kristallon')?47:kind.startsWith('classic-kristallin')?40:kind.startsWith('classic-devolarium')?45:kind.startsWith('classic-mordon')?40:kind.startsWith('classic-cubikon')?47:kind==='cube'?35:kind.startsWith('classic-ship-')?46:kind.startsWith('ship-')?42:36;
   let above=base*scale,below=above;
   const sin=Math.sin(angle),cos=Math.cos(angle);
   if(!npc)for(const {x,y} of offsets){const v=(x*sin+y*cos)*scale;above=Math.max(above,-v+15*scale);below=Math.max(below,v+19*scale);}

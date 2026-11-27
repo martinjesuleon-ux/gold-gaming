@@ -1,0 +1,247 @@
+{
+  "ships": [
+    {
+      "id": "phoenix",
+      "name": "Phoenix"
+    },
+    {
+      "id": "yamato",
+      "name": "Yamato"
+    },
+    {
+      "id": "defcom",
+      "name": "Defcom"
+    },
+    {
+      "id": "liberator",
+      "name": "Liberator"
+    },
+    {
+      "id": "piranha",
+      "name": "Piranha"
+    },
+    {
+      "id": "nostromo",
+      "name": "Nostromo"
+    },
+    {
+      "id": "bigboy",
+      "name": "BigBoy"
+    },
+    {
+      "id": "leonov",
+      "name": "Leonov"
+    },
+    {
+      "id": "vengeance",
+      "name": "Vengeance"
+    },
+    {
+      "id": "goliath",
+      "name": "Goliath"
+    },
+    {
+      "id": "spearhead",
+      "name": "Spearhead"
+    },
+    {
+      "id": "aegis",
+      "name": "Aegis"
+    },
+    {
+      "id": "citadel",
+      "name": "Citadel"
+    }
+  ],
+  "designs": [
+    {
+      "id": "Diminisher",
+      "ship": "goliath",
+      "name": "Diminisher"
+    },
+    {
+      "id": "Sentinel",
+      "ship": "goliath",
+      "name": "Sentinel"
+    },
+    {
+      "id": "Solace",
+      "ship": "goliath",
+      "name": "Solace"
+    },
+    {
+      "id": "Spectrum",
+      "ship": "goliath",
+      "name": "Spectrum"
+    },
+    {
+      "id": "Venom",
+      "ship": "goliath",
+      "name": "Venom"
+    },
+    {
+      "id": "Lightning",
+      "ship": "vengeance",
+      "name": "Lightning"
+    },
+    {
+      "id": "Bastion",
+      "ship": "goliath",
+      "name": "Bastion"
+    },
+    {
+      "id": "Enforcer",
+      "ship": "goliath",
+      "name": "Enforcer"
+    },
+    {
+      "id": "Centaur",
+      "ship": "goliath",
+      "name": "Centaur"
+    },
+    {
+      "id": "Exalted",
+      "ship": "goliath",
+      "name": "Exalted"
+    },
+    {
+      "id": "Veteran",
+      "ship": "goliath",
+      "name": "Veteran"
+    },
+    {
+      "id": "Goal",
+      "ship": "goliath",
+      "name": "Goal"
+    },
+    {
+      "id": "Referee",
+      "ship": "goliath",
+      "name": "Referee"
+    },
+    {
+      "id": "Kick",
+      "ship": "goliath",
+      "name": "Kick"
+    },
+    {
+      "id": "Revenge",
+      "ship": "vengeance",
+      "name": "Revenge"
+    },
+    {
+      "id": "Avenger",
+      "ship": "vengeance",
+      "name": "Avenger"
+    },
+    {
+      "id": "Saturn",
+      "ship": "goliath",
+      "name": "Saturn"
+    },
+    {
+      "id": "aegis-veteran",
+      "ship": "aegis",
+      "name": "aegis Veteran"
+    },
+    {
+      "id": "aegis-elite",
+      "ship": "aegis",
+      "name": "aegis Elite"
+    },
+    {
+      "id": "citadel-veteran",
+      "ship": "citadel",
+      "name": "citadel Veteran"
+    },
+    {
+      "id": "citadel-elite",
+      "ship": "citadel",
+      "name": "citadel Elite"
+    },
+    {
+      "id": "spearhead-veteran",
+      "ship": "spearhead",
+      "name": "spearhead Veteran"
+    },
+    {
+      "id": "spearhead-elite",
+      "ship": "spearhead",
+      "name": "spearhead Elite"
+    }
+  ],
+  "npcs": [
+    "Streuner",
+    "Lordakia",
+    "Saimon",
+    "Boss Streuner",
+    "Uber-Streuner",
+    "Sibelonit",
+    "Boss Lordakia",
+    "Mordon",
+    "StreuneR",
+    "Devolarium",
+    "Kristallin",
+    "Boss Saimon",
+    "Uber-Lordakia",
+    "Kristallin Infectado",
+    "Interceptor",
+    "Boss Mordon",
+    "Sibelon",
+    "Boss Sibelonit",
+    "Boss StreuneR",
+    "Uber Saimon",
+    "Barracuda",
+    "Saboteur",
+    "Boss Kristallin",
+    "Lordakium",
+    "Uber-Mordon",
+    "Uber-Sibelonit",
+    "Boss Devolarium",
+    "Uber-StreuneR",
+    "Boss Sibelon",
+    "Kristallon",
+    "Uber-Devolarium",
+    "Uber Kristallin",
+    "Annihilator",
+    "Boss Lordakium",
+    "Uber Sibelon",
+    "Deadly Battleray",
+    "Uber-Lordakium",
+    "Boss Kristallon",
+    "Uber-Kristallon",
+    "Cubikon",
+    "Boss Kucurbium",
+    "Vagrant",
+    "Marauder",
+    "Evil Iris",
+    "Ufonit",
+    "Icy",
+    "Infernal",
+    "Outcast",
+    "Scorher",
+    "Corsair",
+    "Ravager",
+    "Convict",
+    "Hooligan",
+    "DemaNeR",
+    "Melter",
+    "Impulse II",
+    "Kucurbium",
+    "Demon Drone",
+    "Boss Kucurbium (Kappa)",
+    "Kucurbium (large)",
+    "Attend XI",
+    "Emperor-Sibelon",
+    "Hitac Mothership",
+    "Emperor-Lordakium",
+    "Super Ice Meteoroid",
+    "Devourer",
+    "Hitac Minion",
+    "Emperor-Kristallon",
+    "Century-Falcon (Kappa)",
+    "Frightful Curcubitor",
+    "Strokelight Barrage",
+    "Century-Falcon"
+  ]
+}
