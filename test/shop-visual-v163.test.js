@@ -20,3 +20,8 @@ test('visual hangar retains equip API and exposes configuration, slots, preview 
  const ui=read('gold-v13.js'),h=ui.slice(ui.indexOf('function hangar()'),ui.indexOf('const rewardText'));
  assert.match(h,/api\('equip'/);assert.match(h,/draft.configs\[tab\]/);assert.match(h,/gg-hangar-preview/);assert.match(h,/gg-hangar-targets/);assert.match(h,/gg-hangar-usage/);assert.match(h,/visual.art\(i.category,p\)/);assert.match(h,/search.oninput/);assert.match(h,/dataTransfer.getData/);assert.match(h,/cat.drones\[d.code\].slots/);
 });
+
+test('visual ammunition controls retain all twenty slots and expose live stock',()=>{
+ const g=read('game.js'),css=read('gold-hud.css');assert.match(g,/decorateAmmoSlot\(b,'ammo',code/);assert.match(g,/ammoStock\[code\]/);assert.match(g,/b.dataset.ammoCode!==code/);assert.match(g,/buttons\[i\+7\]/);assert.match(g,/buttons\[i\+11\]/);assert.match(g,/fireRocket\(code\)/);assert.match(g,/fireOrdnance\(code\)/);assert.match(css,/gg-ammo-count/);
+ const ui=read('gold-v13.js');assert.match(ui,/gg-ability-card/);assert.match(ui,/info.dataset.phase!==phase/);
+});
