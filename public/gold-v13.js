@@ -27,29 +27,34 @@ draw();}
 async function gates(){
  body.replaceChildren(el('h2','Puertas galácticas'),el('p','Cargando generador…'));
  try{
-  const data=await api('gates');if(!modal.open||mode!=='Portales')return;
+  let data=await api('gates'),selected='alpha',multiplier=false,paid=false;
+  if(!modal.open||mode!=='Portales')return;
+  async function action(kind){
+   if(busy)return;busy=true;draw();
+   try{
+    data=await api('gates/'+kind,{gate:selected,requestId:crypto.randomUUID(),useMultiplier:multiplier,allowUridium:paid});
+    state.balance=data.balance;status.textContent=(data.reward?'Resultado: '+data.reward.code+' ×'+data.reward.quantity+(data.reward.gate?' · '+data.reward.gate.toUpperCase():''):'Operación realizada')+' · '+balance();
+   }catch(e){status.textContent=e.message;}finally{busy=false;if(modal.open&&mode==='Portales')draw();}
+  }
   function draw(){
    body.replaceChildren(el('h2','Generador de puertas galácticas'));
    const nav=el('div',null,'gg13-grid');
-   for(const id of data.gates){const b=button(id.toUpperCase(),()=>{});b.disabled=true;nav.append(b);}
-   body.append(nav,el('h3','ALPHA'),el('p','Alpha · combate de prueba. Composición de oleadas y premios provisionales.'));
-   const a=data.alpha;
-   const progress=el('progress');progress.max=a.required;progress.value=a.pieces.length;
-   body.append(progress,el('p',a.pieces.length+' / '+a.required+' piezas · Energía extra: '+fmt(data.energy)+' · Multiplicador ×'+a.multiplier));
-   const grid=el('div',null,'gg13-grid');
-   for(let i=1;i<=a.required;i++){const tile=el('span',(a.pieces.includes(i)?'✓ ':'○ ')+i,'gg13-tile');grid.append(tile);}
-   body.append(grid);
-   const mult=el('input');mult.type='checkbox';const label=el('label',' Usar multiplicador');label.prepend(mult);
-   const paid=el('input');paid.type='checkbox';const pl=el('label',' Permitir gasto de 100 uridium si no hay energía');pl.prepend(paid);
-   const spin=button('GENERAR',async()=>{
-    if(busy)return;busy=true;spin.disabled=true;
-    try{const result=await api('gates/spin',{gate:'alpha',requestId:crypto.randomUUID(),useMultiplier:mult.checked,allowUridium:paid.checked});
-     Object.assign(a,{pieces:result.pieces,multiplier:result.multiplier,ready:result.ready});data.energy=result.energy;state.balance=result.balance;draw();status.textContent='Resultado: '+result.reward.code+' ×'+result.reward.quantity+' · '+balance();
-    }catch(e){status.textContent=e.message;}finally{busy=false;spin.disabled=a.ready;}
-   });spin.disabled=a.ready;body.append(label,pl,spin);if(a.ready){
-    body.append(el('p','Oleadas completadas: '+(a.wave||0)+' / 10 · Vidas: '+(a.lives??3)));
-    if(window.gg14GateState?.().inside){body.append(button('VOLVER AL SECTOR',()=>{window.gg14GateLeave();modal.close();}));}
-    else{const enter=button('ENTRAR A ALPHA',async()=>{if(busy)return;busy=true;enter.disabled=true;try{await window.gg14GateEnter();modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;enter.disabled=false;}});body.append(enter);}
+   for(const id of data.gates){const g=data.states[id];const b=button(id.toUpperCase()+' '+g.pieces.length+'/'+g.required+(g.built?' ✓':''),()=>{selected=id;draw();});b.disabled=busy||id===selected;nav.append(b);}
+   const a=data.states[selected];
+   body.append(nav,el('h3',selected.toUpperCase()),el('p','Secciones: '+a.waves+' · Energía extra: '+fmt(data.energy)+' · Multiplicador ×'+a.multiplier));
+   const progress=el('progress');progress.max=a.required;progress.value=a.pieces.length;body.append(progress,el('p',a.pieces.length+' / '+a.required+' piezas'));
+   const grid=el('div',null,'gg13-grid');for(let i=1;i<=a.required;i++)grid.append(el('span',(a.pieces.includes(i)?'✓ ':'○ ')+i,'gg13-tile'));body.append(grid);
+   const mult=el('input');mult.type='checkbox';mult.checked=multiplier;mult.onchange=()=>{multiplier=mult.checked;};const label=el('label',' Activar multiplicador');label.prepend(mult);
+   const pay=el('input');pay.type='checkbox';pay.checked=paid;pay.onchange=()=>{paid=pay.checked;};const pl=el('label',' Autorizar uridium (100 por tirada / 25.000 por vida)');pl.prepend(pay);body.append(label,pl);
+   if(selected==='kronos')body.append(el('p','Se obtiene completando las otras puertas.'));
+   else{const spin=button('GENERAR',()=>action('spin'));spin.disabled=busy;body.append(spin);}
+   if(a.canBuild){const b=button('CONSTRUIR PUERTA',()=>action('build'));b.disabled=busy;body.append(b);}
+   if(a.built){
+    body.append(el('p','Secciones completadas: '+a.wave+'/'+a.waves+' · Vidas: '+a.lives+'/10 · Completadas: '+a.completions));
+    const life=button('COMPRAR VIDA',()=>action('life'));life.disabled=busy||a.lives>=10;body.append(life);
+    if(window.gg14GateState?.().inside)body.append(button('VOLVER AL SECTOR',()=>{window.gg14GateLeave();modal.close();}));
+    else if(a.combatAvailable){const enter=button('ENTRAR',async()=>{if(busy)return;busy=true;enter.disabled=true;try{await window.gg14GateEnter(selected);modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;enter.disabled=false;}});body.append(enter);}
+    else body.append(el('p','Combate de esta puerta aún en desarrollo.'));
    }
   }
   draw();
