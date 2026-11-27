@@ -97,7 +97,7 @@ async function clanMenu(){
    }
    if(can('reclutar'))for(const q of data.requests)body.append(button('Aceptar '+q.username,()=>run('accept',{target:q.account_id})));
    if(can('diplomacia'))for(const other of data.list.filter(x=>x.id!==c.id)){body.append(el('p','['+other.tag+'] '+other.name+' · '+(data.diplomacy.find(x=>x.target===other.id)?.state||'neutral')));for(const [state,label] of [['war','Guerra'],['alliance','Alianza'],['neutral','Neutral']])body.append(button(label,()=>run('diplomacy',{target:other.id,state})));}
-   if(leader){const credit=el('select'),uridium=el('select');for(let i=0;i<=5;i++){const o=el('option',i+' % diario');o.value=i;credit.append(o);}for(let i=0;i<=3;i++){const o=el('option',i/10+' % semanal');o.value=i;uridium.append(o);}credit.value=c.credit_tax;uridium.value=c.uridium_tax;body.append(el('p','Impuestos: configuración (cobro automático pendiente)'),credit,uridium,button('Guardar impuestos',()=>run('tax',{credit:Number(credit.value),uridium:Number(uridium.value)})));}
+   if(leader){const credit=el('select'),uridium=el('select');for(let i=0;i<=5;i++){const o=el('option',i+' % diario');o.value=i;credit.append(o);}for(let i=0;i<=3;i++){const o=el('option',i/10+' % semanal');o.value=i;uridium.append(o);}credit.value=c.credit_tax;uridium.value=c.uridium_tax;body.append(el('p','Impuestos: créditos cada 24 horas, uridium cada 7 días'),credit,uridium,button('Guardar impuestos',()=>run('tax',{credit:Number(credit.value),uridium:Number(uridium.value)})));}
    else body.append(button('ABANDONAR CLAN',()=>run('leave')));
   }
  }
