@@ -188,7 +188,12 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     const v=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
     if(v&&Number(v.hp)===0)throw fail('El P.E.T. está destruido. Repáralo primero');
    }
-   const cost=10;
+   // The source table does not specify its time unit. Enable only with an explicit 10-second period.
+   let cost=10;
+   if(process.env.GG_PET_FUEL_TABLE_PERIOD_MS==='10000'){
+    const row=(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1',[id])).rows[0];
+    cost=require('./pet-progression-v173').levelForExperience(Number(row?.experience||0)).fuel;
+   }
    const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=$2 RETURNING quantity",[id,cost])).rows[0];
    if(!r)throw fail('Combustible insuficiente');
    return {fuel:Number(r.quantity)};
