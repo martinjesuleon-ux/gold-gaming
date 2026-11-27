@@ -354,14 +354,15 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   return hadesTransaction(ids,async(c,rows,state)=>{
    if(state.wave!==wave)throw fail('Sección inválida');
    if(state.kills.includes(key))return {duplicate:true};
-   const balances={};
+   const balances={},payouts={};
    // Provisional: split the alien reward equally, with rounding remainder to the killer.
    const share=(amount,id)=>Math.floor(amount/ids.length)+(id===killer?amount%ids.length:0);const factor=await uridiumFactor(c);
    for(const {id,g} of rows){
     g.kills.push(key);await saveGateRow(c,id,g);
-    balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,share(payout.credits,id),share(payout.xp,id),share(payout.uridium,id)*factor,share(payout.honor,id)])).rows[0];
+    const paid={credits:share(payout.credits,id),xp:share(payout.xp,id),uridium:share(payout.uridium,id)*factor,honor:share(payout.honor,id)};payouts[id]=paid;
+    balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,paid.credits,paid.xp,paid.uridium,paid.honor])).rows[0];
    }
-   return {balances,rankChanged:await drones.award(c,killer,dronePoints)};
+   return {balances,payouts,rankChanged:await drones.award(c,killer,dronePoints)};
   });
  }
  async function hadesAdvance(ids,wave,outcome){
@@ -408,9 +409,9 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(!g.built||g.wave!==wave||g.lives<1)throw fail('Progreso de puerta inválido');
    if(g.kills.includes(key))return {duplicate:true};
    g.kills.push(key);await saveGateRow(c,id,g);
-   const {credits,xp,uridium,honor}=payout;
-   const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,uridium*(await uridiumFactor(c)),honor])).rows[0];
-   return {balance,rankChanged:await drones.award(c,id,dronePoints)};
+   const {credits,xp,uridium,honor}=payout,paidUridium=uridium*(await uridiumFactor(c));
+   const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,paidUridium,honor])).rows[0];
+   return {balance,payout:{credits,xp,uridium:paidUridium,honor},rankChanged:await drones.award(c,id,dronePoints)};
   });
  }
  async function gateRewardLog(id){

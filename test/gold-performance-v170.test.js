@@ -11,7 +11,7 @@ test('GOLD adaptive quality changes gradually and ignores short or invalid sampl
  for(let i=0;i<11;i++)assert.equal(next('low',60,1000,m),'low');
  assert.equal(next('low',60,1000,m),'medium');assert.equal(next('medium',NaN,1000,m),'medium');
 });
-test('GOLD PET interpolates valid positions and resets on despawn or large jumps',()=>{
+test('PET interpolates valid positions in both themes and resets on despawn or large jumps',()=>{
  const smooth=vm.runInNewContext(extract('function smoothPetPosition(','function drawPet(')+';smoothPetPosition');
  assert.equal(smooth(null,{x:5,y:10},.3).x,5);
  const p=smooth({x:0,y:0},{x:10,y:20},.25);assert.equal(p.x,2.5);assert.equal(p.y,5);
@@ -32,6 +32,19 @@ test('GOLD star field creates at most three reusable tiles even across camera mo
 test('GOLD auto quality is optional, persisted and separate from classic artwork',()=>{
  assert.match(read('gold-hud.js'),/\['auto','low','medium','high'\]/);
  assert.match(game,/qualityPreference!=='auto'/);assert.match(game,/current\(\)\|\|'gold'\)!=='gold'/);
- assert.match(game,/gold\?smoothPetPosition/);
+ assert.match(game,/v\.petVisual=smoothPetPosition\(v\.petVisual,p\.pet,alpha\)/);
  assert.match(read('graphics-v161.js'),/if\(theme==='gold'\)goldShipFinish/);
+});
+
+test('PET escort keeps independent spacing and heading in both themes',()=>{
+ const server=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
+ const match=server.match(/function petFollowGoal\(p\)\{[\s\S]*?\n \}/);assert.ok(match);
+ const goal=vm.runInNewContext('const WORLD={w:12000,h:8000},clamp=(n,a,b)=>Math.max(a,Math.min(b,n));'+match[0]+';petFollowGoal');
+ const p={x:500,y:500,angle:0},g=goal(p);
+ assert.ok(Math.hypot(g.x-p.x,g.y-p.y)>190);assert.equal(g.x,330);assert.equal(g.y,605);
+ assert.equal(goal({x:25,y:25,angle:0}).x,25);
+ const smooth=vm.runInNewContext(extract('function smoothPetPosition(','function drawPet(')+';smoothPetPosition');
+ const turn=smooth({x:0,y:0,angle:Math.PI-.1},{x:10,y:20,angle:-Math.PI+.1},.5);
+ assert.ok(Math.abs(turn.angle-Math.PI)<.001);
+ assert.match(server,/nearestEligible\(p,boxes.inZone\(zoneOf\(p\)\),700/);
 });
