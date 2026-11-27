@@ -1,4 +1,5 @@
 'use strict';
+const {rewardFactorRead}=require('./boosters-v112');
 const crypto=require('node:crypto');const {extend:extendBooster}=require('./boosters-v112');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');const {createPilot,bonus:pilotBonus}=require('./pilot-v19');
 const {bonusLoot,pirateLoot,pirateEventsForDay,pirateEventLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
@@ -300,7 +301,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    }
   const loot=bonusLoot(crypto.randomInt(100),crypto.randomInt(1000000)/1000000);loot.quantity=Math.floor(loot.quantity*boxFactor(map,level));
   return transaction(id,async(c,p)=>{
-   const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*Math.max(1,Math.min(2,Number(resourceFactor)||1))*(loot.code==='uridium'?b.luck:1));let balance=p;
+   const b=pilotBonus((await pilot.read(c,id)).skills);loot.quantity=Math.floor(loot.quantity*b.box*Math.max(1,Math.min(2,Number(resourceFactor)||1))*(loot.code==='uridium'?b.luck:1));loot.quantity*=await rewardFactorRead(c,id,'bonus-box');let balance=p;
    if(['credits','uridium'].includes(loot.code)){
     balance=(await c.query('UPDATE player_progress SET '+loot.code+'='+loot.code+'+$2 WHERE account_id=$1 RETURNING credits,uridium',[id,loot.quantity])).rows[0];
    }else{
