@@ -32,3 +32,13 @@ test('PET controls retain server actions and use persistent status and actual in
  assert.match(p,/socket.emit\('v14:pet',mode\)/);assert.match(p,/socket.emit\('v16:kamikaze'\)/);
  assert.match(p,/meter.max=50000/);assert.match(p,/petFuel===null/);assert.match(p,/petGear.has\('G-AL1'\)/);assert.match(p,/petGear.has\('G-KK1'\)/);assert.match(p,/petOwned=e.detail.items.some/);
 });
+
+test('VANT menu previews real drone colors and formation geometry without changing equipment API',()=>{
+ const ui=read('gold-v13.js'),menu=ui.slice(ui.indexOf('async function formationMenu()'),ui.indexOf('async function assemblyMenu()'));
+ assert.match(menu,/graphics.droneColor\(selectedDesign\?\.code\)/);assert.match(menu,/graphics.formationOffsets\(10,f.id\)/);assert.match(menu,/pick.onchange=drawDrone/);assert.match(menu,/api\('drones\/design'/);assert.match(menu,/api\('formations\/buy'/);assert.match(menu,/window.gg19Formation\(f.id\)/);
+});
+
+test('Galaxy Gates progress UI reads server state and retains purchase and entry actions',()=>{
+ const ui=read('gold-v13.js'),menu=ui.slice(ui.indexOf('async function gates()'),ui.indexOf('window.gg13Open=open'));
+ assert.match(menu,/gg-gate-card/);assert.match(menu,/g.pieces.length\/g.required/);assert.match(menu,/new Set\(a.pieces\)/);assert.match(menu,/gg-gate-summary/);assert.match(menu,/allowUridium:paid/);assert.match(menu,/api\('gates\/'\+kind/);assert.match(menu,/window.gg16TravelGate\(selected\)/);
+});
