@@ -24,3 +24,20 @@ test('each drone palette reflects its equipped design, not its rank or unknown v
  assert.equal(color('Havoc'),'#ff3838');assert.equal(color('Hercules'),'#398dff');assert.equal(color('Spartan'),'#ff8a24');
  assert.match(read('game.js'),/droneColor\(drone\?\.design\)/);
 });
+
+test('NPC variants use different species silhouettes and preserve blue Boss Kristallin',()=>{
+ const window={};vm.runInNewContext(read('graphics-v161.js'),{window});
+ const style=window.ggGraphics161.npcStyle;
+ assert.equal(style('Boss Kristallin','boss').kind,'crystal');
+ assert.equal(style('Boss Kristallin','boss').color,'#46a7ff');
+ assert.equal(style('Uber-Kristallon','boss').tier,'uber');
+ assert.equal(style('Emperor-Kristallon','boss').tier,'emperor');
+ assert.equal(style('Streuner','npc').kind,'scout-npc');
+ assert.equal(style('Lordakia','npc').kind,'claw');
+ assert.equal(style('Saimon','npc').kind,'wing');
+ assert.equal(style('Mordon','npc').kind,'armor');
+ assert.equal(style('Cubikon','npc').kind,'cube');
+ assert.equal(style('Barracuda','npc').kind,'pirate');
+ assert.equal(style('unknown','npc').kind,'alien');
+ assert.match(read('game.js'),/npcStyle\(o.name,o.type\)/);
+});
