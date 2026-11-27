@@ -18,6 +18,8 @@ function createRankings(pool){
  CREATE INDEX IF NOT EXISTS gg_rank_kills_attacker ON gg_rank_kills(attacker);
  CREATE INDEX IF NOT EXISTS gg_rank_kills_victim ON gg_rank_kills(victim);
  CREATE TABLE IF NOT EXISTS gg_rank_deaths(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,radiation boolean NOT NULL DEFAULT false,at timestamptz NOT NULL DEFAULT now());
+ ALTER TABLE gg_rank_deaths ADD COLUMN IF NOT EXISTS request_id uuid;
+ CREATE UNIQUE INDEX IF NOT EXISTS gg_rank_death_request ON gg_rank_deaths(account_id,request_id);
  CREATE TABLE IF NOT EXISTS gg_rank_clock(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),day bigint NOT NULL);`);}
  async function refresh(){
  const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT pg_advisory_xact_lock(71413004)');
@@ -46,7 +48,7 @@ function createRankings(pool){
   const own=(await pool.query('SELECT CASE WHEN p.honor<0 AND NOT r.admin THEN 22 WHEN r.admin THEN 23 ELSE r.rank END AS rank,r.highest,CASE WHEN p.honor<0 OR r.admin THEN 0 ELSE r.points END AS points,r.calculated_at FROM gg_rank_profiles r JOIN player_progress p USING(account_id) WHERE r.account_id=$1',[id])).rows[0];
   return {board,rows,own,names:NAMES,provisional:true};
  }
- async function death(id,radiation=false){await pool.query('INSERT INTO gg_rank_deaths(account_id,radiation) VALUES($1,$2)',[id,!!radiation]);}
+ async function death(id,radiation=false,requestId=null){await pool.query('INSERT INTO gg_rank_deaths(account_id,radiation,request_id) VALUES($1,$2,$3) ON CONFLICT(account_id,request_id) DO NOTHING',[id,!!radiation,requestId]);}
  return {ready,refresh,status,death};
 }
 module.exports={rankPoints,warPoints,ranks,NAMES,createRankings};
