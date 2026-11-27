@@ -6,4 +6,6 @@ async function runMaintenance(tasks,onError=()=>{}){
  return failures;
 }
 function onceAsync(fn){let pending;return (...args)=>pending||(pending=Promise.resolve().then(()=>fn(...args)));}
-module.exports={runMaintenance,onceAsync};
+function trackPending(pending,fn){const job=Promise.resolve().then(fn);pending.add(job);job.then(()=>pending.delete(job),()=>pending.delete(job));return job;}
+async function drainPending(pending){while(pending.size)await Promise.allSettled([...pending]);}
+module.exports={runMaintenance,onceAsync,trackPending,drainPending};
