@@ -239,5 +239,35 @@
    else {polygon(c,[[-14,12*s],[12,10*s],[23,17*s],[5,22*s],[-14,20*s]],tinted,color,.55);for(let i=0;i<3;i++){c.fillStyle=color;c.fillRect(-9+i*6,16*s-1,3,2);}}
   }
  }
- root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien,raider,vant,pilot};
+ function pet(c,color){
+  const metal=linear(c,-19,-17,20,17,[[0,'#c4d4dc'],[.3,'#526b7b'],[.57,'#172733'],[1,'#344853']]);
+  for(const s of [-1,1]){polygon(c,[[-20,5*s],[-13,14*s],[2,17*s],[13,9*s],[19,5*s],[4,4*s]],metal,'#91adb8',.65);polygon(c,[[-14,8*s],[-5,13*s],[5,11*s],[0,7*s]],'#203b45',color,.6);c.fillStyle=color;c.fillRect(-9,10*s-1,5,2);}
+  polygon(c,[[22,0],[11,-7],[-6,-8],[-19,-4],[-19,4],[-6,8],[11,7]],metal,'#b1c4cd',.8);polygon(c,[[13,0],[4,-4],[-6,0],[4,4]],color,'#d6fbff',.65);
+  c.fillStyle='#0b1d29';c.fillRect(-16,-2,7,4);c.fillStyle=color;c.fillRect(-15,-1,3,2);
+ }
+ function portalArt(c,color){
+  const metal=linear(c,-43,-42,43,42,[[0,'#c5d6dd'],[.18,'#627987'],[.4,'#202f3b'],[.65,'#526570'],[1,'#0c1620']]);
+  for(let i=0;i<8;i++){c.save();c.rotate(i*Math.PI/4);polygon(c,[[28,-13],[38,-18],[49,-11],[55,0],[49,11],[38,18],[28,13],[33,0]],metal,'#879ba6',1);polygon(c,[[35,-8],[46,-8],[50,0],[46,8],[35,8]],'#12212b','#718895',.7);polygon(c,[[36,-3],[46,-3],[48,0],[46,3],[36,3]],color);c.restore();}
+  c.strokeStyle='#b0c3cc';c.lineWidth=2;c.beginPath();c.arc(0,0,32,0,Math.PI*2);c.stroke();
+ }
+ function portal(c,color,t){const s=cacheArt('portal-'+color,a=>portalArt(a,color));c.save();c.rotate(t/11000);c.drawImage(s,-64,-64,128,128);c.restore();const g=radial(c,0,0,31,[[0,'#07101c'],[.45,color+'18'],[.76,color+'70'],[1,color+'00']]);c.fillStyle=g;c.fillRect(-31,-31,62,62);c.save();c.rotate(-t/1300);for(let i=0;i<4;i++){c.strokeStyle=i%2?color:'#d9f6ff';c.lineWidth=i%2?2.6:1.3;c.beginPath();c.arc(0,0,23-i*3,i*Math.PI/2,i*Math.PI/2+1.55);c.stroke();}c.restore();}
+ function baseArt(c,color){
+  const metal=linear(c,-48,-48,48,48,[[0,'#b9c7c9'],[.2,'#7d9197'],[.48,'#273943'],[.7,'#53666e'],[1,'#13212a']]);
+  for(let i=0;i<6;i++){c.save();c.rotate(i*Math.PI/3);polygon(c,[[17,-11],[35,-17],[49,-10],[58,-5],[58,5],[49,10],[35,17],[17,11]],metal,'#879ba2',1);polygon(c,[[32,-7],[49,-6],[54,0],[49,6],[32,7]],'#192d37','#6a858c',.6);for(let j=0;j<4;j++){c.fillStyle=color;c.fillRect(34+j*4,-1,2,2);}c.restore();}
+  for(const [r,fill,line] of [[33,metal,'#8da2aa'],[25,'#142631','#627b85'],[16,metal,'#a2b5bb'],[11,'#0b1720',color]]){c.fillStyle=fill;c.strokeStyle=line;c.lineWidth=1.2;c.beginPath();c.arc(0,0,r,0,Math.PI*2);c.fill();c.stroke();}
+ }
+ function base(c,color,t){const s=cacheArt('base-'+color,a=>baseArt(a,color));c.drawImage(s,-180,-180,360,360);c.fillStyle=radial(c,0,0,34,[[0,color+'b0'],[.55,color+'60'],[1,color+'00']]);c.beginPath();c.arc(0,0,34,0,Math.PI*2);c.fill();c.strokeStyle=color;c.lineWidth=2;c.beginPath();c.arc(0,0,39+Math.sin(t/500)*2,0,Math.PI*2);c.stroke();}
+ const laserColors={'LCB-10':'#ef4643','MCB-25':'#70e67d','MCB-50':'#579dff','UCB-100':'#f2f7ff','RSB-75':'#ffc04f','SAB-50':'#73e8ee'};
+ function beamColor(l){return l.kind==='rocket'?'#ffcf68':l.kind==='player'?(laserColors[l.ammo]||'#83ffb5'):l.kind==='boss'?'#79aaff':'#ff7766';}
+ function beam(c,a,b,l,f,glow){const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(!len||f<0||f>=1)return;const color=beamColor(l),u=dx/len,v=dy/len,head=Math.min(len,len*(.24+f*.98)),tail=Math.max(0,head-(l.kind==='rocket'?26:Math.min(85,len*.6)));c.save();c.globalAlpha=Math.min(1,(1-f)*2.5);c.strokeStyle=color;c.shadowColor=color;c.shadowBlur=12*glow;c.lineCap='round';for(const side of l.kind==='rocket'?[0]:[-1,1]){const offset=side*2;c.lineWidth=l.kind==='rocket'?4:2.8;c.beginPath();c.moveTo(a.x+u*tail-v*offset,a.y+v*tail+u*offset);c.lineTo(a.x+u*head-v*offset,a.y+v*head+u*offset);c.stroke();c.lineWidth=1;c.strokeStyle='#fff';c.stroke();c.strokeStyle=color;}c.restore();}
+ function equipment(c,category,id,color){
+  if(!['lasers','launchers','ammo','rockets','specialRockets','launcherAmmo','shields','engines'].includes(category))return false;
+  const metal=linear(c,-40,-25,40,25,[[0,'#d2dde1'],[.18,'#7b909b'],[.43,'#283c48'],[.63,'#4b606a'],[1,'#101e29']]);
+  if(category==='lasers'||category==='launchers'){const count=category==='launchers'?2:1;for(let i=0;i<count;i++){const y=(i-(count-1)/2)*21;polygon(c,[[-42,y-8],[-24,y-12],[14,y-9],[34,y-5],[44,y-3],[44,y+3],[34,y+5],[14,y+9],[-24,y+12],[-42,y+8]],metal,'#a2b3bd',1);polygon(c,[[-23,y-6],[13,y-6],[27,y-3],[27,y+3],[13,y+6],[-23,y+6]],'#14242c',color,.9);for(let j=0;j<5;j++){c.fillStyle=color;c.fillRect(-19+j*7,y-2,4,4);}c.fillStyle='#a3b3ba';c.fillRect(-39,y-4,8,8);}}
+  else if(['ammo','rockets','specialRockets','launcherAmmo'].includes(category)){const count=category==='ammo'?3:category==='launcherAmmo'?2:1;for(let i=0;i<count;i++){const y=(i-(count-1)/2)*17;polygon(c,[[-37,y-6],[-26,y-8],[16,y-7],[40,y],[16,y+7],[-26,y+8],[-37,y+6]],metal,'#a0b4c0',.8);polygon(c,[[10,y-5],[27,y-3],[35,y],[27,y+3],[10,y+5]],color,'#e0edf5',.65);c.fillStyle=color;c.fillRect(-25,y-5,12,10);if(category!=='ammo'){polygon(c,[[-31,y],[-46,y-13],[-17,y-6]],metal,color,.7);polygon(c,[[-31,y],[-46,y+13],[-17,y+6]],metal,color,.7);}}}
+  else if(category==='shields'){for(let i=0;i<3;i++){const radius=31-i*8,pts=Array.from({length:6},(_,j)=>[Math.cos(j*Math.PI/3)*radius,Math.sin(j*Math.PI/3)*radius]);polygon(c,pts,i===1?'#12232d':metal,color,1.2);}c.fillStyle=radial(c,0,0,15,[[0,'#ffffff'],[.35,color],[1,color+'00']]);c.fillRect(-15,-15,30,30);}
+  else{polygon(c,[[-43,-16],[-23,-24],[23,-24],[38,-13],[38,13],[23,24],[-23,24],[-43,16]],metal,'#9dafb6',1);for(let i=0;i<6;i++){c.fillStyle='#0f1b24';c.fillRect(-26+i*9,-15,6,30);c.fillStyle=color;c.fillRect(-25+i*9,-10,4,20);}}
+  c.fillStyle='#e1edf4';c.font='9px Arial';c.textAlign='center';c.fillText(id,0,42);return true;
+ }
+ root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien,raider,vant,pilot,pet,portal,base,beam,beamColor,equipment};
 })(window);
