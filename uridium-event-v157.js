@@ -9,7 +9,7 @@ function normalizeAction(body,now=Date.now()){
  const action=body?.action;
  if(action==='start'||action==='stop')return {mode:action==='start'?'on':'off',startAt:null,endAt:null};
  if(action!=='schedule')throw Object.assign(Error('Acción inválida'),{status:400});
- const parse=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(v)?Date.parse(v):NaN;
+ const parse=v=>{if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(v))return NaN;const t=Date.parse(v);return Number.isFinite(t)&&new Date(t).toISOString()===(v.includes('.')?v:v.replace(/Z$/,'.000Z'))?t:NaN;};
  const start=parse(body.startAt),end=parse(body.endAt);
  if(!Number.isFinite(start)||!Number.isFinite(end)||start<now||end<=start)throw Object.assign(Error('Horario UTC inválido: inicio futuro y fin posterior requeridos'),{status:400});
  return {mode:'scheduled',startAt:new Date(start).toISOString(),endAt:new Date(end).toISOString()};
@@ -28,7 +28,7 @@ function createUridiumEvent(pool,kind='uridium'){
  }
  function view(row){
   const s=row?{mode:row.mode,startAt:row.start_at?new Date(row.start_at).toISOString():null,endAt:row.end_at?new Date(row.end_at).toISOString():null}:OFF;
-  return {...s,active:activeAt(s),multiplier:activeAt(s)?2:1};
+  const active=activeAt(s);return {...s,active,multiplier:active?2:1};
  }
  async function status(){return view((await query(pool,'SELECT mode,start_at,end_at FROM gg_uridium_event_v157 WHERE id=1')).rows[0]);}
  async function change(body){
