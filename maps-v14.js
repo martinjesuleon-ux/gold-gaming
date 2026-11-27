@@ -33,4 +33,14 @@ function population(map){
  if(map==='5-3')return [['Deadly Battleray',4]];
  return [];
 }
-module.exports={MAPS,routes,portals,requiredLevel,population,boxFactor};
+const GALAXY_ORDER=['alpha','beta','gamma','delta','epsilon','zeta','kappa','lambda','hades','kronos'];
+const COMPANIES={1:{name:'MMO',color:'#f06452'},2:{name:'EIC',color:'#57aaff'},3:{name:'VRU',color:'#72df91'}};
+function homeBase(map,w=12000,h=8000){
+ if(!/^[123]-1$/.test(map))return null;
+ const c=COMPANIES[Number(map[0])];return {x:w/2,y:h/2,radius:650,company:Number(map[0]),...c};
+}
+function galaxyPortals(map,company,built,w=12000,h=8000){
+ const base=homeBase(map,w,h);if(!base||base.company!==company)return [];
+ return GALAXY_ORDER.flatMap((gate,i)=>built.includes(gate)?[{id:'gg:'+gate,kind:'galaxy',gate,to:gate.toUpperCase(),x:base.x+(i%5-2)*220,y:base.y+(i<5?-270:270)}]:[]);
+}
+module.exports={MAPS,routes,portals,requiredLevel,population,boxFactor,GALAXY_ORDER,homeBase,galaxyPortals};
