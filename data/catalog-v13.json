@@ -536,5 +536,205 @@
       "price": 150,
       "currency": "uridium"
     }
+  ],
+  "designs": [
+    {
+      "id": "Diminisher",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Sentinel",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Solace",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Spectrum",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Venom",
+      "ship": "goliath",
+      "price": 80000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Lightning",
+      "ship": "vengeance",
+      "price": 250000,
+      "currency": "uridium"
+    },
+    {
+      "id": "Bastion",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "shield": 1.1
+      }
+    },
+    {
+      "id": "Enforcer",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "Centaur",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "hp": 1.1
+      }
+    },
+    {
+      "id": "Exalted",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "honor": 1.1
+      }
+    },
+    {
+      "id": "Veteran",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.1
+      }
+    },
+    {
+      "id": "Goal",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.1
+      }
+    },
+    {
+      "id": "Referee",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "Kick",
+      "ship": "goliath",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "shield": 1.1
+      }
+    },
+    {
+      "id": "Revenge",
+      "ship": "vengeance",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "Avenger",
+      "ship": "vengeance",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "shield": 1.1
+      }
+    },
+    {
+      "id": "Saturn",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "hp": 1.2
+      }
+    },
+    {
+      "id": "aegis-veteran",
+      "name": "aegis Veteran",
+      "ship": "aegis",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.05,
+        "honor": 1.05
+      }
+    },
+    {
+      "id": "aegis-elite",
+      "name": "aegis Elite",
+      "ship": "aegis",
+      "price": 200000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "citadel-veteran",
+      "name": "citadel Veteran",
+      "ship": "citadel",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.05,
+        "honor": 1.05
+      }
+    },
+    {
+      "id": "citadel-elite",
+      "name": "citadel Elite",
+      "ship": "citadel",
+      "price": 200000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    },
+    {
+      "id": "spearhead-veteran",
+      "name": "spearhead Veteran",
+      "ship": "spearhead",
+      "price": 100000,
+      "currency": "uridium",
+      "bonus": {
+        "experience": 1.05,
+        "honor": 1.05
+      }
+    },
+    {
+      "id": "spearhead-elite",
+      "name": "spearhead Elite",
+      "ship": "spearhead",
+      "price": 200000,
+      "currency": "uridium",
+      "bonus": {
+        "damage": 1.05
+      }
+    }
   ]
 }
