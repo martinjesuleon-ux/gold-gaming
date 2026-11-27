@@ -724,6 +724,14 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   try{const r=await job;if(players.get(p.id)!==p)return;p.company=r.company;p.companyChosen=true;p.honor=Number(r.balance.honor);p.credits=Number(r.balance.credits);changeMap(p,r.map);p.protectedUntil=Date.now()+3000;ack({ok:true,...r});}
   catch(e){ack({ok:false,error:e.status?e.message:'No se pudo cambiar de compañía'});}finally{p.gatePending=false;pending.delete(job);}
  });
+ // Read-only stellar chart: use the same routes and restrictions as actual portal travel.
+ socket.on('v171:starMap',ack=>{
+  if(typeof ack!=='function'||!allowed())return;
+  const p=players.get(socket.id);if(!p)return ack({ok:false,error:'Inicia sesión'});
+  const maps=Object.values(MAPS).map(({id,company,pvp,base})=>({id,company,pvp,base}));
+  const links=maps.flatMap(m=>portals(m.id,WORLD.w,WORLD.h).map(r=>({from:r.from,to:r.to,level:requiredLevel(r,p.company)})));
+  ack({ok:true,current:MAPS[p.zone]?p.zone:null,company:p.company,level:p.level,insideGate:!!p.gate,maps,links});
+ });
  socket.on('v14:jump',async(portalId,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
   if(!p||p.gate||p.gatePending||p.deadUntil||p.shotPending||p.reloadPending)return ack({ok:false,error:'Salto no disponible'});
