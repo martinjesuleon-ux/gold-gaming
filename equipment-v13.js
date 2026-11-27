@@ -1,5 +1,5 @@
 'use strict';
-const catalog=require('./data/catalog-v13.json');const {extraStats}=require('./cpus-v18');const {rankBonus}=require('./drones-v19');
+const catalog=require('./data/catalog-v13.json');const {extraStats}=require('./cpus-v18');const {rankBonus,designBonus}=require('./drones-v19');
 const lookup=(list,id)=>list.find(x=>x.id===id);
 const requireRule=(ok,msg)=>{if(!ok)throw new Error(msg);};
 function quote(category,id,quantity=1){
@@ -28,7 +28,7 @@ function stats(shipId,items,droneItems=[]){
  }
  const extras=extraStats(ship,items);launcher=extras.launcher;
  requireRule(lasers<=ship.lasers&&generators<=ship.generators,'Espacios de equipamiento excedidos');
- for(const item of droneItems){const l=lookup(catalog.lasers,item.code),g=lookup(catalog.shields,item.code);requireRule((l&&l.id!=='LF-P01')||g,'Equipo VANT inválido');const level=item.level??1;requireRule(Number.isInteger(level)&&level>=1&&level<=16,'Nivel inválido');const droneLevel=item.droneLevel??1;requireRule(Number.isInteger(droneLevel)&&droneLevel>=1&&droneLevel<=16,'Nivel VANT inválido');if(l){lasers++;damage+=l.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.laserUpgradePerStep);}else{shield+=g.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.shieldUpgradePerStep);absorption=Math.max(absorption,g.absorption);}}
+ for(const item of droneItems){const l=lookup(catalog.lasers,item.code),g=lookup(catalog.shields,item.code);requireRule((l&&l.id!=='LF-P01')||g,'Equipo VANT inválido');const level=item.level??1;requireRule(Number.isInteger(level)&&level>=1&&level<=16,'Nivel inválido');const droneLevel=item.droneLevel??1;requireRule(Number.isInteger(droneLevel)&&droneLevel>=1&&droneLevel<=16,'Nivel VANT inválido');if(l){lasers++;damage+=l.damage*(1+(level-1)*catalog.rules.laserUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.laserUpgradePerStep)*designBonus(item.droneDesign).damage;}else{shield+=g.shield*(1+(level-1)*catalog.rules.shieldUpgradePerStep)*(1+(droneLevel-1)*catalog.rules.shieldUpgradePerStep)*designBonus(item.droneDesign).shield;absorption=Math.max(absorption,g.absorption);}}
  return {hp:ship.hp,shield:Math.round(shield),speed,damage:Math.round(damage),absorption:shield?absorption:.5,lasers,generators,...(launcher?{launcher}:{}),...(extras.used?{cpus:extras.cpus,robot:extras.robot,extrasUsed:extras.used,extraSlots:ship.extras+extras.slots}:{})};
 }
 function configurations(shipId,configs,owned){
@@ -41,7 +41,7 @@ function configurations(shipId,configs,owned){
   const droneItems=[],mounted=new Set(),ranked=[];
   const drones=Array.isArray(config)?[]:config.drones??[];
   requireRule(Array.isArray(drones)&&drones.length<=10,'VANT inválidos');
-  for(const d of drones){const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);ranked.push(drone);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1});}
+  for(const d of drones){const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);ranked.push(drone);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1,droneDesign:drone.design||null});}
   const base=stats(shipId,ids.map(take),droneItems),rank=rankBonus(ranked);return {...base,damage:Math.round(base.damage*rank.damage),shield:Math.round(base.shield*rank.shield),droneRank:rank.mean,droneCount:drones.length};
  });
 }
