@@ -509,5 +509,32 @@
       "price": null,
       "currency": null
     }
+  ],
+  "mines": [
+    {
+      "id": "ACM-01",
+      "price": 100,
+      "currency": "uridium"
+    },
+    {
+      "id": "DDM-01",
+      "price": 200,
+      "currency": "uridium"
+    },
+    {
+      "id": "SABM-01",
+      "price": 150,
+      "currency": "uridium"
+    },
+    {
+      "id": "SLM-01",
+      "price": 50,
+      "currency": "uridium"
+    },
+    {
+      "id": "EMPM-01",
+      "price": 150,
+      "currency": "uridium"
+    }
   ]
 }
