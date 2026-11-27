@@ -419,10 +419,10 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    if(state.wave!==wave)throw fail('Sección inválida');
    if(outcome==='clear'&&state.kills.length!==WAVES.hades[wave].reduce((n,x)=>n+x[1],0))throw fail('Quedan enemigos');
    const complete=outcome==='clear'&&wave===2,failed=outcome==='death'&&state.lives===1;
-   const lives=complete||failed?0:state.lives-(outcome==='death'?1:0),nextWave=complete||failed?0:wave+(outcome==='clear'?1:0),payouts={};
+   const lives=complete||failed?0:state.lives-(outcome==='death'?1:0),nextWave=complete||failed?0:wave+(outcome==='clear'?1:0),payouts={},specialFactor=complete?await gateSpecialFactor(c):1;
    for(const {id,g} of rows){
     if(complete){
-     const [u,xp,honor,ammo,baseDisks,,,baseKeys]=REWARDS.hades;const specialFactor=await gateSpecialFactor(c),disks=baseDisks*specialFactor,keys=baseKeys*specialFactor;
+     const [u,xp,honor,ammo,baseDisks,,,baseKeys]=REWARDS.hades;const disks=baseDisks*specialFactor,keys=baseKeys*specialFactor;
      const balance=(await c.query('UPDATE player_progress SET uridium=uridium+$2,experience=experience+$3,honor=honor+$4,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium,experience,level,honor',[id,u,xp,honor])).rows[0];
      for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['green-key',keys]])await addStack(c,id,code,n);
      const item=itemDraw('hades',g.completions===0,crypto.randomInt(1000)),quantity=specialGateQuantity(item,specialFactor);
@@ -438,7 +438,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   return transaction(id,async c=>{
    const g=(await gateRows(c,id)).hades;
    if(!g.built||g.lives<1||g.wave>=DEFS.hades.waves)throw fail('Construye Hades antes de formar un grupo');
-   return {wave:g.wave,lives:g.lives};
+   return {wave:g.wave,lives:g.lives,checkpoint:[...g.kills].sort().join('|')};
   });
  }
  async function gateCheckpoint(id,gate='alpha'){
