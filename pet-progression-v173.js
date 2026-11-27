@@ -31,6 +31,7 @@ function quoteSlot(state,type){
 }
 function createPetProgression(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_pet_progress_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,experience bigint NOT NULL DEFAULT 0 CHECK(experience BETWEEN 0 AND 9007199254740991),slots jsonb NOT NULL DEFAULT '{"laser":1,"generator":2,"gear":1,"protocol":2}');
+ ALTER TABLE gg_pet_progress_v173 ADD COLUMN IF NOT EXISTS paid_hull_tier integer CHECK(paid_hull_tier BETWEEN 0 AND 20);
  CREATE TABLE IF NOT EXISTS gg_pet_vitals_v173(account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,hp bigint NOT NULL CHECK(hp>=0),shield bigint NOT NULL CHECK(shield>=0));
  ALTER TABLE gg_pet_vitals_v173 ADD COLUMN IF NOT EXISTS last_damage_at timestamptz NOT NULL DEFAULT now();
  ALTER TABLE gg_pet_vitals_v173 ADD COLUMN IF NOT EXISTS last_regen_at timestamptz NOT NULL DEFAULT now();
@@ -43,22 +44,31 @@ function createPetProgression(pool){
    if(!balance)throw fail('Cuenta no encontrada',404);
    if(!(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='pet'",[id])).rowCount)throw fail('Necesitas un P.E.T.',409);
    await c.query('INSERT INTO gg_pet_progress_v173(account_id) VALUES($1) ON CONFLICT DO NOTHING',[id]);
-   const row=(await c.query('SELECT experience,slots FROM gg_pet_progress_v173 WHERE account_id=$1 FOR UPDATE',[id])).rows[0];
-   const result=await fn(c,profile(Number(row.experience),row.slots),balance);
+   const row=(await c.query('SELECT experience,slots,paid_hull_tier FROM gg_pet_progress_v173 WHERE account_id=$1 FOR UPDATE',[id])).rows[0];
+   const p=profile(Number(row.experience),row.slots);
+   // Existing accounts without a paid tier retain their unlocked hull ceiling on opt-in.
+   p.paidHullTier=row.paid_hull_tier==null?p.level:Math.min(p.level,Number(row.paid_hull_tier));
+   p.hullPurchasesEnabled=process.env.GG_PET_HULL_PURCHASES_ENABLED==='1';
+   const result=await fn(c,p,balance);
    await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
  async function status(id){return transaction(id,async(_c,p,balance)=>({
   ...p,uridium:String(balance.uridium),purchasesEnabled:process.env.GG_PET_PROGRESSION_ENABLED==='1',
+  nextHull:p.hullPurchasesEnabled?require('./pet-hull-upgrade-v173').hullUpgradeQuote(p.level,p.paidHullTier):null,
   nextSlots:Object.fromEntries(TYPES.map(type=>[type,p.slots[type]<p.limits[type]?quoteSlot(p,type):null]))
  }));}
  // Internal server-only grant. The caller must establish the XP sharing rule and event idempotency before enabling grants.
  async function grantInTransaction(c,id,amount){
   if(!Number.isSafeInteger(amount)||amount<0||amount>MAX_XP)throw fail('Experiencia P.E.T. inválida');
   if(!amount)return false;
-  const r=await c.query(`INSERT INTO gg_pet_progress_v173(account_id,experience)
-   SELECT $1,$2 WHERE EXISTS(SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='pet')
-   ON CONFLICT(account_id) DO UPDATE SET experience=LEAST(9007199254740991,gg_pet_progress_v173.experience+EXCLUDED.experience)`,[id,amount]);
+  if(process.env.GG_PET_HULL_PURCHASES_ENABLED==='1'){
+   const existing=(await c.query('SELECT experience FROM gg_pet_progress_v173 WHERE account_id=$1 FOR UPDATE',[id])).rows[0];
+   if(existing)await c.query('UPDATE gg_pet_progress_v173 SET paid_hull_tier=$2 WHERE account_id=$1 AND paid_hull_tier IS NULL',[id,levelForExperience(Number(existing.experience)).level]);
+  }
+  const r=await c.query(`INSERT INTO gg_pet_progress_v173(account_id,experience,paid_hull_tier)
+   SELECT $1,$2,$3 WHERE EXISTS(SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='pet')
+   ON CONFLICT(account_id) DO UPDATE SET experience=LEAST(9007199254740991,gg_pet_progress_v173.experience+EXCLUDED.experience)`,[id,amount,process.env.GG_PET_HULL_PURCHASES_ENABLED==='1'?0:null]);
   return r.rowCount>0;
  }
  async function buySlot(id,{type,requestId}={}){
@@ -82,6 +92,7 @@ function createPetProgression(pool){
   const rows=(await c.query("SELECT instance_id AS \"instanceId\",code,category,level FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('lasers','shields')",[id])).rows;
   const saved=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||EMPTY();
   const result=validatePetEquipment(p,requested===undefined?saved:requested,new Map(rows.map(i=>[i.instanceId,i])),configs);
+  if(p.hullPurchasesEnabled)result.stats.maxHp=levels[p.paidHullTier].maxHp;
   const reserved=shipReservations(configs);
   return {...result,available:rows.filter(i=>!reserved.has(i.instanceId)),enabled:process.env.GG_PET_EQUIPMENT_ENABLED==='1'};
  }
@@ -145,6 +156,22 @@ function createPetProgression(pool){
    return v;
   });
  }
+ async function upgradeHull(id,body){
+  if(process.env.GG_PET_HULL_PURCHASES_ENABLED!=='1')throw fail('Mejora de vida P.E.T. en pruebas',403);
+  const requestId=body?.requestId;
+  if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Solicitud inválida');
+  return transaction(id,async(c,p,balance)=>{
+   const receipt=(await c.query('SELECT kind,response FROM gg_pet_slot_receipts_v173 WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
+   if(receipt){if(receipt.kind!=='hull')throw fail('Solicitud ya utilizada',409);return receipt.response;}
+   const r=require('./pet-hull-upgrade-v173').purchaseHull(p.level,p.paidHullTier,Number(balance.uridium));
+   if(body.tier!==r.tier)throw fail('Actualiza el precio y nivel de mejora',409);
+   await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1',[id,r.price]);
+   await c.query('UPDATE gg_pet_progress_v173 SET paid_hull_tier=$2 WHERE account_id=$1',[id,r.tier]);
+   const response={...r,uridium:String(r.uridium)};
+   await c.query('INSERT INTO gg_pet_slot_receipts_v173(account_id,request_id,kind,response) VALUES($1,$2,$3,$4::jsonb)',[id,requestId,'hull',JSON.stringify(response)]);
+   return response;
+  });
+ }
  async function repairPet(id,body){
   if(process.env.GG_PET_VITALS_ENABLED!=='1')throw fail('Reparación P.E.T. en pruebas',403);
   const requestId=body?.requestId;
@@ -162,6 +189,6 @@ function createPetProgression(pool){
    return response;
   });
  }
- return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet,regeneratePetShield};
+ return {ready,status,grantInTransaction,buySlot,equipmentRead,equipmentSave,authorizeGuardShot,vitalsRead,applyPetDamage,repairPet,regeneratePetShield,upgradeHull};
 }
 module.exports={levelForExperience,profile,quoteSlot,createPetProgression,TYPES,INITIAL};
