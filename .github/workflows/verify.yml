@@ -23,6 +23,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      GG_TEST_DB: '1'
       DATABASE_URL: postgresql://gg_test:gg_ci_only@localhost:5432/gg_test
     steps:
       - uses: actions/checkout@v4
