@@ -210,20 +210,36 @@
   }
   c.drawImage(skyCache.canvas,0,0,w,h);
  }
+ // Reference diagrams use an upward-facing ship. Convert to local coordinates
+ // where the ship's nose points along +X. These templates are visual only.
+ const formationShapes={
+  turtle:[[-2,-3],[2,-3],[-4,-1],[4,-1],[-5,1],[5,1],[-3,3],[3,3],[-1,4],[1,4]],
+  arrow:[[-1,-4],[1,-4],[-2,-2],[2,-2],[-3,0],[3,0],[-4,2],[4,2],[-5,4],[5,4]],
+  lance:[[-3,-4],[3,-4],[-3,-2],[3,-2],[-3,0],[3,0],[-3,2],[3,2],[-3,4],[3,4]],
+  star:[[-4,-4],[4,-4],[-3,-3],[3,-3],[-5,0],[5,0],[-3,0],[3,0],[0,3],[0,5]],
+  pincer:[[-5,-4],[5,-4],[-5,-2],[5,-2],[-5,1],[5,1],[-3,1],[3,1],[-2,3],[2,3]],
+  'double-arrow':[[-2,-3],[2,-3],[-4,-1],[4,-1],[-5,2],[5,2],[-2,0],[2,0],[-3,2],[3,2]],
+  diamond:[[0,-4],[-2,-2],[2,-2],[-4,0],[4,0],[-2,2],[2,2],[-1,0],[1,0],[0,4]],
+  chevron:[[0,-5],[-2,-3],[2,-3],[-3,-1],[3,-1],[-5,1],[5,1],[-2,2],[2,2],[0,4]],
+  moth:[[-4,-4],[4,-4],[-5,-2],[5,-2],[-3,-1],[3,-1],[-4,3],[4,3],[-2,2],[2,2]],
+  crab:[[-2,-4],[2,-4],[-4,-3],[4,-3],[-5,-1],[5,-1],[-3,2],[3,2],[-1,4],[1,4]],
+  heart:[[-3,-4],[-1,-3],[1,-3],[3,-4],[-5,-1],[5,-1],[-3,2],[3,2],[-1,3],[1,3]],
+  barrage:[[-5,-3],[-3,-3],[-1,-3],[1,-3],[3,-3],[5,-3],[-4,-1],[-2,-1],[2,-1],[4,-1]],
+  bat:[[-4,-4],[4,-4],[-5,-1],[5,-1],[-1,-3],[1,-3],[-2,2],[2,2],[-4,4],[4,4]],
+  ring:[[0,-5],[-3,-4],[3,-4],[-5,-1],[5,-1],[-5,2],[5,2],[-3,4],[3,4],[0,5]],
+  drill:[[0,-5],[-1,-3],[1,-3],[-2,-1],[2,-1],[-3,1],[3,1],[-5,4],[5,4],[0,3]],
+  veteran:[[-3,-4],[3,-4],[-2,-2],[2,-2],[-1,-1],[1,1],[-3,2],[3,-2],[-5,4],[5,-4]],
+  dome:[[-1,-4],[1,-4],[-3,-2],[3,-2],[-5,0],[5,0],[-4,3],[4,3],[-2,4],[2,4]],
+  wheel:[[-5,0],[-4,0],[-3,0],[-2,0],[-4,-2],[5,0],[4,0],[3,0],[2,0],[4,2]],
+  x:[[-5,-4],[5,-4],[-3,-3],[3,-3],[-2,-1],[2,-1],[-2,1],[2,1],[-5,4],[5,4]],
+  wave:[[-5,-4],[5,-4],[-3,-2],[3,-2],[-4,0],[4,0],[-3,2],[3,2],[-5,4],[5,4]]
+ };
  function formationOffsets(count,formation){
-  const n=Math.min(10,Math.max(0,Math.floor(Number(count)||0))),f=formation||'normal',out=[];
-  for(let i=0;i<n;i++){
-   const a=2*Math.PI*i/n,side=i%2?1:-1,k=Math.floor(i/2),radius=68;
-   let x=Math.cos(a)*radius,y=Math.sin(a)*radius*.78;
-   if(['arrow','double-arrow','chevron','drill'].includes(f)){x=44-k*24;y=side*(25+k*11);}
-   else if(f==='ring'||f==='dome'){x=Math.cos(a)*84;y=Math.sin(a)*84;}
-   else if(f==='heart'){x=56*Math.sin(a)**3;y=-3.6*(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a));}
-   else if(f==='wave'){x=(i-(n-1)/2)*18;y=62+Math.sin(i*.8)*18;}
-   else if(['bat','moth','star'].includes(f)){x=Math.cos(a)*(i%2?45:87);y=Math.sin(a)*(i%2?45:87);}
-   else if(f==='diamond'){const r=radius/(Math.abs(Math.cos(a))+Math.abs(Math.sin(a)));x=Math.cos(a)*r;y=Math.sin(a)*r;}
-   out.push({x,y});
-  }
-  return out;
+  const n=Math.min(10,Math.max(0,Math.floor(Number(count)||0))),f=formation||'normal';
+  if(!n)return [];
+  const shape=formationShapes[f];
+  if(shape)return shape.slice(0,n).map(([x,y])=>({x:-y*19,y:x*19}));
+  return Array.from({length:n},(_,i)=>{const a=2*Math.PI*i/n;return {x:Math.cos(a)*68,y:Math.sin(a)*53};});
  }
  function labelLayout(o,visual,npc,scale=1,angle=0,offsets=[]){
   const kind=visual.kind,base=kind==='crystal-elite'?44:/^classic-(sibelon|lordakium|deadly-battleray|annihilator)/.test(kind)?46:kind.startsWith('classic-kristallon')?47:kind.startsWith('classic-kristallin')?40:kind.startsWith('classic-devolarium')?45:kind.startsWith('classic-mordon')?40:kind.startsWith('classic-cubikon')?47:kind==='cube'?35:(kind.startsWith('ship-')||kind.startsWith('classic-ship-'))?46:36;

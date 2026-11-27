@@ -181,3 +181,9 @@ test('conservative laser culling retains crossing segments and viewport-edge eff
 });
 
 test('normal Streuner receives an isolated cached metallic hull; other NPCs keep their original artwork',()=>{let canvases=0,draws=0;const grad={addColorStop(){}};const ctx=()=>new Proxy({createLinearGradient:()=>grad,createRadialGradient:()=>grad,drawImage(){draws++;}},{get:(t,k)=>k in t?t[k]:()=>{}});const window={document:{createElement(){canvases++;return {getContext:ctx};}}};vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161,style=g.npcStyle('Streuner','drone');assert.equal(style.kind,'streuner-original');assert.equal(style.color,'#b94c3e');g.draw(ctx(),style.kind,style.color);g.draw(ctx(),style.kind,style.color);assert.equal(canvases,1);assert.equal(draws,2);});
+
+test('all catalog formations have distinct ten-drone visual geometry and no overlapping points',()=>{
+ const window={};vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161;
+ const {FORMATIONS}=require('../formations-v19');const fingerprints=new Set();
+ for(const f of FORMATIONS){const points=g.formationOffsets(10,f.id);assert.equal(points.length,10,f.id);const fingerprint=points.map(p=>p.x+','+p.y).sort().join(';');assert.equal(new Set(points.map(p=>p.x+','+p.y)).size,10,f.id);assert.ok(!fingerprints.has(fingerprint),f.id);fingerprints.add(fingerprint);assert.equal(g.formationOffsets(6,f.id).length,6);}
+});
