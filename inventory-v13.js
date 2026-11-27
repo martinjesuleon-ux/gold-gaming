@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');
+const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');
 const {bonusLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
@@ -8,6 +8,7 @@ const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 function createInventory(pool){
+ const formations=createFormations(pool);
  async function ready(){
   await pool.query(`CREATE TABLE IF NOT EXISTS gg_v13_inventory (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -129,7 +130,7 @@ function createInventory(pool){
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    const stats=configurations(h.ship,h.configs,new Map(items.map(i=>[i.instanceId,i])));
    const d=catalog.designs.find(d=>d.id===h.design&&d.ship===h.ship&&items.some(i=>i.category==='ship-designs'&&i.code===d.id));
-   return {ship:h.ship,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
+   const f=await formations.read(c,id);return {ship:h.ship,formation:f.active,formationReadyAt:f.readyAt,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
   });
  }
  async function useCpu(id,code,destination=null){
