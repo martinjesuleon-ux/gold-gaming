@@ -3,11 +3,11 @@ const catalog=require('./data/catalog-v13.json');
 const lookup=(list,id)=>list.find(x=>x.id===id);
 const requireRule=(ok,msg)=>{if(!ok)throw new Error(msg);};
 function quote(category,id,quantity=1){
- const allowed=['ships','lasers','ammo','shields','engines','rockets','specialRockets','launchers','launcherAmmo','mines'];
+ const allowed=['ships','lasers','ammo','shields','engines','rockets','specialRockets','launchers','launcherAmmo','mines','designs'];
  requireRule(allowed.includes(category),'Categoría inválida');
  const item=lookup(catalog[category],id);
  requireRule(item&&item.price!==null&&['credits','uridium'].includes(item.currency),'Objeto no disponible');
- requireRule(Number.isSafeInteger(quantity)&&quantity>0&&quantity<=(['ammo','rockets','specialRockets','launcherAmmo','mines'].includes(category)?100000:category==='ships'?1:100),'Cantidad inválida');
+ requireRule(Number.isSafeInteger(quantity)&&quantity>0&&quantity<=(['ammo','rockets','specialRockets','launcherAmmo','mines'].includes(category)?100000:['ships','designs'].includes(category)?1:100),'Cantidad inválida');
  return {id,category,quantity,currency:item.currency,total:item.price*quantity};
 }
 function stats(shipId,items,droneItems=[]){
