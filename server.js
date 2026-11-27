@@ -21,20 +21,23 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  // Section groups spawn in order. Protegit combat statistics remain provisional.
  function clearGateNPCs(p){for(const [id,n] of npcs)if(n.zone===p.zone&&p.zone!=='world')npcs.delete(id);}
- function spawnGateGroup(p,group){
+ function spawnGateGroup(p,group,groupIndex){
   const [name,count,scale=1,shielded=false]=group;
   const key=p.gate.gate==='kappa'&&['Boss Kucurbium','Century-Falcon'].includes(name)?name+' (Kappa)':name;
   const base=alienStats[key]||{hp:650,shield:220,damage:55,speed:155,credits:0,uridium:0,xp:0,honor:0};
+  let spawned=0;
   for(let i=0;i<count;i++){
+   const killKey=groupIndex+':'+i;if(p.gate.kills.includes(killKey))continue;
    const a=i*Math.PI*2/count,n=spawnNPC(false,{x:WORLD.w/2+Math.cos(a)*850,y:WORLD.h/2+Math.sin(a)*850});
    n.zone=p.zone;n.name=name;n.target=p.id;n.hp=n.maxHp=base.hp*scale;n.shield=n.maxShield=base.shield*scale;n.damage=base.damage*scale;n.speed=base.speed;
-   n.reward=base.credits*scale;n.xpReward=base.xp*scale;n.uridiumReward=base.uridium*scale;n.honorReward=base.honor*scale;n.gateShielded=shielded;
+   n.reward=base.credits*scale;n.xpReward=base.xp*scale;n.uridiumReward=base.uridium*scale;n.honorReward=base.honor*scale;n.gateShielded=shielded;n.gateKillKey=killKey;spawned++;
   }
+  return spawned;
  }
  function nextGateGroup(p){
   if(!p.gate||p.gatePending||p.gateWaiting)return;
   const g=p.gate,queue=g.groups||[];
-  if(queue.length){spawnGateGroup(p,queue.shift());return;}
+  while(queue.length){const [group,index]=queue.shift();if(spawnGateGroup(p,group,index))return;}
   const remaining=[...npcs.values()].filter(n=>sameZone(p,n));
   if(remaining.length){for(const n of remaining)n.gateShielded=false;return;}
   saveGate(p,'clear');
@@ -47,8 +50,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    if(players.get(p.id)!==p||p.gate!==g||p.gateWaiting)return;
    const groups=WAVES[g.gate][g.wave];
    if(!Array.isArray(groups)||!groups.length){returnFromGate(p);io.to(p.id).emit('notice','Esta sección aún no está disponible');return;}
-   g.groups=groups.filter(x=>!x[3]).slice();
-   for(const group of groups.filter(x=>x[3]))spawnGateGroup(p,group);
+   g.groups=groups.map((group,i)=>[group,i]).filter(([group])=>!group[3]);
+   for(const [group,index] of groups.map((group,i)=>[group,i]).filter(([group])=>group[3]))spawnGateGroup(p,group,index);
    nextGateGroup(p);
    io.to(p.id).emit('v14:gateState',{inside:true,gate:g.gate,wave:g.wave+1,total:def.waves,lives:g.lives,phase:'combat'});
   };
@@ -63,11 +66,11 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function saveGate(p,outcome){
   if(!p.gate||p.gatePending)return;
   p.gatePending=true;p.attack=false;p.target=null;p.dest=null;
-  const wave=p.gate.wave;
-  const job=p.writes.catch(()=>{}).then(()=>accounts.gateAdvance(p.accountId,wave,outcome,p.gate.gate)).then(r=>{
+  const wave=p.gate.wave,gate=p.gate.gate;
+  const job=p.writes.catch(()=>{}).then(()=>accounts.gateAdvance(p.accountId,wave,outcome,gate)).then(r=>{
    if(players.get(p.id)!==p)return;
    if(outcome==='death'||r.complete||r.failed){if(r.payout?.balance)Object.assign(p,{credits:Number(r.payout.balance.credits),experience:Number(r.payout.balance.experience),level:Number(r.payout.balance.level)});returnFromGate(p,outcome==='death');io.to(p.id).emit('v14:gateState',{inside:false,...r});io.to(p.id).emit('notice',r.complete?DEFS[r.gate].name+' completada · +'+r.payout.uridium+' uridium':r.failed?'Puerta perdida':'Vida perdida · vuelve a entrar desde Portales');}
-   else{p.gate={gate:r.gate,wave:r.wave,lives:r.lives};p.gateWaiting=true;io.to(p.id).emit('v14:gateState',{inside:true,gate:r.gate,wave:r.wave+1,total:DEFS[r.gate].waves,lives:r.lives,phase:'between'});}
+   else{p.gate={gate:r.gate,wave:r.wave,lives:r.lives,kills:[]};p.gateWaiting=true;io.to(p.id).emit('v14:gateState',{inside:true,gate:r.gate,wave:r.wave+1,total:DEFS[r.gate].waves,lives:r.lives,phase:'between'});}
   }).catch(()=>{if(players.get(p.id)===p){returnFromGate(p,outcome==='death');io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice','No se pudo guardar la puerta. Vuelve a entrar.');}}).finally(()=>{p.gatePending=false;pending.delete(job);});
   p.writes=job;pending.add(job);
  }
@@ -132,7 +135,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  if(!p.gate)for(const b of boxes.values())if(distance(p,b)<52)collectBox(p,b);
  const n=npcs.get(p.target);if(!n||!sameZone(p,n)){p.target=null;p.attack=false;}else if(p.attack&&!p.reloadPending&&!p.reloadRequested&&distance(p,n)<=(p.v13?600:650)&&now-p.lastShot>=(p.v13?(catalogV13.ammo.find(a=>a.id===p.ammo)?.intervalMs||1000):450)&&!p.shotPending){
  p.lastShot=now;
- const finish=()=>{n.target=p.id;if(n.hp<=0&&npcs.get(n.id)===n){npcs.delete(n.id);p.target=null;p.attack=false;if(p.gate){award(p,n.reward,n.xpReward,n.name+' eliminado · +'+n.uridiumReward+' uridium',n.uridiumReward,n.honorReward).catch(()=>{});if(![...npcs.values()].some(x=>sameZone(p,x)&&!x.gateShielded))nextGateGroup(p);return;}award(p,n.reward,n.type==='boss'?500:50,n.name+' eliminado · +'+n.reward+' créditos').catch(()=>{});if(n.type!=='boss')later(()=>spawnNPC(),5000);}};
+ const finish=()=>{n.target=p.id;if(n.hp<=0&&npcs.get(n.id)===n){npcs.delete(n.id);p.target=null;p.attack=false;if(p.gate){const g=p.gate;const job=p.writes.catch(()=>{}).then(()=>accounts.gateKill(p.accountId,g.gate,g.wave,n.gateKillKey,{credits:n.reward,xp:n.xpReward,uridium:n.uridiumReward,honor:n.honorReward})).then(r=>{if(r.balance){Object.assign(p,{credits:Number(r.balance.credits),experience:Number(r.balance.experience),level:Number(r.balance.level)});io.to(p.id).emit('notice',n.name+' eliminado · +'+n.uridiumReward+' uridium');}});p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);if(players.get(p.id)===p&&p.gate===g&&!p.gatePending){returnFromGate(p);io.to(p.id).emit('v14:gateState',{inside:false});io.to(p.id).emit('notice','No se pudo guardar el enemigo. Vuelve a entrar.');}});if(![...npcs.values()].some(x=>sameZone(p,x)&&!x.gateShielded))nextGateGroup(p);return;}award(p,n.reward,n.type==='boss'?500:50,n.name+' eliminado · +'+n.reward+' créditos').catch(()=>{});if(n.type!=='boss')later(()=>spawnNPC(),5000);}};
  if(n.gateShielded){p.attack=false;io.to(p.id).emit('notice','El jefe está protegido: elimina los demás alienígenas');}
  else if(!p.v13){p.angle=Math.atan2(n.y-p.y,n.x-p.x);laser(p,n);damage(n,p.damage);finish();}
  else if(!p.lasers){p.attack=false;io.to(p.id).emit('notice','Equipa un láser en el hangar');}
