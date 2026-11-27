@@ -52,7 +52,7 @@ async function gates(){
    if(a.built){
     body.append(el('p','Secciones completadas: '+a.wave+'/'+a.waves+' · Vidas: '+a.lives+'/10 · Completadas: '+a.completions));
     const life=button('COMPRAR VIDA',()=>action('life'));life.disabled=busy||a.lives>=10;body.append(life);
-    if(window.gg14GateState?.().inside)body.append(button('VOLVER AL SECTOR',()=>{window.gg14GateLeave();modal.close();}));
+    if(window.gg14GateState?.().inside){const current=window.gg14GateState();if(current.phase==='between'){body.append(button('SIGUIENTE OLEADA',()=>{window.gg14GateNext();modal.close();}),button('VOLVER AL SECTOR',()=>{window.gg14GateLeave();modal.close();}));}else body.append(el('p',current.phase==='countdown'?'La oleada comenzará tras la cuenta atrás.':'Los portales se abren al eliminar la oleada.'));}
     else if(a.combatAvailable){const enter=button('ENTRAR',async()=>{if(busy)return;busy=true;enter.disabled=true;try{await window.gg14GateEnter(selected);modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;enter.disabled=false;}});body.append(enter);}
     else body.append(el('p','Combate de esta puerta aún en desarrollo.'));
    }
