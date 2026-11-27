@@ -27,4 +27,21 @@ function selectGuardTarget(p,npcs,now,range){
 function npcRetaliatesAgainstPet(p,n,now){
  return !!p?.petVitals?.enabled&&!p.petVitals.destroyed&&!p.petDamagePending&&p.petLastHitNpc===n?.id&&Number.isFinite(p.petLastAttackAt)&&now>=p.petLastAttackAt&&now-p.petLastAttackAt<=3000&&guardTarget(p,n,now,460);
 }
-module.exports={xpPercent,eligibleForNpcXp,petXpFromReward,guardTarget,selectGuardTarget,npcRetaliatesAgainstPet};
+// Only recent server-confirmed hostile pilot actions qualify; a selected target alone is insufficient.
+function recordPilotAggression(victim,attacker,now){
+ if(!victim||!attacker||victim===attacker||!attacker.id||!Number.isFinite(now))return;
+ const recent=victim.petAggressors instanceof Map?victim.petAggressors:(victim.petAggressors=new Map());
+ for(const [id,at] of recent)if(now-at>5000)recent.delete(id);
+ recent.set(attacker.id,now);
+}
+function pilotGuardTarget(p,n,now,range,eligible){
+ if(!p||!n||p===n||!['guard','combo-guard'].includes(p.petMode)||p.petUntil<=now||p.hp<=0||p.deadUntil||p.gate||p.gatePending||p.gateWaiting||p.ubaReturn||p.invasionReturn||p.petVitals?.destroyed||p.cloaked||p.safe||p.petTradePending||p.zone!==n.zone||n.hp<=0||n.deadUntil||n.godMode||n.cloaked||!Number.isFinite(range)||range<=0)return false;
+ const at=p.petAggressors?.get(n.id);
+ return Number.isFinite(at)&&now>=at&&now-at<=5000&&Math.hypot(p.petX-n.x,p.petY-n.y)<=range&&Math.hypot(p.x-n.x,p.y-n.y)<=range&&eligible(p,n);
+}
+function selectPilotGuardTarget(p,pilots,now,range,eligible){
+ let best=null,dist=Infinity;
+ for(const n of pilots){if(!pilotGuardTarget(p,n,now,range,eligible))continue;const d=Math.hypot(p.petX-n.x,p.petY-n.y);if(d<dist){best=n;dist=d;}}
+ return best;
+}
+module.exports={xpPercent,eligibleForNpcXp,petXpFromReward,guardTarget,selectGuardTarget,npcRetaliatesAgainstPet,recordPilotAggression,pilotGuardTarget,selectPilotGuardTarget};
