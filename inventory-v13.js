@@ -65,7 +65,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   let q=category==='resources'?require('./resource-shop-v176').quoteResource(code,quantity):category==='drones'||category==='pet'||category==='fuel'||category==='petGear'?null:quote(category,code,quantity);
   return transaction(id,async(c,p)=>{
    const previous=(await c.query('SELECT response FROM gg_v13_purchases WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
-   if(previous)return previous.response;
+   if(previous){const prior=previous.response;if(prior.request&&(prior.request.category!==category||prior.request.code!==code||prior.request.quantity!==quantity||(prior.request.targetLevel??null)!==(targetLevel??null)))throw fail('Identificador ya utilizado para otra compra',409);return prior;}
    if(category==='fuel'){
     if(code!=='pet-fuel'||!Number.isSafeInteger(quantity)||quantity<4||quantity%4!==0||quantity>50000)throw fail('Compra combustible en múltiplos de cuatro');
     if(!(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='pet'",[id])).rowCount)throw fail('Necesitas un P.E.T.');
@@ -110,7 +110,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
     for(let i=0;i<q.quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),code,category==='designs'?'ship-designs':category]);
    }
    if(category==='cpus'){const uses=catalog.cpus.find(x=>x.id===code)?.uses;if(uses)await addStack(c,id,code+'-uses',uses);}
-   const result={ok:true,...q,balance};
+   const result={ok:true,...q,balance,request:{category,code,quantity,targetLevel:targetLevel??null}};
    await c.query('INSERT INTO gg_v13_purchases(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);
    return result;
   });
