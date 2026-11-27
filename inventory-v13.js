@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const {bonusLoot}=require('./loot-v14');
-const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,spinGate,itemDraw}=require('./gates-v14');
+const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,PROVISIONAL,WAVES,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -32,6 +32,7 @@ function createInventory(pool){
    lives integer NOT NULL DEFAULT 0 CHECK(lives BETWEEN 0 AND 10),
    completions integer NOT NULL DEFAULT 0 CHECK(completions>=0),
    PRIMARY KEY(account_id,gate));
+   ALTER TABLE gg_v14_gates ADD COLUMN IF NOT EXISTS kills jsonb NOT NULL DEFAULT '[]';
    CREATE TABLE IF NOT EXISTS gg_v14_gate_spins (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    request_id uuid NOT NULL, response jsonb NOT NULL,
@@ -150,12 +151,12 @@ function createInventory(pool){
  }
  const validRequest=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
  async function gateRows(c,id){
-  const rows=Object.fromEntries(GATES.map(g=>[g,{gate:g,pieces:[],multiplier:1,built:false,wave:0,lives:0,completions:0}]));
-  for(const row of (await c.query('SELECT gate,pieces,multiplier,built,wave,lives,completions FROM gg_v14_gates WHERE account_id=$1',[id])).rows)if(rows[row.gate])rows[row.gate]=row;
+  const rows=Object.fromEntries(GATES.map(g=>[g,{gate:g,pieces:[],multiplier:1,built:false,wave:0,lives:0,completions:0,kills:[]}]));
+  for(const row of (await c.query('SELECT gate,pieces,multiplier,built,wave,lives,completions,kills FROM gg_v14_gates WHERE account_id=$1',[id])).rows)if(rows[row.gate])rows[row.gate]=row;
   return rows;
  }
  async function saveGateRow(c,id,g){
-  await c.query('INSERT INTO gg_v14_gates(account_id,gate,pieces,multiplier,built,wave,lives,completions) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(account_id,gate) DO UPDATE SET pieces=EXCLUDED.pieces,multiplier=EXCLUDED.multiplier,built=EXCLUDED.built,wave=EXCLUDED.wave,lives=EXCLUDED.lives,completions=EXCLUDED.completions',[id,g.gate,JSON.stringify(g.pieces),g.multiplier,g.built,g.wave,g.lives,g.completions]);
+  await c.query('INSERT INTO gg_v14_gates(account_id,gate,pieces,multiplier,built,wave,lives,completions,kills) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(account_id,gate) DO UPDATE SET pieces=EXCLUDED.pieces,multiplier=EXCLUDED.multiplier,built=EXCLUDED.built,wave=EXCLUDED.wave,lives=EXCLUDED.lives,completions=EXCLUDED.completions,kills=EXCLUDED.kills',[id,g.gate,JSON.stringify(g.pieces),g.multiplier,g.built,g.wave,g.lives,g.completions,JSON.stringify(g.kills||[])]);
  }
  async function addStack(c,id,code,quantity){
   if(quantity>0)await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,code,quantity]);
@@ -190,7 +191,7 @@ function createInventory(pool){
     else if(reward.code!=='piece')await addStack(c,id,reward.code,reward.quantity);
    }else if(action==='build'){
     if(g.built||g.pieces.length!==def.pieces)throw fail('Completa las piezas antes de construir');
-    g.built=true;g.pieces=[];g.wave=0;g.lives=3;await saveGateRow(c,id,g);
+    g.built=true;g.pieces=[];g.wave=0;g.lives=3;g.kills=[];await saveGateRow(c,id,g);
    }else if(action==='life'){
     if(!g.built||g.lives>=10)throw fail('No se pueden comprar más vidas');
     if(!allowUridium||Number(p.uridium)<25000)throw fail('Se necesitan 25.000 uridium y autorización');
@@ -207,7 +208,21 @@ function createInventory(pool){
   if(!PLAYABLE.includes(gate))throw fail('Combate de esta puerta aún en desarrollo');
   return transaction(id,async c=>{
    const g=(await gateRows(c,id))[gate];if(!g.built||g.lives<1||g.wave>=DEFS[gate].waves)throw fail('Puerta no disponible');
-   return {gate,wave:g.wave,lives:g.lives,completions:g.completions};
+   return {gate,wave:g.wave,lives:g.lives,completions:g.completions,kills:g.kills};
+  });
+ }
+ async function gateKill(id,gate,wave,key,payout){
+  if(!PLAYABLE.includes(gate)||!Number.isInteger(wave)||typeof key!=='string'||!/^\d+:\d+$/.test(key))throw fail('Enemigo inválido');
+  const [group,slot]=key.split(':').map(Number),entry=WAVES[gate]?.[wave]?.[group];
+  if(!entry||slot<0||slot>=entry[1]||!payout||!['credits','xp','uridium','honor'].every(k=>Number.isSafeInteger(payout[k])&&payout[k]>=0))throw fail('Recompensa inválida');
+  return transaction(id,async c=>{
+   const g=(await gateRows(c,id))[gate];
+   if(!g.built||g.wave!==wave||g.lives<1)throw fail('Progreso de puerta inválido');
+   if(g.kills.includes(key))return {duplicate:true};
+   g.kills.push(key);await saveGateRow(c,id,g);
+   const {credits,xp,uridium,honor}=payout;
+   const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,uridium,honor])).rows[0];
+   return {balance};
   });
  }
  async function gateAdvance(id,expectedWave,outcome,gate='alpha'){
@@ -215,6 +230,7 @@ function createInventory(pool){
   return transaction(id,async c=>{
    const rows=await gateRows(c,id),g=rows[gate];
    if(!g.built||g.wave!==expectedWave||g.lives<1)throw fail('La puerta cambió; vuelve a entrar');
+   if(outcome==='clear'&&g.kills.length!==WAVES[gate][g.wave].reduce((sum,group)=>sum+group[1],0))throw fail('Todavía quedan enemigos pendientes');
    const complete=outcome==='clear'&&g.wave+1===DEFS[gate].waves,failed=outcome==='death'&&g.lives===1;
    let payout=null;
    if(complete){
@@ -235,12 +251,12 @@ function createInventory(pool){
     }
     g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance,item,itemQuantity};
    }
-   if(complete||failed){g.built=false;g.wave=0;g.lives=0;}
-   else if(outcome==='clear')g.wave++;
+   if(complete||failed){g.built=false;g.wave=0;g.lives=0;g.kills=[];}
+   else if(outcome==='clear'){g.wave++;g.kills=[];}
    else g.lives--;
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateBuild,gateLife,gateCheckpoint,gateAdvance};
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateBuild,gateLife,gateCheckpoint,gateKill,gateAdvance};
 }
 module.exports={createInventory};
