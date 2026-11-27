@@ -17,7 +17,7 @@ const BOARDS={
 };
 const fail=message=>Object.assign(Error(message),{status:400});
 const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
-function roundAt(now=Date.now(),board='weekly-cbs'){const d=BOARDS[board]?.duration;if(!d)throw fail('Tablero inválido');const origin=board==='weekly-cbs'?MONDAY:0;return origin+Math.floor((now-origin)/d)*d;}
+function roundAt(now=Date.now(),board='weekly-cbs'){const d=Object.hasOwn(BOARDS,board)?BOARDS[board].duration:0;if(!d)throw fail('Tablero inválido');const origin=board==='weekly-cbs'?MONDAY:0;return origin+Math.floor((now-origin)/d)*d;}
 function minimum(current,own=false){return current?current+(own?OWN_INCREMENT:MIN):MIN;}
 function createAuctions(pool){
  async function ready(){await pool.query(`CREATE TABLE IF NOT EXISTS gg_cbs_auction_lots(round_start bigint NOT NULL,code text NOT NULL,bidder uuid REFERENCES accounts(id),amount bigint NOT NULL DEFAULT 0 CHECK(amount>=0),settled boolean NOT NULL DEFAULT false,PRIMARY KEY(round_start,code));
@@ -43,7 +43,7 @@ function createAuctions(pool){
  }
  async function status(id,board='weekly-cbs'){return transaction(async c=>{const now=Date.now();await settle(c,now);return view(c,id,now,board);});}
  async function bid(id,{code,amount,requestId,roundStart,board='weekly-cbs',action='bid'}={}){
-  const l=BOARDS[board]?.lots.find(x=>x.code===code);
+  const l=Object.hasOwn(BOARDS,board)?BOARDS[board].lots.find(x=>x.code===code):null;
   if(!l||!uuid(requestId)||!['bid','buy'].includes(action)||action==='bid'&&(!Number.isSafeInteger(amount)||amount<MIN||!Number.isSafeInteger(roundStart)))throw fail('Solicitud inválida');
   return transaction(async c=>{
    const now=Date.now(),start=roundAt(now,board);await settle(c,now);
