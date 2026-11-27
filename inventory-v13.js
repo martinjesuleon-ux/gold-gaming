@@ -35,10 +35,17 @@ function createInventory(pool){
  }
  async function purchase(id,{category,code,quantity,requestId}){
   if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))throw fail('Identificador de compra inválido');
-  let q=category==='drones'||category==='pet'?null:quote(category,code,quantity);
+  let q=category==='drones'||category==='pet'||category==='fuel'?null:quote(category,code,quantity);
   return transaction(id,async(c,p)=>{
    const previous=(await c.query('SELECT response FROM gg_v13_purchases WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];
    if(previous)return previous.response;
+   if(category==='fuel'){
+    if(code!=='pet-fuel'||!Number.isSafeInteger(quantity)||quantity<4||quantity%4!==0||quantity>50000)throw fail('Compra combustible en múltiplos de cuatro');
+    if(!(await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='pet'",[id])).rowCount)throw fail('Necesitas un P.E.T.');
+    const existing=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='pet-fuel'",[id])).rows[0]?.quantity||0);
+    if(existing+quantity>50000)throw fail('Capacidad del depósito excedida');
+    q={id:code,category,quantity,currency:'uridium',total:quantity/4};
+   }
    if(category==='pet'){
     if(code!=='pet-10'||quantity!==1)throw fail('P.E.T. inválido');
     if((await c.query("SELECT 1 FROM gg_v13_inventory WHERE account_id=$1 AND category='pet'",[id])).rowCount)throw fail('Ya tienes un P.E.T.');
@@ -49,7 +56,7 @@ function createInventory(pool){
    if(Number(p[q.currency])<q.total)throw fail('Saldo insuficiente',409);
    const column=q.currency==='credits'?'credits':'uridium';
    const balance=(await c.query('UPDATE player_progress SET '+column+'='+column+'-$2 WHERE account_id=$1 RETURNING credits,uridium',[id,q.total])).rows[0];
-   if(category==='ammo'){
+   if(category==='ammo'||category==='fuel'){
     await c.query('INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET quantity=gg_v13_ammo.quantity+EXCLUDED.quantity',[id,code,q.quantity]);
    }else{
     for(let i=0;i<q.quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),code,category]);
