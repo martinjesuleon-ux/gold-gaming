@@ -86,26 +86,32 @@
   }
   polygon(c,[[19,0],[14,-2.8],[8,-2.8],[5,0],[8,2.8],[14,2.8]],linear(c,5,-3,19,3,[[0,'#0e252e'],[.45,'#76b5c2'],[1,'#203e47']]),'#b2c5c0',.5);
  }
- function alien(c,kind,color){
-  const green=kind==='classic-lordakia',steel=linear(c,-25,-25,29,26,[[0,green?'#8ea991':'#9eacb9'],[.25,green?'#3b5b3b':'#35404d'],[.5,'#11191f'],[.75,green?'#25462a':'#25303e'],[1,'#0b1016']]);
-  if(green){
-   for(const s of [-1,1]){
-    polygon(c,[[-25,s*9],[-12,s*17],[1,s*14],[12,s*7],[27,s*12],[19,s*21],[8,s*23],[-9,s*12],[-20,s*23],[-30,s*19]],steel,'#5d8265',.75);
-    polygon(c,[[4,s*8],[18,s*7],[31,s*14],[23,s*15],[17,s*11]],'#254433','#6f9c77',.6);
-    for(let i=0;i<3;i++){const x=17+i*3;polygon(c,[[x,s*13],[x+6,s*19],[x+3,s*20],[x-2,s*14]],'#a1b3a8','#303e3a',.45);}
-   }
-   polygon(c,[[-23,0],[-12,-10],[2,-13],[14,-7],[22,0],[14,8],[2,13],[-12,10]],steel,'#527d55',.8);
-   polygon(c,[[-14,0],[-5,-9],[5,-5],[14,0],[5,5],[-5,9]],'#27893e','#a1d488',.8);
-   c.fillStyle=radial(c,0,0,8,[[0,'#fff8c4'],[.28,'#efb94a'],[.55,'#937530'],[1,'#443e1600']]);c.fillRect(-8,-8,16,16);
-  }else{
-   for(const s of [-1,1]){
-    polygon(c,[[-21,s*3],[-18,s*14],[-8,s*23],[7,s*20],[19,s*9],[34,s*6],[20,s*2],[5,s*8],[-5,s*10]],steel,'#596a7e',.65);
-    polygon(c,[[-9,s*10],[3,s*18],[29,s*10],[36,s*3],[8,s*8]],'#344451','#9faeba',.55);
-    for(let i=0;i<3;i++){const x=-17+i*6;polygon(c,[[x,s*13],[x+6,s*23],[x+10,s*25],[x+4,s*15]],'#18252e','#4b5c6e',.5);}
-   }
-   polygon(c,[[-29,0],[-20,-10],[-4,-13],[14,-6],[24,0],[14,5],[-4,11],[-20,9]],steel,'#697887',.75);
-   polygon(c,[[-16,-2],[-7,-6],[9,-3],[17,0],[1,2],[-9,3]],'#17212b','#b2c1cb',.55);
+ // Original organic radial hulls, based on the shape language of the reference set.
+ function radialAlien(c,large,elite,color){
+  const radius=large?39:27,arms=large?9:8,rand=seeded(large?1743:3985);
+  const light=large?'#fff0b9':'#a5e2ed',mid=large?'#c6a35c':'#447e8d',dark=large?'#60542f':'#153b47';
+  const shell=radial(c,-8,-10,radius,[[0,light],[.25,mid],[.6,dark],[.83,mid],[1,dark]]);
+  for(let i=0;i<arms;i++){
+   const a=i*Math.PI*2/arms+(rand()-.5)*.28,r=radius*(.86+rand()*.18);
+   c.save();c.rotate(a);c.beginPath();c.moveTo(radius*.42,-radius*.18);
+   c.bezierCurveTo(radius*.65,-radius*.18,r*.84,-radius*.07,r,0);
+   c.bezierCurveTo(r*1.08,radius*.15,r*.79,radius*.15,radius*.56,radius*.22);
+   c.closePath();c.fillStyle=shell;c.fill();c.strokeStyle=light;c.lineWidth=1;c.stroke();c.restore();
   }
+  const body=radius*.64;c.beginPath();c.arc(0,0,body,0,Math.PI*2);c.fillStyle=shell;c.fill();c.strokeStyle=light;c.lineWidth=1.1;c.stroke();
+  for(let i=0;i<arms;i++){const a=i*Math.PI*2/arms;c.save();c.rotate(a);c.strokeStyle=light;c.lineWidth=.7;c.beginPath();c.ellipse(body*.54,0,body*.29,body*.11,0,0,Math.PI*2);c.stroke();c.restore();}
+  for(let i=0;i<18;i++){const a=rand()*Math.PI*2,r=rand()*body*.82;c.fillStyle=i%3?mid:light;c.fillRect(Math.cos(a)*r,Math.sin(a)*r,1.3,1);}
+  c.fillStyle=radial(c,-2,-2,body*.45,[[0,light],[.3,elite?color:mid],[1,dark+'00']]);c.fillRect(-body/2,-body/2,body,body);
+ }
+ function alien(c,kind,color){
+  if(kind.includes('lordakia')){radialAlien(c,false,kind!=='classic-lordakia',color);return;}
+  // Saimon: thin forward prongs above a dark hooked, ribbed underside.
+  const steel=linear(c,-28,-22,35,21,[[0,'#afc0ce'],[.2,'#536575'],[.47,'#141e28'],[.69,'#536474'],[1,'#0c151d']]);
+  polygon(c,[[-30,0],[-22,-13],[-8,-19],[3,-13],[9,-9],[30,-10],[39,-14],[27,-3],[4,4],[-9,8],[-19,19],[-32,12]],steel,'#768b9e',.8);
+  polygon(c,[[-16,-13],[9,-23],[30,-32],[13,-15],[-2,-7],[-16,-5]],steel,'#a3b5c4',.7);
+  polygon(c,[[-23,-2],[-11,-10],[12,-7],[35,-9],[18,-2],[-3,4]],'#263747','#7f94a8',.65);
+  for(let i=0;i<4;i++){const x=-20+i*5;c.strokeStyle='#506371';c.lineWidth=2.4;c.beginPath();c.moveTo(x,5);c.quadraticCurveTo(x+9,13,x+2,24-i*3);c.stroke();}
+  polygon(c,[[-13,-14],[-5,-15],[5,-10],[-6,-6]],'#192631','#9bafbd',.55);
  }
  function mineArt(c,armed){
   const accent=armed?'#fa573c':'#e7b368',glow=radial(c,0,8,51,[[0,accent+'90'],[.55,accent+'32'],[1,accent+'00']]);c.fillStyle=glow;c.fillRect(-60,-55,120,110);
@@ -166,7 +172,7 @@
    polygon(c,core,radial(c,-4,-6,reach*.45,[[0,'#ffffff'],[.4,'#e5faff'],[1,'#7eb1cc']]),'#eafaff',.65);
    for(let i=0;i<core.length;i++){const p=core[i],q=core[(i+1)%core.length];polygon(c,[p,q,[(rand()-.5)*10,(rand()-.5)*10]],i%3===0?'#ffffffb0':i%3===1?'#a8d9eac0':'#d4f2f9a0','#e7fbff70',.4);}
    for(let i=0;i<(big?22:12);i++){const a=rand()*Math.PI*2,r=reach*(.70+rand()*.31);c.fillStyle=i%3?'#c1e4f380':'#f1fcff';c.fillRect(Math.cos(a)*r,Math.sin(a)*r,.8+rand()*1.1,.8+rand()*1.1);}
-  }else if(species==='mordon'||species==='devolarium'){
+  }else if(species==='mordon'||species==='devolarium'||species==='sibelon'){
    // Distinct original silhouettes: rust-colored tower with articulated legs,
    // and broad blue-gray machinery with separated armored modules.
    if(species==='mordon'){
@@ -184,6 +190,18 @@
     polygon(c,[[-10,-34],[0,-41],[10,-33],[7,-27],[-7,-27]],bronze,'#f2b39a',.9);
     for(const side of [-1,1])polygon(c,[[side*11,-30],[side*17,-19],[side*15,10],[side*9,13],[side*12,-14]],bronze,'#bc9c8b',.6);
     if(elite){c.fillStyle=color;c.fillRect(-5,-36,10,3);}
+   }else if(species==='devolarium'){
+    const armorGreen=linear(c,-42,-26,42,28,[[0,'#738b44'],[.24,'#3b512c'],[.52,'#172921'],[.72,'#455c31'],[1,'#101d16']]);
+    polygon(c,[[-45,-7],[-29,-20],[-9,-26],[15,-23],[37,-14],[45,-6],[37,7],[43,15],[24,24],[-5,28],[-26,20],[-39,12]],armorGreen,'#536d3c',.9);
+    for(const side of [-1,1]){
+     polygon(c,[[-39,5*side],[-20,16*side],[8,22*side],[30,16*side],[37,7*side],[12,8*side],[-5,4*side]],armorGreen,'#78924a',.65);
+     polygon(c,[[-26,5*side],[-15,10*side],[8,9*side],[22,13*side],[30,9*side],[12,3*side],[-10,2*side]],'#233526','#5a8038',.6);
+     for(let i=0;i<4;i++){c.fillStyle='#79974b';c.fillRect(-20+i*7,side*17-1,4,1);}
+    }
+    polygon(c,[[-32,0],[-15,-6],[13,-5],[36,-1],[25,4],[0,6],[-15,4]],'#23352a','#8fa857',.8);
+    for(const [x,y,r] of [[-29,-2,4],[-8,0,6],[12,-3,5],[28,-2,3],[7,13,3]]){
+     c.fillStyle=radial(c,x,y,r,[[0,'#e2ff8f'],[.3,'#91e323'],[1,'#68bb1200']]);c.fillRect(x-r,y-r,r*2,r*2);
+    }
    }else{
     const hull=linear(c,-48,-29,44,29,[[0,'#c4dcda'],[.18,'#75969a'],[.42,'#37545d'],[.66,'#172a32'],[.83,'#59777d'],[1,'#24343c']]);
     const inset='#172c35',rim='#85a8ac';
@@ -219,7 +237,10 @@
   barracuda:[43,19,30,9,0],saboteur:[30,32,21,10,4],annihilator:[35,34,34,17,3],'deadly-battleray':[42,36,35,18,2]
  };
  function raider(c,kind,color){
-  const id=kind.slice(8).replace(/-(boss|uber|emperor)$/,''),elite=kind!==('classic-'+id),[nose,wing,back,body,shape]=raiderProfiles[id]||raiderProfiles.vagrant;
+  const id=kind.slice(8).replace(/-(boss|uber|emperor)$/,''),elite=kind!==('classic-'+id);
+  if(id==='lordakium'){radialAlien(c,true,elite,color);return;}
+  if(id==='sibelon'){largeAlien(c,kind,color);return;}
+  const [nose,wing,back,body,shape]=raiderProfiles[id]||raiderProfiles.vagrant;
   const steel=linear(c,-back,-wing,nose,wing,[[0,'#c0c9c8'],[.18,'#6a7b82'],[.35,'#293a42'],[.55,'#0b1721'],[.75,'#4b5b60'],[1,'#13202a']]);
   const plating=linear(c,-20,-wing,25,wing,[[0,color],[.27,'#515e62'],[.49,'#141e26'],[.7,'#48575c'],[1,color]]);
   for(const s of [-1,1]){
