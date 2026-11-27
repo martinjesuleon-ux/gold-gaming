@@ -34,16 +34,24 @@ function mineMenu(){
  const b=button('COLOCAR',async()=>{if(busy)return;busy=true;try{await window.gg18Mine(m.id);modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;}});b.disabled=n===0||m.id==='EMPM-01';tile.append(b);grid.append(tile);}
  body.append(grid);
 }
+let abilityRefresh=null;
+window.addEventListener('gg18:abilityState',e=>{if(modal?.open&&mode==='Habilidades')abilityRefresh?.(e.detail);});
 function abilityMenu(){
  const p=window.gg15Pilot?.();body.replaceChildren(el('h2','Habilidades'));
- if(!p?.godAllowed){body.append(el('p','No hay habilidades de prueba disponibles para esta cuenta.'));return;}
- let enabled=!!p.godMode;
+ if(!p){body.append(el('p','Entra en una partida.'));return;}
+ const definitions={aegis:[['repair-hp','Reparar PV','20.000/s propio o 40.000/s aliado · 7 s'],['repair-shield','Reparar escudo','15.000/s propio o 25.000/s aliado · 5 s'],['repair-pod','Cápsula de reparación','18.000 PV/s · 10 s']],citadel:[['draw-fire','Atraer fuego','Atrae NPC a 500 unidades · 5 s'],['fortify','Atrincherarse','Daño recibido -50 % · inmóvil · 10 s'],['protect','Protección','Absorbe 25 % del daño del grupo · 10 s'],['travel','Viaje','Velocidad +50 % · 5 s']],spearhead:[['recon','Reconocimiento','Alcance del radar ×2 · 30 s'],['jam','JAM-X','Bloquea habilidades enemigas · 8 s'],['mark','Marca de objetivo','Daño del grupo +5 % · 15 s'],['ultimate-cloak','Camuflaje Definitivo','Invisible hasta disparar · 15 s']]};
+ const grid=el('div',null,'gg13-grid'),rows=[];
+ for(const [code,name,desc] of definitions[p.ship]||[]){const tile=el('section',null,'gg13-tile'),info=el('p','Disponible'),b=button('ACTIVAR',async()=>{if(busy)return;busy=true;b.disabled=true;try{await window.gg18Ability(code);status.textContent=name+' activada';modal.close();}catch(e){status.textContent=e.message;}finally{busy=false;}});tile.append(el('h3',name),el('p',desc),info,b);grid.append(tile);rows.push({code,info,b});}
+ if(rows.length)body.append(grid);else body.append(el('p','Este casco no dispone de habilidades propias.'));
+ abilityRefresh=q=>{const now=Date.now();for(const {code,info,b} of rows){const a=q.abilities?.[code],active=Math.max(0,Math.ceil(((a?.until||0)-now)/1000)),cool=Math.max(0,Math.ceil(((a?.readyAt||0)-now)/1000));const message=active?'ACTIVA · '+active+' s':cool?'Recarga · '+cool+' s':q.jamUntil>now?'Bloqueada por JAM-X':'Disponible';if(info.textContent!==message)info.textContent=message;b.disabled=busy||!!cool||q.jamUntil>now;}};abilityRefresh(p);
+ if(p.godAllowed){ let enabled=!!p.godMode;
  const tile=el('section',null,'gg13-tile'),label=el('h3','DIOS'),info=el('p'),b=button('',async()=>{
   if(busy)return;busy=true;b.disabled=true;
   try{enabled=await window.gg17God(!enabled);draw();status.textContent=enabled?'DIOS ACTIVADO':'DIOS DESACTIVADO';}catch(e){status.textContent=e.message;}finally{busy=false;b.disabled=false;}
  });
  function draw(){info.textContent=enabled?'ACTIVA · Sin daño de NPC ni jugadores':'INACTIVA';b.textContent=enabled?'DESACTIVAR DIOS':'ACTIVAR DIOS';b.style.color=enabled?'#70ffa5':'';b.setAttribute('aria-pressed',String(enabled));}
  tile.append(label,info,el('p','Sin coste, duración ni recarga. Permanece activa entre mapas y puertas hasta desactivarla o cerrar sesión.'),b);body.append(tile);draw();
+ }
 }
 async function upgradeMenu(){
  body.replaceChildren(el('h2','Potenciación de equipo'),el('p','Cargando minerales…'));
