@@ -403,7 +403,7 @@ async function missionMenu(){
 async function socialGroup(){
  body.replaceChildren(el('h2','Grupo'));
  try{
-  let data=await window.gg15Group('status');
+  let data=await window.gg15Group('status'),query='';
   function draw(){
    if(!modal.open||mode!=='Grupo')return;
    body.replaceChildren(el('h2','Grupo · máximo 8 pilotos'));
@@ -412,9 +412,7 @@ async function socialGroup(){
    if(data.invite)body.append(el('p','Invitación pendiente'),button('ACEPTAR INVITACIÓN',()=>run('accept',{from:data.invite.from})));
    if(!data.group)body.append(button('CREAR GRUPO',()=>run('create')));
    else{
-    body.append(el('p',data.group.members.length+'/8 pilotos'));
-    for(const m of data.group.members){body.append(el('p',m.name+(m.id===data.group.leader?' · Líder':'')+' · '+m.map));if(me?.id===data.group.leader&&m.id!==me.id)body.append(button('Expulsar '+m.name,()=>run('kick',{target:m.id})));}
-    if(me?.id===data.group.leader)for(const p of data.pilots.filter(x=>!data.group.members.some(m=>m.id===x.id)))body.append(button('Invitar '+p.name,()=>run('invite',{target:p.id})));
+    const summary=el('section',null,'gg-social-summary');summary.append(el('strong',data.group.members.length+' / 8 pilotos'),el('small',me?.id===data.group.leader?'Eres el líder':'Miembro del grupo'));const capacity=el('progress');capacity.max=8;capacity.value=data.group.members.length;capacity.setAttribute('aria-label','Ocupación del grupo');summary.append(capacity);body.append(summary,el('h3','Miembros'));const members=el('div',null,'gg-social-list');for(const m of data.group.members){const row=el('div',null,'gg-social-row'),info=el('div');info.append(el('strong',m.name+(m.id===me?.id?' · Tú':'')),el('small',(m.id===data.group.leader?'Líder · ':'')+'Mapa '+m.map));row.append(info);if(me?.id===data.group.leader&&m.id!==me.id)row.append(button('Expulsar',()=>run('kick',{target:m.id})));members.append(row);}body.append(members);if(me?.id===data.group.leader){const search=el('input'),list=el('div',null,'gg-social-list');search.type='search';search.placeholder='Buscar piloto para invitar…';search.value=query;function invites(){list.replaceChildren();for(const p of data.pilots.filter(x=>!data.group.members.some(m=>m.id===x.id)&&x.name.toLowerCase().includes(query.toLowerCase()))){const row=el('div',null,'gg-social-row');row.append(el('strong',p.name),button('Invitar',()=>run('invite',{target:p.id})));list.append(row);}if(!list.children.length)list.append(el('p','No hay pilotos disponibles.'));}search.oninput=()=>{query=search.value;invites();};body.append(el('h3','Invitar pilotos'),search,list);invites();}
     body.append(button('SALIR DEL GRUPO',()=>run('leave')));
    }
    body.append(button('ACTUALIZAR',()=>run('status')));
@@ -432,17 +430,16 @@ async function clanMenu(){
   async function run(action,fields={}){if(busy)return;busy=true;try{data=await api('clan',{action,...fields});await refresh();status.textContent='Operación confirmada · '+balance();draw();}catch(e){status.textContent=e.message;}finally{busy=false;}}
   if(!data.clan){
    const name=el('input'),tag=el('input');name.placeholder='Nombre del clan';name.maxLength=32;tag.placeholder='Etiqueta';tag.maxLength=6;
-   body.append(el('p','Fundación: 500.000 créditos'),name,tag,button('FUNDAR CLAN',()=>run('create',{name:name.value,tag:tag.value})));
-   for(const c of data.list)body.append(button('Solicitar ingreso a ['+c.tag+'] '+c.name,()=>run('apply',{target:c.id})));
+   const create=el('section',null,'gg-social-summary');create.append(el('h3','Fundar clan'),el('p','Coste: 500.000 créditos'),name,tag,button('FUNDAR CLAN',()=>run('create',{name:name.value,tag:tag.value})));body.append(create,el('h3','Buscar clan'));const search=el('input'),list=el('div',null,'gg-social-list');search.type='search';search.placeholder='Nombre o etiqueta…';function clans(){list.replaceChildren();for(const c of data.list.filter(c=>('['+c.tag+'] '+c.name).toLowerCase().includes(search.value.toLowerCase()))){const row=el('div',null,'gg-social-row');row.append(el('strong','['+c.tag+'] '+c.name),button('Solicitar ingreso',()=>run('apply',{target:c.id})));list.append(row);}if(!list.children.length)list.append(el('p','No hay clanes que coincidan.'));}search.oninput=clans;body.append(search,list);clans();
   }else{
    const c=data.clan,leader=c.leader===data.self,can=k=>leader||c.permissions.includes(k);
-   body.append(el('h3','['+c.tag+'] '+c.name),el('p','Banco: '+fmt(c.credits)+' créditos · '+fmt(c.uridium)+' uridium'));
-   for(const m of data.members){body.append(el('p',m.username+(m.account_id===c.leader?' · Líder':'')));
-    if(can('expulsar')&&m.account_id!==c.leader&&m.account_id!==data.self)body.append(button('Expulsar '+m.username,()=>run('kick',{target:m.account_id})));
-    if(leader&&m.account_id!==data.self){const picks=['expulsar','reclutar','diplomacia','cbs'].map(k=>{const input=el('input');input.type='checkbox';input.checked=m.permissions.includes(k);const label=el('label',' '+k+' ');label.prepend(input);body.append(label);return [k,input];});body.append(button('Guardar permisos',()=>run('permissions',{target:m.account_id,permissions:picks.filter(x=>x[1].checked).map(x=>x[0])})));}
+   const summary=el('section',null,'gg-social-summary');summary.append(el('h3','['+c.tag+'] '+c.name),el('small',leader?'Líder':'Miembro'),rewardCards({credits:c.credits,uridium:c.uridium}),el('p',data.members.length+' miembros'));body.append(summary,el('h3','Miembros'));const memberList=el('div',null,'gg-social-list');body.append(memberList);
+   for(const m of data.members){const row=el('section',null,'gg-social-member');row.append(el('strong',m.username+(m.account_id===c.leader?' · Líder':'')));memberList.append(row);
+    if(can('expulsar')&&m.account_id!==c.leader&&m.account_id!==data.self)row.append(button('Expulsar '+m.username,()=>run('kick',{target:m.account_id})));
+    if(leader&&m.account_id!==data.self){const detail=el('details');detail.append(el('summary','Permisos'));row.append(detail);const picks=['expulsar','reclutar','diplomacia','cbs'].map(k=>{const input=el('input');input.type='checkbox';input.checked=m.permissions.includes(k);const label=el('label',' '+k+' ');label.prepend(input);detail.append(label);return [k,input];});detail.append(button('Guardar permisos',()=>run('permissions',{target:m.account_id,permissions:picks.filter(x=>x[1].checked).map(x=>x[0])})));}
    }
-   if(can('reclutar'))for(const q of data.requests)body.append(button('Aceptar '+q.username,()=>run('accept',{target:q.account_id})));
-   if(can('diplomacia'))for(const other of data.list.filter(x=>x.id!==c.id)){body.append(el('p','['+other.tag+'] '+other.name+' · '+(data.diplomacy.find(x=>x.target===other.id)?.state||'neutral')));for(const [state,label] of [['war','Guerra'],['alliance','Alianza'],['neutral','Neutral']])body.append(button(label,()=>run('diplomacy',{target:other.id,state})));}
+   if(can('reclutar')){body.append(el('h3','Solicitudes de ingreso'));for(const q of data.requests)body.append(button('Aceptar '+q.username,()=>run('accept',{target:q.account_id})));if(!data.requests.length)body.append(el('p','Sin solicitudes pendientes.'));}
+   if(can('diplomacia')){const detail=el('details',null,'gg-social-summary');detail.append(el('summary','Diplomacia'));for(const other of data.list.filter(x=>x.id!==c.id)){const row=el('section',null,'gg-social-member'),phase=data.diplomacy.find(x=>x.target===other.id)?.state||'neutral';row.append(el('strong','['+other.tag+'] '+other.name),el('small',({war:'Guerra',alliance:'Alianza',neutral:'Neutral'})[phase]||phase));for(const [state,label] of [['war','Guerra'],['alliance','Alianza'],['neutral','Neutral']]){const b=button(label,()=>run('diplomacy',{target:other.id,state}));b.disabled=state===phase;row.append(b);}detail.append(row);}body.append(detail);}
    if(leader){const credit=el('select'),uridium=el('select');for(let i=0;i<=5;i++){const o=el('option',i+' % diario');o.value=i;credit.append(o);}for(let i=0;i<=3;i++){const o=el('option',i/10+' % semanal');o.value=i;uridium.append(o);}credit.value=c.credit_tax;uridium.value=c.uridium_tax;body.append(el('p','Impuestos: créditos cada 24 horas, uridium cada 7 días'),credit,uridium,button('Guardar impuestos',()=>run('tax',{credit:Number(credit.value),uridium:Number(uridium.value)})));}
    else body.append(button('ABANDONAR CLAN',()=>run('leave')));
   }
