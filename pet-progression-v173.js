@@ -99,6 +99,10 @@ function createPetProgression(pool){
   return transaction(id,async(c,p)=>{
    const {stats}=await equipmentState(c,id,p);
    if(!stats.lasers||!stats.damage)return null;
+   if(process.env.GG_PET_VITALS_ENABLED==='1'){
+    const row=(await c.query('SELECT hp FROM gg_pet_vitals_v173 WHERE account_id=$1',[id])).rows[0];
+    if(row&&Number(row.hp)===0)return null;
+   }
    const row=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-$2 WHERE account_id=$1 AND code='LCB-10' AND quantity>=$2 RETURNING quantity",[id,stats.lasers])).rows[0];
    return row?{code:'LCB-10',count:stats.lasers,damage:stats.damage,stock:Number(row.quantity)}:null;
   });
