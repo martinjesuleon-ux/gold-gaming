@@ -719,7 +719,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   const testKami=p.godAllowed===true&&require('./pet-test-kit-v175').testKitEnabled(p.accountId);const now=Date.now();if(!testKami&&(p.kamiUntil||0)>now){io.to(p.id).emit('v184:petKami',{pending:false,readyAt:p.kamiUntil});io.to(p.id).emit('notice','Kamikaze: espera '+Math.ceil((p.kamiUntil-now)/1000)+' s');return;}
   if(p.petMode==='off'||p.petUntil<=now||!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){io.to(p.id).emit('notice','Activa tu P.E.T. primero');return;}
   const zone=p.zone,generation=p.petGeneration;p.kamiPending=true;io.to(p.id).emit('v184:petKami',{pending:true,readyAt:p.kamiUntil||0});
-  const valid=()=>!closing&&players.get(p.id)===p&&p.zone===zone&&!p.deadUntil&&!p.gatePending&&!p.gateWaiting&&p.petGeneration===generation&&p.petMode!=='off'&&!p.petVitals?.destroyed&&!p.petTradePending;
+  const valid=()=>!closing&&players.get(p.id)===p&&p.zone===zone&&p.hp>0&&!p.deadUntil&&!p.gatePending&&!p.gateWaiting&&p.petGeneration===generation&&p.petMode!=='off'&&p.petUntil>Date.now()&&!p.petVitals?.destroyed&&!p.petTradePending;
   const job=p.writes.catch(()=>{}).then(()=>valid()?accounts.petKamikaze(p.accountId):null).then(r=>{
    if(!r)return;p.kamiUntil=r.readyAt??0;p.petFuel=r.fuel;
    if(!valid())return;
