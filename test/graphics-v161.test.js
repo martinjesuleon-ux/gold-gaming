@@ -28,7 +28,8 @@ test('each drone palette reflects its equipped design, not its rank or unknown v
 test('NPC variants use different species silhouettes and preserve blue Boss Kristallin',()=>{
  const window={};vm.runInNewContext(read('graphics-v161.js'),{window});
  const style=window.ggGraphics161.npcStyle;
- assert.equal(style('Boss Kristallin','boss').kind,'crystal');
+ assert.equal(style('Boss Kristallin','boss').kind,'crystal-elite');
+ assert.equal(style('Kristallin','drone').kind,'crystal');
  assert.equal(style('Boss Kristallin','boss').color,'#46a7ff');
  assert.equal(style('Uber-Kristallon','boss').tier,'uber');
  assert.equal(style('Emperor-Kristallon','boss').tier,'emperor');
@@ -77,4 +78,16 @@ test('four VANT hulls render independently of equipped design colors',()=>{
  assert.equal(g.droneKind('unknown'),'drone');
  for(const code of codes)for(const design of designs){g.draw(c,g.droneKind(code),g.droneColor(design));g.draw(c,g.droneKind(code),g.droneColor(design));}
  assert.equal(canvases,16);assert.match(read('game.js'),/droneKind\(drone\?\.code\)/);
+});
+
+test('detailed NPC hulls render for every NPC in the catalog without invalid geometry',()=>{
+ let count=0;const valid=(...a)=>assert.ok(a.every(Number.isFinite));
+ const gradient={addColorStop(offset,color){assert.ok(Number.isFinite(offset));assert.match(color,/^#[0-9a-f]{6}([0-9a-f]{2})?$/i);}};
+ const context=()=>new Proxy({createLinearGradient(...a){valid(...a);return gradient;},createRadialGradient(...a){valid(...a);return gradient;},moveTo:valid,lineTo:valid,scale:valid,translate:valid,fillRect:valid,drawImage(canvas,...a){valid(...a);count++;}},{get:(t,k)=>k in t?t[k]:()=>{}});
+ const window={document:{createElement(){return {getContext:()=>context()};}}};
+ vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161,c=context(),names=Object.keys(require('../data/npcs-v14.json'));
+ for(const name of names){const v=g.npcStyle(name,name.startsWith('Boss')?'boss':'drone');g.draw(c,v.kind,v.color);}
+ assert.equal(count,names.length);
+ assert.equal(g.npcStyle('Boss Kristallin','boss').color,'#46a7ff');
+ assert.notEqual(g.npcStyle('Boss Kristallin','boss').kind,g.npcStyle('Kristallin','drone').kind);
 });
