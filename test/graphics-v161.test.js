@@ -54,3 +54,15 @@ test('all catalog ships have their own hull and all catalog designs have a palet
  assert.equal(style('tank',null,false).kind,'tank');
  assert.match(read('game.js'),/playerStyle\(o.ship,o.design,isMe\)/);
 });
+
+test('all detailed player hulls and equipped designs render with finite geometry and reuse their sprite',()=>{
+ let canvases=0,draws=0;
+ const validate=(...args)=>{assert.ok(args.every(Number.isFinite));};
+ const gradient={addColorStop(offset,color){assert.ok(Number.isFinite(offset));assert.equal(typeof color,'string');}};
+ const context=()=>new Proxy({createLinearGradient(...a){validate(...a);return gradient;},createRadialGradient(...a){validate(...a);assert.ok(a[2]>=0&&a[5]>=0);return gradient;},moveTo:validate,lineTo:validate,scale:validate,translate:validate,fillRect:validate,drawImage(canvas,...a){validate(...a);draws++;}},{get:(target,k)=>k in target?target[k]:()=>{}});
+ const window={devicePixelRatio:2,document:{createElement(){canvases++;return {getContext:()=>context()};}}};
+ vm.runInNewContext(read('graphics-v161.js'),{window});const graphics=window.ggGraphics161,c=context(),catalog=require('../data/catalog-v13.json');
+ const variants=[...catalog.ships.map(s=>graphics.playerStyle(s.id,null,true)),...catalog.designs.map(d=>graphics.playerStyle(d.ship,d.id,true))];
+ for(const {kind,color} of variants){graphics.draw(c,kind,color);const prior=canvases;graphics.draw(c,kind,color);assert.equal(canvases,prior);}
+ assert.equal(draws,variants.length*2);assert.ok(canvases<=variants.length);
+});

@@ -77,7 +77,20 @@
   }
   path(c,[[nose,0],[nose*.5,-body*.65],[-body,-body],[-back,-body*.5],[-back,body*.5],[-body,body],[nose*.5,body*.65]],armor,'#abbcc8',1);
   path(c,[[nose-5,0],[nose*.34,-body*.52],[-body,-body*.45],[-back+5,0],[-body,body*.45],[nose*.34,body*.52]],accent,color,.8);
-  path(c,[[nose*.5,0],[nose*.12,-body*.31],[-body*.15,0],[nose*.12,body*.31]],'#e0f5ff',color,.6);
+  // Fine panel seams and metallic bevels are painted into the cached sprite, not each frame.
+  for(const side of [-1,1]){
+   const y=body*.63*side;
+   path(c,[[nose*.37,y],[-body*.58,body*.85*side],[-back+4,body*.42*side],[-body*.35,body*.52*side]],'#253443','#8595a4',.55);
+   path(c,[[nose*.26,body*.59*side],[-body*.52,body*.74*side],[-body*.65,body*.61*side]],'#a6bac9');
+   for(let i=0;i<3;i++){const x=-back+5+i*3;path(c,[[x,body*.28*side],[x+1.5,body*.28*side],[x+2.5,body*.46*side],[x+1,body*.46*side]],'#070d15','#60788b',.35);}
+   // Thrust nozzles sit on top of the bloom.
+   path(c,[[-back+1,wing*.40*side],[-back+5,wing*.35*side],[-back+6,wing*.55*side],[-back+1,wing*.60*side]],'#101a24','#8a9baa',.6);
+   path(c,[[-back+1,wing*.44*side],[-back+3,wing*.43*side],[-back+3,wing*.53*side],[-back+1,wing*.55*side]],color);
+   if(style===3||style===4){path(c,[[nose*.16,wing*.46*side],[-back*.25,wing*.57*side],[-back*.44,wing*.48*side],[-back*.12,wing*.39*side]],'#627484','#9babb7',.45);}
+  }
+  const glass=gradient(c,body*.32,[[0,'#ddf7ff'],[.25,color],[.6,'#193644'],[1,'#051522']]);
+  path(c,[[nose*.5,0],[nose*.12,-body*.31],[-body*.15,0],[nose*.12,body*.31]],glass,'#bce1e7',.65);
+  path(c,[[nose*.4,0],[nose*.15,-body*.17],[nose*.02,0]],'#e7faff');
   if(style===3)for(const side of [-1,1])path(c,[[nose*.65,body*.4*side],[nose*.4,body*.78*side],[nose*.12,body*.64*side],[nose*.35,body*.3*side]],color);
  }
  function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key))return cache.get(key);const size=kind==='drone'?42:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind==='drone')drone(c,color);else if(kind==='pet')pet(c,color);else if(['crystal','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=64)cache.clear();cache.set(key,value);return value;}
