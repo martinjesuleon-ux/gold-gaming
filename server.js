@@ -403,6 +403,11 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    ack({ok:true,stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo colocar la mina'})).finally(()=>{p.upgradePending=false;pending.delete(job);});
  });
+ socket.on('v114:bid',(data,ack)=>{
+  if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);if(!p||p.auctionBusy||p.deadUntil)return ack({ok:false,error:'Subasta no disponible'});
+  p.auctionBusy=true;const job=p.writes.catch(()=>{}).then(()=>accounts.auctionBid(p.accountId,data));p.writes=job;pending.add(job);
+  job.then(r=>{p.credits=r.credits;ack({ok:true,...r});}).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo confirmar puja'})).finally(()=>{p.auctionBusy=false;pending.delete(job);});
+ });
  socket.on('v112:booster',(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
   if(!p||p.deadUntil||p.gatePending||p.boosterBusy)return ack({ok:false,error:'Booster no disponible'});
@@ -549,7 +554,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  const maintenance=setInterval(()=>{
   if(closing||maintenanceBusy)return;maintenanceBusy=true;
   const job=(async()=>{
-   const charges=await accounts.collectClanTaxes();
+   await accounts.auctionSettle();const charges=await accounts.collectClanTaxes();
    for(const charge of charges){const p=active.get(charge.id);if(p){io.to(p.id).emit('notice','Impuesto del clan: '+charge.credits+' créditos / '+charge.uridium+' uridium');}}
    const tags=await accounts.clanTags([...active.keys()]);const byId=new Map(tags.map(t=>[t.account_id,t.tag]));
    for(const p of players.values())p.clanTag=byId.get(p.accountId)||'';
