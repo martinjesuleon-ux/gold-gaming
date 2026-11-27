@@ -167,18 +167,42 @@
    for(let i=0;i<core.length;i++){const p=core[i],q=core[(i+1)%core.length];polygon(c,[p,q,[(rand()-.5)*10,(rand()-.5)*10]],i%3===0?'#ffffffb0':i%3===1?'#a8d9eac0':'#d4f2f9a0','#e7fbff70',.4);}
    for(let i=0;i<(big?22:12);i++){const a=rand()*Math.PI*2,r=reach*(.70+rand()*.31);c.fillStyle=i%3?'#c1e4f380':'#f1fcff';c.fillRect(Math.cos(a)*r,Math.sin(a)*r,.8+rand()*1.1,.8+rand()*1.1);}
   }else if(species==='mordon'||species==='devolarium'){
-   const heavy=species==='devolarium',w=heavy?34:27;
-   for(const side of [-1,1]){
-    const outline=heavy?[[32,8],[23,22],[7,w],[-15,w],[-35,20],[-29,8],[-8,5]]:[[26,8],[18,23],[-1,w],[-23,23],[-30,13],[-17,6],[-7,4]];
-    polygon(c,outline.map(([x,y])=>[x,y*side]),armor,color,.85);
-    for(let i=0;i<3;i++){const x=-20+i*13;polygon(c,[[x,11*side],[x+10,13*side],[x+8,(w-5)*side],[x-4,(w-7)*side]],steel,'#77807d',.65);polygon(c,[[x+1,15*side],[x+6,16*side],[x+4,20*side],[x-1,19*side]],'#1d2b30',color,.4);}
-    polygon(c,[[-31,9*side],[-35,17*side],[-26,22*side],[-21,14*side]],steel,seam,.65);
-    if(heavy||elite){polygon(c,[[18,9*side],[34,12*side],[39,19*side],[26,24*side],[14,17*side]],steel,color,.8);for(let i=0;i<3;i++){c.fillStyle=color;c.fillRect(26+i*3,side*17-1,1.6,2);}}
+   // Distinct original silhouettes: rust-colored tower with articulated legs,
+   // and broad blue-gray machinery with separated armored modules.
+   if(species==='mordon'){
+    const bronze=linear(c,-32,-35,32,32,[[0,'#f3b29a'],[.22,'#a55742'],[.48,'#382527'],[.72,'#b16e51'],[1,'#352124']]);
+    const tower=linear(c,-13,-39,14,13,[[0,'#b4a7a2'],[.28,'#53545b'],[.55,'#292a31'],[.82,'#a08276'],[1,'#392b2a']]);
+    c.fillStyle=radial(c,0,12,47,[[0,'#ef754c65'],[.55,'#af492b38'],[1,'#af492b00']]);c.fillRect(-48,-32,96,88);
+    for(const [x,y] of [[-37,22],[-15,38],[12,40],[37,21],[-34,5],[34,5]]){
+     const hx=x*.5,hy=8+y*.22;
+     polygon(c,[[-6,5],[hx-3,hy-3],[x,y],[hx+3,hy+4],[6,13]],bronze,'#bba094',.8);
+     polygon(c,[[hx-2,hy],[x,y],[x*.85,y+5],[hx+2,hy+3]],steel,'#a58a7c',.65);
+    }
+    polygon(c,[[-17,-20],[-11,-35],[1,-42],[15,-29],[19,-10],[14,12],[0,20],[-15,10]],tower,'#bda49a',1);
+    polygon(c,[[-10,-28],[0,-34],[10,-26],[8,7],[0,13],[-9,5]],'#272a31','#95786a',.75);
+    for(let y=-25;y<5;y+=8){polygon(c,[[-8,y],[7,y+7],[7,y+9],[-8,y+2]],'#a88c80');polygon(c,[[7,y],[-8,y+7],[-8,y+9],[7,y+2]],'#796965');}
+    polygon(c,[[-10,-34],[0,-41],[10,-33],[7,-27],[-7,-27]],bronze,'#f2b39a',.9);
+    for(const side of [-1,1])polygon(c,[[side*11,-30],[side*17,-19],[side*15,10],[side*9,13],[side*12,-14]],bronze,'#bc9c8b',.6);
+    if(elite){c.fillStyle=color;c.fillRect(-5,-36,10,3);}
+   }else{
+    const hull=linear(c,-48,-29,44,29,[[0,'#c4dcda'],[.18,'#75969a'],[.42,'#37545d'],[.66,'#172a32'],[.83,'#59777d'],[1,'#24343c']]);
+    const inset='#172c35',rim='#85a8ac';
+    polygon(c,[[-46,0],[-39,-17],[-24,-25],[12,-21],[35,-15],[46,-4],[44,14],[28,24],[-25,25],[-42,14]],inset,'#54747e',.85);
+    polygon(c,[[-18,-34],[2,-34],[9,-25],[11,23],[4,32],[-15,31],[-21,21],[-22,-23]],hull,rim,1);
+    polygon(c,[[-15,-26],[3,-26],[5,-13],[-16,-13]],'#365661',rim,.7);
+    polygon(c,[[-16,-8],[4,-8],[5,18],[-15,18]],inset,rim,.8);
+    for(let y=-5;y<17;y+=5){c.fillStyle='#67898f';c.fillRect(-12,y,14,2);}
+    polygon(c,[[15,-26],[31,-21],[43,-11],[47,9],[33,24],[16,21],[21,9],[18,-8]],hull,rim,.9);
+    for(const [x,y] of [[17,-23],[27,-20],[36,-14]]){polygon(c,[[x,y],[x+6,y+1],[x+7,y+12],[x+1,y+13]],'#95b4b6','#3b5962',.5);}
+    polygon(c,[[23,0],[38,3],[37,15],[25,17],[21,9]],inset,rim,.7);
+    for(let i=0;i<3;i++){c.fillStyle='#6d8990';c.fillRect(25,5+i*3,10,1.5);}
+    for(const side of [-1,1]){
+     polygon(c,[[-43,3*side],[-37,15*side],[-25,20*side],[-25,9*side]],hull,rim,.7);
+     c.strokeStyle='#77969d';c.lineWidth=1;c.beginPath();c.moveTo(-38,8*side);c.bezierCurveTo(-33,18*side,-24,2*side,-20,10*side);c.stroke();
+     polygon(c,[[7,3*side],[14,5*side],[19,15*side],[10,17*side]],steel,'#5b7c84',.65);
+    }
+    if(elite){c.fillStyle=color;for(const x of [-16,-9,-2,31])c.fillRect(x,-22,3,2);}
    }
-   polygon(c,[[35,0],[21,-11],[2,-14],[-22,-10],[-34,-4],[-34,4],[-22,10],[2,14],[21,11]],steel,seam,1);
-   polygon(c,[[25,0],[12,-7],[-10,-7],[-18,0],[-10,7],[12,7]],'#101d25',color,.8);
-   for(let i=0;i<5;i++){c.fillStyle=i===2?color:'#62777d';c.fillRect(-11+i*5,-3,3,6);}
-   for(const side of [-1,1]){polygon(c,[[-23,6*side],[-8,10*side],[8,10*side],[17,6*side]],steel,seam,.5);for(let j=0;j<3;j++){c.fillStyle='#0c1b23';c.fillRect(-17+j*7,7*side-1,4,2);c.fillStyle=color;c.fillRect(-17+j*7,7*side-1,2,.7);}}
   }else{
    // Three-dimensional modular cube; three visible faces and separately recessed plates.
    const top=[[0,-42],[38,-22],[0,-2],[-38,-22]],left=[[-38,-22],[0,-2],[0,42],[-38,22]],right=[[0,-2],[38,-22],[38,22],[0,42]];
