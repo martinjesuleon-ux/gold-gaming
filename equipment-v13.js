@@ -52,7 +52,7 @@ function configurations(shipId,configs,owned){
 }
 function hit(target,amount,absorption=.5){
  requireRule(Number.isFinite(amount)&&amount>=0&&Number.isFinite(target.hp)&&target.hp>=0&&Number.isFinite(target.shield)&&target.shield>=0&&Number.isFinite(absorption)&&absorption>=0&&absorption<=1,'Daño inválido');
- const absorbed=Math.min(target.shield,Math.round(amount*absorption));
+ const absorbed=Math.min(target.shield,amount,Math.round(amount*absorption));
  return {hp:Math.max(0,target.hp-(amount-absorbed)),shield:target.shield-absorbed};
 }
 function salvo(attacker,target,ammoId,stock,roll){
@@ -60,8 +60,13 @@ function salvo(attacker,target,ammoId,stock,roll){
  requireRule(ammo&&Number.isSafeInteger(stock)&&Number.isFinite(roll)&&roll>=0&&roll<1&&Number.isFinite(attacker.damage)&&attacker.damage>=0,'Ataque inválido');
  const cost=attacker.lasers;
  requireRule(Number.isSafeInteger(cost)&&cost>0&&stock>=cost,'Munición insuficiente');
- const amount=roll<Math.min(1,1-(1-ammo.miss*(attacker.aimBoost?.5:1))*(attacker.accuracyFactor??1))?0:Math.round(attacker.damage*ammo.multiplier);
+ const accuracy=attacker.accuracyFactor??1;
+ requireRule(Number.isFinite(accuracy)&&accuracy>=0,'Precisión inválida');
+ const miss=Math.max(0,Math.min(1,1-(1-ammo.miss*(attacker.aimBoost?.5:1))*accuracy));
+ const amount=roll<miss?0:Math.round(attacker.damage*ammo.multiplier);
+ requireRule(Number.isSafeInteger(amount)&&amount>=0,'Daño inválido');
  if(ammo.shieldOnly){
+  requireRule(Number.isFinite(target.hp)&&target.hp>=0&&Number.isFinite(target.shield)&&target.shield>=0,'Objetivo inválido');
   const drained=Math.min(target.shield,amount);
   return {stock:stock-cost,intervalMs:ammo.intervalMs,damage:0,drained,target:{hp:target.hp,shield:target.shield-drained},attackerShield:Math.min(attacker.maxShield,attacker.shield+drained)};
  }
