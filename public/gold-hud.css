@@ -18,3 +18,11 @@
 #hud .gg-window[data-key=group]{top:135px}#hud .gg-window[data-key=chip]{top:222px}#hud .gg-window[data-key=module]{top:365px;left:8px;right:auto;width:230px}
 #hud .gg-window h2{font-size:12px;margin:0;padding:4px;background:#152a35;border-bottom:1px solid #37667c}#hud .gg-window h2 button{float:right;padding:0 6px;color:#c0dbe6;background:#152a35;border:1px solid #37667c}#hud .gg-window p{font-size:11px;margin:8px 0 0}
 #hud .target{top:315px!important;right:8px!important;left:auto!important}#hud .connection{z-index:20}
+
+/* Stable single-row controls: no extra grid row when DIOS is visible. */
+#hud .topbar .pilot-actions{grid-column:1/-1;display:flex;gap:4px;min-width:0;align-items:center}
+#hud .topbar .pilot-actions button{flex:1 1 0;min-width:0;padding:7px 2px;white-space:nowrap;font-size:10px;letter-spacing:0;height:31px}
+#hud #godMenu[aria-pressed=true]{color:#70ffa5;border-color:#70ffa5;background:#163329}
+#hud .topbar .credits,#hud .topbar .pilot{min-width:0;overflow-wrap:anywhere}
+#hud .vitals{top:var(--gg-vitals-top,230px)!important}
+#hud .gg-window[data-key=module]{top:var(--gg-module-top,365px)!important}
