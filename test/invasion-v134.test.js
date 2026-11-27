@@ -22,3 +22,13 @@ test('all three wave tables and boss recharge',()=>{
  }
 });
 test('score announced only at the configured interval',()=>{const e=createEvent('easy',0);enter(e,'p',5,1);advance(e,60000);assert.equal(announcement(e,119999),null);assert.deepEqual(announcement(e,120000),[{id:'p',points:0}]);assert.equal(announcement(e,120001),null);});
+
+test('admission preview separates brackets, limits registrations and expires without spawning enemies',()=>{
+ const {createAdmission}=require('../invasion-v134');const l=createAdmission({eligible:p=>p.available});
+ const a={id:'a',level:5,available:true},b={id:'b',level:12,available:true},c={id:'c',level:5,available:false};
+ l.open('easy',0);l.open('medium',1000);assert.throws(()=>l.open('easy',1));assert.throws(()=>l.join(c,1));l.join(a,1);l.join(a,1);l.join(b,1001);
+ assert.equal(l.view(a).event.participants,1);assert.equal(l.view(b).event.participants,1);
+ assert.equal(l.leave('a'),true);assert.equal(l.leave('a'),false);l.join(a,2000);const expired=l.tick(60000);
+ assert.equal(expired.length,1);assert.deepEqual(expired[0].ids,['a']);assert.equal(expired[0].event.phase,'preview-complete');assert.equal(expired[0].event.aliens.size,0);assert.equal(l.view(a).joined,false);assert.equal(l.view(b).joined,true);
+ assert.equal(l.tick(61000).length,1);assert.equal(l.view(b).joined,false);
+});
