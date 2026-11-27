@@ -46,5 +46,5 @@ test('PET escort keeps independent spacing and heading in both themes',()=>{
  const smooth=vm.runInNewContext(extract('function smoothPetPosition(','function drawPet(')+';smoothPetPosition');
  const turn=smooth({x:0,y:0,angle:Math.PI-.1},{x:10,y:20,angle:-Math.PI+.1},.5);
  assert.ok(Math.abs(turn.angle-Math.PI)<.001);
- assert.match(server,/nearestEligible\(p,boxes.inZone\(zoneOf\(p\)\),700/);
+ assert.match(server,/nearestEligible\(p,boxes.inZone\(zoneOf\(p\)\),p\.petLootRange\|\|700/);
 });
