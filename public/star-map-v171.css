@@ -28,16 +28,17 @@
 #gg171-status{grid-column:1/-1;font-size:12px;color:#a9b9cb;min-height:1.2em;}
 @media(max-width:640px){#gg171-star-dialog footer{grid-template-columns:1fr;}#gg171-chart{min-height:180px;}#gg171-star-dialog h2{font-size:13px;}}
 
-#gg171-rewards{position:fixed;top:112px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:stretch;gap:5px;width:min(260px,42vw);max-height:55vh;overflow:hidden;z-index:9;pointer-events:none;font:12px system-ui,sans-serif;}
-.gg171-reward{display:grid;gap:3px;padding:8px 12px;color:#e9edf4;background:#0b121be8;border:1px solid #b89a556b;border-radius:4px;box-shadow:0 2px 10px #0008;animation:gg171-in .18s ease-out;}
-.gg171-reward>strong{text-align:center;color:#eacb80;font-size:12px;margin-bottom:3px;}
-.gg171-reward-line{display:flex;justify-content:space-between;gap:6px;font-variant-numeric:tabular-nums;}
-.gg171-reward-line b{color:#a4edb6;}
-.gg171-reward-line.negative b{color:#ff8f87;}
-.gg171-reward.leaving{opacity:0;transition:opacity .5s;}
-@keyframes gg171-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:700px){#gg171-rewards{top:245px;width:min(230px,72vw);}}
-@media(prefers-reduced-motion:reduce){.gg171-reward{animation:none}.gg171-reward.leaving{transition:none}}
+/* One transparent floating reward at a time, independent of the HUD theme. */
+#gg171-rewards{position:fixed;top:112px;left:50%;transform:translateX(-50%);width:min(320px,65vw);z-index:9;pointer-events:none;font:600 13px system-ui,sans-serif;text-align:center;}
+.gg171-reward{display:grid;justify-items:center;gap:3px;color:#f0f3f7;background:transparent;border:0;box-shadow:none;text-shadow:0 1px 3px #000,0 0 6px #000;animation:gg172-float 4.2s linear both;}
+.gg171-reward>strong{color:#ead7a2;font-size:12px;font-weight:600;margin-bottom:2px;}
+.gg171-reward-line{display:flex;justify-content:center;gap:7px;font-variant-numeric:tabular-nums;}
+.gg171-reward-line b{color:#b5e9bf;font-weight:650;}
+.gg171-reward-line.negative b{color:#ff9b93;}
+html[data-gg-theme=classic] .gg171-reward>strong{color:#bde4ef;}
+@keyframes gg172-float{0%{opacity:.92;transform:translateY(0)}30%{opacity:.88;transform:translateY(-5px)}65%{opacity:.48;transform:translateY(-18px)}100%{opacity:0;transform:translateY(-42px)}}
+@media(max-width:700px){#gg171-rewards{top:245px;width:min(280px,72vw);}}
+@media(prefers-reduced-motion:reduce){.gg171-reward{animation-name:gg172-fade}@keyframes gg172-fade{0%,30%{opacity:.92}100%{opacity:0}}}
 
 /* Readable coordinates, distinct portal legend, shared radar geometry. */
 #hud .radar[aria-label="Minimapa"]:not(.gg-custom-position){width:286px!important;}
