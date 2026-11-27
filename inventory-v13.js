@@ -67,7 +67,7 @@ function createInventory(pool){
     q={id:code,category,quantity,currency:'uridium',total:quantity/4};
    }
    if(category==='petGear'){
-    if(code!=='G-AL1'||quantity!==1)throw fail('Engranaje inválido');
+    if(!['G-AL1','G-KK1'].includes(code)||quantity!==1)throw fail('Engranaje inválido');
     const rows=(await c.query("SELECT category,code FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
     if(!rows.some(x=>x.category==='pet'))throw fail('Necesitas un P.E.T.');
     if(rows.some(x=>x.code===code))throw fail('Engranaje ya adquirido');
@@ -130,6 +130,15 @@ function createInventory(pool){
   });
  }
  // El combustible se cobra antes de activar cada intervalo de vuelo.
+ async function petKamikaze(id){
+  return transaction(id,async c=>{
+   const owned=(await c.query("SELECT code,category FROM gg_v13_inventory WHERE account_id=$1 AND category IN ('pet','petGear')",[id])).rows;
+   if(!owned.some(x=>x.category==='pet')||!owned.some(x=>x.code==='G-KK1'))throw fail('Compra el módulo G-KK1 Kamikaze en la tienda');
+   const r=(await c.query("UPDATE gg_v13_ammo SET quantity=quantity-10 WHERE account_id=$1 AND code='pet-fuel' AND quantity>=10 RETURNING quantity",[id])).rows[0];
+   if(!r)throw fail('Necesitas 10 unidades de combustible');
+   return {fuel:Number(r.quantity)};
+  });
+ }
  async function petInterval(id,mode){
   if(!['passive','loot'].includes(mode))throw fail('Modo inválido');
   return transaction(id,async c=>{
@@ -373,6 +382,6 @@ function createInventory(pool){
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
 }
 module.exports={createInventory};
