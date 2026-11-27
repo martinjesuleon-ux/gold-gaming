@@ -191,13 +191,25 @@
   polygon(c,[[nose*.38,0],[nose*.08,-body*.14],[-body*.12,0],[nose*.08,body*.14]],color);
  }
  function vant(c,kind,color){
-  const id=kind.slice(6),sizes={flax:[9,5,0],iris:[11,8,1],apis:[12,10,2],zeus:[13,11,3]},[x,y,style]=sizes[id]||sizes.iris;
-  const steel=linear(c,-x,-y,x,y,[[0,'#e3e6e3'],[.2,'#85949a'],[.45,'#27353f'],[.65,'#566570'],[1,'#0b1420']]);
-  const coat=linear(c,-x,-y,x,y,[[0,color],[.35,'#384b55'],[.65,'#17232b'],[1,color]]);
-  const pts=style===0?[[x,0],[3,-y],[-7,-y],[-x,0],[-7,y],[3,y]]:style===1?[[x,0],[4,-y],[-6,-y],[-x,-4],[-6,0],[-x,4],[-6,y],[4,y]]:style===2?[[x,0],[5,-y*.55],[0,-y],[-8,-y*.8],[-x,-3],[-7,0],[-x,3],[-8,y*.8],[0,y],[5,y*.55]]:[[x,0],[6,-y*.55],[1,-y],[-9,-y],[-x,-4],[-8,0],[-x,4],[-9,y],[1,y],[6,y*.55]];
-  polygon(c,pts,steel,'#97a7ad',.7);
-  for(const s of [-1,1]){polygon(c,[[5,2*s],[0,y*.8*s],[-7,y*.65*s],[-5,2*s]],coat,color,.55);polygon(c,[[-7,3*s],[-4,3*s],[-4,5*s],[-7,5*s]],'#a9b7b9','#18212a',.4);}
-  polygon(c,[[x-2,0],[1,-3],[-4,0],[1,3]],coat,color,.65);polygon(c,[[x-4,0],[1,-1.4],[-1,0],[1,1.4]],color);
+  const id=kind.slice(6),red=color==='#ff3838',blue=color==='#398dff',spartan=color==='#ff8a24';
+  const special=red||blue||spartan,wing=red?'#a32228':blue?'#2055a4':spartan?'#315f91':'#a98d42';
+  const light=blue?'#dbeaff':'#ffe478',span=id==='flax'?5:id==='apis'?10:id==='zeus'?11:8;
+  const steel=linear(c,-12,-8,12,8,[[0,'#e0e8ee'],[.23,'#758b9b'],[.48,'#202d3a'],[.72,'#536575'],[1,'#101820']]);
+  const paint=linear(c,-8,-span,8,span,[[0,'#d1dbe0'],[.16,wing],[.54,'#151f30'],[.82,wing],[1,'#080d16']]);
+  for(const side of [-1,1]){
+   const y=side*span;
+   const hull=spartan?[[12,2*side],[8,y],[-9,y],[-13,5*side],[-6,2*side]]:[[8,2*side],[3,y],[-3,y*1.12],[-11,y*.75],[-8,3*side],[-2,2*side]];
+   polygon(c,hull,paint,'#778995',.6);
+   polygon(c,[[5,3*side],[1,y*.83],[-6,y*.78],[-3,3*side]],wing,'#b0bbc5',.35);
+   polygon(c,[[-11,2*side],[-6,2*side],[-4,4*side],[-10,5*side]],steel,'#101821',.4);
+   if(spartan||id==='zeus')polygon(c,[[-9,5*side],[-5,6*side],[-3,3*side],[-8,2*side]],'#b13237','#a5bac9',.4);
+   if(id==='apis'||id==='zeus')polygon(c,[[0,y],[4,y*.8],[6,y*.45],[2,y*.52]],'#c3a05a','#69542d',.4);
+  }
+  polygon(c,[[12,0],[7,-4],[-5,-5],[-11,-3],[-11,3],[-5,5],[7,4]],steel,'#a3b4c2',.75);
+  polygon(c,[[9,-2],[3,-4],[-4,-3],[-7,0],[-4,3],[3,4],[9,2]],'#172330','#9cacb9',.5);
+  c.fillStyle=radial(c,5,0,5,[[0,'#ffffff'],[.26,light],[.68,special?wing:'#b98e36'],[1,'#121923']]);
+  c.beginPath();c.arc(5,0,4.5,0,Math.PI*2);c.fill();c.strokeStyle='#b5c4ce';c.lineWidth=.6;c.stroke();
+  for(const side of [-1,1]){c.fillStyle='#c4d3db';c.fillRect(-7,side*3,2,.65);}
  }
  // Hand-authored half-hull outlines, reflected around the centerline. Nose faces +X.
  const pilotOutlines={
@@ -234,6 +246,15 @@
    }
    polygon(c,[[nose-2,0],[nose*.38,-5],[-12,-7],[rear+6,0],[-12,7],[nose*.38,5]],steel,'#87989c',.65);
    polygon(c,[[nose*.42,0],[nose*.08,-4],[-6,0],[nose*.08,4]],color,'#cee5e0',.55);
+   // Recessed cockpit, segmented armor and engine ports follow each hull's proportions.
+   const canopy=linear(c,-8,-5,nose*.42,5,[[0,'#08131e'],[.35,'#39596b'],[.58,'#b0d9e6'],[1,'#18303e']]);
+   polygon(c,[[nose*.40,0],[nose*.20,-3.5],[-4,-4],[-9,0],[-4,4],[nose*.20,3.5]],canopy,'#9bb6c3',.6);
+   for(const s of [-1,1]){
+    polygon(c,[[nose*.12,span*.64*s],[-5,span*.80*s],[rear*.62,span*.59*s],[-5,span*.69*s]],steel,'#80949d',.45);
+    for(let j=0;j<3;j++){const x=rear*.55+j*4;c.fillStyle='#101c25';c.fillRect(x,span*.27*s-1.4,2.7,2.8);c.fillStyle='#a5b8c1';c.fillRect(x,span*.27*s-1.4,2.7,.6);}
+    polygon(c,[[rear+4,5*s],[rear+10,5*s],[rear+10,9*s],[rear+4,8*s]],'#0c1822','#91a6b1',.55);
+    polygon(c,[[rear+5,6*s],[rear+8,6*s],[rear+8,8*s],[rear+5,7*s]],color,'#d5e7ed',.35);
+   }
    if(ship==='aegis')for(const s of [-1,1])polygon(c,[[-9,15*s],[2,15*s],[2,24*s],[-9,24*s]],'#b2d1cb',color,.7);
    if(ship==='citadel')for(const s of [-1,1])polygon(c,[[22,10*s],[31,15*s],[25,25*s],[15,22*s]],steel,'#92a5a7',.9);
   }
