@@ -254,7 +254,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   p.writes=job;pending.add(job);return true;
  }
  function setPetMode(p,mode){
-  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;p.petLastHitNpc=null;p.petLastAttackAt=0;p.petGuardStatus=null;p.petNextShot=0;p.petRepairStarted=0;p.petRepairNext=0;p.petRepairUntil=0;io.to(p.id).emit('v14:petGuard',{target:null});
+  const preserve=mode!=='off'&&p.petMode&&p.petMode!=='off';p.petMode=mode;p.petUntil=0;p.petFollowing=false;p.petSpeed=0;if(!preserve){p.petX=null;p.petY=null;p.petAngle=null;}p.petGeneration=(p.petGeneration||0)+1;p.petLastHitNpc=null;p.petLastAttackAt=0;p.petGuardStatus=null;p.petNextShot=0;p.petRepairStarted=0;p.petRepairNext=0;p.petRepairUntil=0;p.petLocateNext=0;io.to(p.id).emit('v14:petLocator',null);io.to(p.id).emit('v14:petGuard',{target:null});
   io.to(p.id).emit('v14:petState',{mode,fuel:p.petFuel??null,pending:mode!=='off',vitals:p.petVitals||null});
  }
  // Section groups spawn in order. Protegit combat statistics remain provisional.
@@ -735,7 +735,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }).catch(e=>io.to(p.id).emit('notice',e.status?e.message:'Kamikaze no disponible')).finally(()=>{p.kamiPending=false;pending.delete(job);});
   pending.add(job);
  });
- socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
+ socket.on('v14:pet',mode=>{const p=players.get(socket.id);if(!allowed()||!p||!['off','passive','guard','loot','repair','resource','locate-resource','locate-enemy'].includes(mode))return;if(mode==='off'){setPetMode(p,mode);return;}if(p.deadUntil||p.petPending||p.petMode===mode)return;setPetMode(p,mode);});
  function broadcastHades(room){if(room)for(const member of room.players)io.to(member.id).emit('v14:hadesLobby',room);}
  socket.on('v14:hadesLobby',async(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;
@@ -895,6 +895,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   if(len<=deadzone)p.petSpeed=0;
   if(targetBox&&Math.hypot(p.petX-targetBox.x,p.petY-targetBox.y)<35)collectBox(p,targetBox,true);
   if(p.petMode==='guard')shootPetGuard(p,now);if(p.petMode==='repair')tickPetRepair(p,now);
+  if(['locate-resource','locate-enemy'].includes(p.petMode)&&now>=(p.petLocateNext||0)){p.petLocateNext=now+1000;const mode=p.petMode;const marker=!p.gate?require('./pet-support-gears-v178').locatorMarker(p,mode==='locate-resource'?boxes.inZone(zoneOf(p)):npcs.values(),p.petLootRange,mode,now):null;io.to(p.id).emit('v14:petLocator',marker); }
  }
  if(!p.gate)for(const b of boxes.inZone(zoneOf(p)))if(distance(p,b)<52)collectBox(p,b);
  collectSpaceball(p,now);collectIce(p,now);
