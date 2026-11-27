@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const {bonusLoot}=require('./loot-v14');
-const {DEFS,GATES,SHARED,KRONOS,REWARDS,spinGate,itemDraw}=require('./gates-v14');
+const {DEFS,GATES,SHARED,KRONOS,REWARDS,PLAYABLE,spinGate,itemDraw}=require('./gates-v14');
 const {quote,configurations}=require('./equipment-v13');
 const catalog=require('./data/catalog-v13.json');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -163,7 +163,7 @@ function createInventory(pool){
  async function gateView(c,id,rows){
   const energy=Number((await c.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='gate-energy'",[id])).rows[0]?.quantity||0);
   const balance=(await c.query('SELECT credits,uridium FROM player_progress WHERE account_id=$1',[id])).rows[0];
-  const states=Object.fromEntries(GATES.map(g=>[g,{...DEFS[g],...rows[g],required:DEFS[g].pieces,ready:rows[g].built,canBuild:!rows[g].built&&rows[g].pieces.length===DEFS[g].pieces,combatAvailable:SHARED.includes(g)}]));
+  const states=Object.fromEntries(GATES.map(g=>[g,{...DEFS[g],...rows[g],required:DEFS[g].pieces,ready:rows[g].built,canBuild:!rows[g].built&&rows[g].pieces.length===DEFS[g].pieces,combatAvailable:PLAYABLE.includes(g)}]));
   return {gates:GATES,states,alpha:states.alpha,energy,balance};
  }
  async function gateStatus(id){return transaction(id,async c=>gateView(c,id,await gateRows(c,id)));}
@@ -204,14 +204,14 @@ function createInventory(pool){
  const gateBuild=(id,body)=>gateAction(id,body,'build');
  const gateLife=(id,body)=>gateAction(id,body,'life');
  async function gateCheckpoint(id,gate='alpha'){
-  if(!SHARED.includes(gate))throw fail('Combate de esta puerta aún en desarrollo');
+  if(!PLAYABLE.includes(gate))throw fail('Combate de esta puerta aún en desarrollo');
   return transaction(id,async c=>{
    const g=(await gateRows(c,id))[gate];if(!g.built||g.lives<1||g.wave>=DEFS[gate].waves)throw fail('Puerta no disponible');
    return {gate,wave:g.wave,lives:g.lives,completions:g.completions};
   });
  }
  async function gateAdvance(id,expectedWave,outcome,gate='alpha'){
-  if(!SHARED.includes(gate)||!Number.isInteger(expectedWave)||expectedWave<0||expectedWave>=DEFS[gate].waves||!['clear','death'].includes(outcome))throw fail('Progreso inválido');
+  if(!PLAYABLE.includes(gate)||!Number.isInteger(expectedWave)||expectedWave<0||expectedWave>=DEFS[gate].waves||!['clear','death'].includes(outcome))throw fail('Progreso inválido');
   return transaction(id,async c=>{
    const rows=await gateRows(c,id),g=rows[gate];
    if(!g.built||g.wave!==expectedWave||g.lives<1)throw fail('La puerta cambió; vuelve a entrar');
@@ -222,7 +222,18 @@ function createInventory(pool){
     const balance=(await c.query('UPDATE player_progress SET uridium=uridium+$2,experience=experience+$3,honor=honor+$4,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium,experience,level,honor',[id,uridium,xp,honor])).rows[0];
     for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['xenomit',xenomit],['repair-voucher',vouchers],['green-key',keys]])await addStack(c,id,code,n);
     const k=rows.kronos;if(!k.built&&KRONOS[gate]){const offset=Object.keys(KRONOS).slice(0,Object.keys(KRONOS).indexOf(gate)).reduce((sum,key)=>sum+KRONOS[key],0);for(let n=offset+1;n<=offset+KRONOS[gate];n++){if(!k.pieces.includes(n)){k.pieces.push(n);await saveGateRow(c,id,k);break;}}}
-    g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance};
+    // Draw once per completed gate; Sunday doubles the item, never the base payout.
+    const item=itemDraw(gate,g.completions===0,crypto.randomInt(1000));
+    const day=new Intl.DateTimeFormat('en-US',{weekday:'short',timeZone:'UTC'}).format(new Date());
+    const itemQuantity=item?(day==='Sun'?2:1):0;
+    if(item==='MUL-B03'){
+     // Booster activation needs a running-time subsystem; retain award as a redeemable entitlement.
+     await addStack(c,id,item,itemQuantity);
+    }else if(item){
+     const category=item==='LF-4'?'lasers':item==='SG3N-B03'?'shields':['Havoc','Hercules','Spartan'].includes(item)?'drone-designs':'ship-designs';
+     for(let i=0;i<itemQuantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,category]);
+    }
+    g.completions++;payout={uridium,xp,honor,ammo,disks,xenomit,vouchers,keys,balance,item,itemQuantity};
    }
    if(complete||failed){g.built=false;g.wave=0;g.lives=0;}
    else if(outcome==='clear')g.wave++;
