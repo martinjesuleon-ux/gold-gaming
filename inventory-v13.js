@@ -129,6 +129,19 @@ function createInventory(pool){
    return {ship:h.ship,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
   });
  }
+ async function useCpu(id,code){
+  return transaction(id,async c=>{
+   const h=(await c.query('SELECT configs,active FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];
+   const config=h?.configs?.[h.active],ids=Array.isArray(config)?config:config?.ship||[];
+   const items=(await c.query("SELECT instance_id,code FROM gg_v13_inventory WHERE account_id=$1 AND category='cpus'",[id])).rows;
+   if(!items.some(i=>i.code===code&&ids.includes(i.instance_id)))throw fail('Equipa este CPU primero');
+   const costs=['ISH-01','SMB-01'].includes(code)?[['ACM-01',10],['xenomit',100]]:['CLO4K-CPU','CLO4K-XL-CPU'].includes(code)?[[code+'-uses',1]]:null;
+   if(!costs)throw fail('CPU no activable');
+   const remaining={};
+   for(const [item,n] of costs){const r=(await c.query('UPDATE gg_v13_ammo SET quantity=quantity-$3 WHERE account_id=$1 AND code=$2 AND quantity>=$3 RETURNING quantity',[id,item,n])).rows[0];if(!r)throw fail('Necesitas '+n+' '+item);remaining[item]=Number(r.quantity);}
+   return remaining;
+  });
+ }
  async function consumeAmmo(id,code,count){
   if(!catalog.ammo.some(a=>a.id===code)||!Number.isSafeInteger(count)||count<1||count>100)throw fail('Munición inválida');
   return transaction(id,async c=>{
@@ -395,6 +408,6 @@ function createInventory(pool){
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
+ return {ready,purchase,snapshot,equip,combatLoadout,useCpu,consumeAmmo,petInterval,petKamikaze,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
 }
 module.exports={createInventory};
