@@ -204,6 +204,66 @@ function createInventory(pool){
  const gateSpin=(id,body)=>gateAction(id,body,'spin');
  const gateBuild=(id,body)=>gateAction(id,body,'build');
  const gateLife=(id,body)=>gateAction(id,body,'life');
+ // Hades operations lock every participating account in a stable order.
+ async function hadesTransaction(ids,fn){
+  if(!Array.isArray(ids)||ids.length<4||ids.length>8||new Set(ids).size!==ids.length)throw fail('Hades requiere 4–8 pilotos');
+  const c=await pool.connect();
+  try{
+   await c.query('BEGIN');
+   const sorted=[...ids].sort();
+   for(const id of sorted){if(!(await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rowCount)throw fail('Piloto no disponible');}
+   const rows=await Promise.all(sorted.map(async id=>({id,g:(await gateRows(c,id)).hades})));
+   if(rows.some(({g})=>!g.built||g.lives<1||g.wave>=DEFS.hades.waves))throw fail('Todos necesitan Hades construido');
+   const wave=rows[0].g.wave,kills=[...rows[0].g.kills].sort();
+   if(rows.some(({g})=>g.wave!==wave||JSON.stringify([...g.kills].sort())!==JSON.stringify(kills)))throw fail('El grupo necesita el mismo progreso de Hades');
+   const result=await fn(c,rows,{wave,kills,lives:Math.min(...rows.map(x=>x.g.lives))});
+   await c.query('COMMIT');return result;
+  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
+ }
+ async function hadesStart(ids){
+  return hadesTransaction(ids,async(c,rows,state)=>{
+   for(const {id,g} of rows){g.lives=state.lives;await saveGateRow(c,id,g);}
+   return state;
+  });
+ }
+ async function hadesKill(ids,wave,key,payout,killer){
+  if(typeof key!=='string'||!/^\d+:\d+$/.test(key)||!ids.includes(killer))throw fail('Enemigo inválido');
+  const [group,slot]=key.split(':').map(Number),entry=WAVES.hades[wave]?.[group];
+  if(!entry||slot<0||slot>=entry[1]||!payout||!['credits','xp','uridium','honor'].every(k=>Number.isSafeInteger(payout[k])&&payout[k]>=0))throw fail('Recompensa inválida');
+  return hadesTransaction(ids,async(c,rows,state)=>{
+   if(state.wave!==wave)throw fail('Sección inválida');
+   if(state.kills.includes(key))return {duplicate:true};
+   const balances={};
+   // Provisional: split the alien reward equally, with rounding remainder to the killer.
+   const share=(amount,id)=>Math.floor(amount/ids.length)+(id===killer?amount%ids.length:0);
+   for(const {id,g} of rows){
+    g.kills.push(key);await saveGateRow(c,id,g);
+    balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,share(payout.credits,id),share(payout.xp,id),share(payout.uridium,id),share(payout.honor,id)])).rows[0];
+   }
+   return {balances};
+  });
+ }
+ async function hadesAdvance(ids,wave,outcome){
+  if(!['clear','death'].includes(outcome))throw fail('Acción inválida');
+  return hadesTransaction(ids,async(c,rows,state)=>{
+   if(state.wave!==wave)throw fail('Sección inválida');
+   if(outcome==='clear'&&state.kills.length!==WAVES.hades[wave].reduce((n,x)=>n+x[1],0))throw fail('Quedan enemigos');
+   const complete=outcome==='clear'&&wave===2,failed=outcome==='death'&&state.lives===1;
+   const lives=complete||failed?0:state.lives-(outcome==='death'?1:0),nextWave=complete||failed?0:wave+(outcome==='clear'?1:0),payouts={};
+   for(const {id,g} of rows){
+    if(complete){
+     const [u,xp,honor,ammo,disks,,,keys]=REWARDS.hades;
+     const balance=(await c.query('UPDATE player_progress SET uridium=uridium+$2,experience=experience+$3,honor=honor+$4,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,uridium,experience,level,honor',[id,u,xp,honor])).rows[0];
+     for(const [code,n] of [['UCB-100',ammo],['log-disk',disks],['green-key',keys]])await addStack(c,id,code,n);
+     const item=itemDraw('hades',g.completions===0,crypto.randomInt(1000)),quantity=item?(new Date().getUTCDay()===0?2:1):0;
+     for(let i=0;i<quantity;i++)await c.query('INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,$4)',[id,crypto.randomUUID(),item,'lasers']);
+     g.completions++;payouts[id]={balance,uridium:u,item,itemQuantity:quantity};
+    }
+    g.wave=nextWave;g.lives=lives;if(complete||failed)g.built=false;if(outcome==='clear'||failed)g.kills=[];await saveGateRow(c,id,g);
+   }
+   return {wave:nextWave,lives,complete,failed,payouts,kills:outcome==='clear'||failed?[]:state.kills};
+  });
+ }
  async function hadesEligibility(id){
   return transaction(id,async c=>{
    const g=(await gateRows(c,id)).hades;
@@ -265,6 +325,6 @@ function createInventory(pool){
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,gateCheckpoint,gateKill,gateAdvance};
+ return {ready,purchase,snapshot,equip,combatLoadout,consumeAmmo,petInterval,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance};
 }
 module.exports={createInventory};
