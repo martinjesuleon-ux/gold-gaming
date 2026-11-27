@@ -26,7 +26,8 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  const referralEnabled=()=>referralLib.referralConfig();
  const referralIP=req=>referralLib.ipFingerprint(process.env.GG_REFERRAL_TRUST_PROXY==='1'?req.ip:req.socket.remoteAddress,process.env.GG_REFERRAL_SECRET);
  const referralCookie={httpOnly:true,secure:process.env.NODE_ENV==='production'||!!process.env.RENDER,sameSite:'lax',path:'/'};
- app.get('/invite/:id',limit(async(req,res)=>{if(!referralEnabled())return res.redirect('/');const token=referralLib.signInvite(req.params.id,process.env.GG_REFERRAL_SECRET);if(token&&!referralLib.cookieInvite(req.headers,process.env.GG_REFERRAL_SECRET)){res.cookie('gg_referral',token,{...referralCookie,maxAge:referralLib.TTL});}res.redirect('/');}));
+ const inviteAllowed=referralLib.createInviteLimiter();
+ app.get('/invite/:id',async(req,res)=>{if(!referralEnabled()||!inviteAllowed(referralIP(req)))return res.redirect('/');try{const token=referralLib.signInvite(req.params.id,process.env.GG_REFERRAL_SECRET);if(token&&!referralLib.cookieInvite(req.headers,process.env.GG_REFERRAL_SECRET)){const pilot=(await pool.query('SELECT 1 FROM accounts WHERE id=$1',[req.params.id])).rows[0];if(pilot)res.cookie('gg_referral',token,{...referralCookie,maxAge:referralLib.TTL});}}catch(e){console.error('Referral invitation:',e.code||e.message);}res.redirect('/');});
  app.use('/api/v13',async(req,res,next)=>{
   res.set('Cache-Control','no-store');
   if(req.method!=='GET'){
