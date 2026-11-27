@@ -1,0 +1,15 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const read=n=>fs.readFileSync(path.join(__dirname,'../public',n),'utf8');
+const cat=require('../data/catalog-v13.json');
+test('all shop catalog items have descriptions, real statistics and original artwork',()=>{
+ const gradient={addColorStop(){}},ctx=new Proxy({createRadialGradient:()=>gradient,createLinearGradient:()=>gradient},{get:(t,k)=>k in t?t[k]:()=>{}});
+ const document={createElement:()=>({setAttribute(){},getContext:()=>ctx})},window={};vm.runInNewContext(read('shop-visual-v163.js'),{window,document});const v=window.ggShopVisual;
+ for(const [category,items] of Object.entries(cat)){if(!Array.isArray(items))continue;for(const item of items){assert.ok(v.describe(category,item).length>25,item.id);assert.ok(v.palette[category],category);assert.ok(Array.isArray(v.stats(item)));assert.equal(v.art(category,item).width,144);}}
+ for(const [category,id] of [['drones','flax'],['drones','iris'],['pet','pet-10'],['fuel','pet-fuel'],['petGear','G-AL1'],['petGear','G-KK1']]){assert.ok(v.describe(category,{id}).length>20);assert.equal(v.art(category,{id}).height,96);}
+ assert.deepEqual(JSON.parse(JSON.stringify(v.stats({damage:200,absorption:.8,duration:5000,bonus:{shield:1.1}}))),[['Daño','200'],['Absorción','80 %'],['Duración','5 s'],['Escudo','+10 %']]);
+});
+test('catalog visuals load before shop and menu buttons contain visible labels',()=>{
+ const html=read('index.html'),hud=read('gold-hud.js'),shop=read('gold-v13.js');assert.ok(html.indexOf('shop-visual-v163.js')>=0);assert.ok(html.indexOf('shop-visual-v163.js')<html.indexOf('gold-v13.js'));
+ assert.match(hud,/b.append\(menuIcon\(symbols\[i\]\)\)/);assert.match(hud,/label.textContent=name/);assert.match(shop,/visual.art\(category,p\)/);assert.match(shop,/visual.describe\(category,p\)/);
+});
