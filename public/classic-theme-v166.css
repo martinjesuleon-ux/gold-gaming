@@ -1,0 +1,24 @@
+/* Optional classic sci-fi theme. Only scoped overrides; original remains the default. */
+html[data-gg-theme=classic]{--gold:#b5c8de;--line:#546a7c;--muted:#aab8c5;--panel:#101820ee;color-scheme:dark}
+html[data-gg-theme=classic] body{background:#010204;font-family:Arial,Helvetica,sans-serif}
+html[data-gg-theme=classic] #hud{--gg-frame:#6c8193;--gg-edge:#b2bec8;--gg-ink:#e2e7eb}
+html[data-gg-theme=classic] #hud :is(.topbar,.vitals,.radar,.target,.arsenal,.gg-window){background:linear-gradient(145deg,#263440eF,#0a1119ed 30%,#101921ed);border:1px solid #7c8e9b;border-bottom-color:#34495c;border-right-color:#34495c;box-shadow:inset 0 0 0 2px #080d13,inset 0 0 0 3px #364b59,0 3px 6px #000a;border-radius:0;color:#edf2f6;padding:8px}
+html[data-gg-theme=classic] #hud :is(.panel h2,.gg-window h2,.brand){background:linear-gradient(#596b79,#283e4d 48%,#14222f 52%,#263642);border:1px solid #7e919f;color:#fff;font-size:11px;text-shadow:1px 1px #000;letter-spacing:.06em}
+html[data-gg-theme=classic] #hud :is(.gg-tool button,.gg-slots button,.small,.gg-window button){background:linear-gradient(#6b7d8b,#304555 35%,#101b25 52%,#263b4a);border:1px solid #8898a3;border-bottom-color:#273642;border-right-color:#273642;border-radius:0;box-shadow:inset 0 0 0 1px #141d26;color:#f1f5f9}
+html[data-gg-theme=classic] #hud .gg-tool button svg{filter:drop-shadow(1px 1px 1px #000);stroke:#e4edf4}
+html[data-gg-theme=classic] #hud .gg-slots button.active{border-color:#80c4fb;box-shadow:inset 0 0 8px #56a8db80}
+html[data-gg-theme=classic] #hud .gg-slots #fire.active{background:linear-gradient(#a84942,#5b1719)}
+html[data-gg-theme=classic] #hud .panel progress{border-color:#718597;background:#020406;border-radius:0}
+html[data-gg-theme=classic] #hud .panel progress::-webkit-progress-value{background:linear-gradient(#a2f47a,#45ae24)}
+html[data-gg-theme=classic] #hud .panel progress::-moz-progress-bar{background:linear-gradient(#a2f47a,#45ae24)}
+html[data-gg-theme=classic] #hud :is(#shield,#targetShield)::-webkit-progress-value{background:linear-gradient(#9bcfff,#267fdc)}
+html[data-gg-theme=classic] #hud :is(#shield,#targetShield)::-moz-progress-bar{background:linear-gradient(#9bcfff,#267fdc)}
+html[data-gg-theme=classic] .gg13{background:#101922;border:2px ridge #70899e;font-family:Arial,Helvetica,sans-serif}
+html[data-gg-theme=classic] .gg13 :is(header,footer){background:linear-gradient(#536c83,#203347 49%,#142230 50%,#304759);border-bottom:1px solid #74889b}
+html[data-gg-theme=classic] .gg13 :is(button,select,input){background:linear-gradient(#475e71,#182732);border:1px solid #7e93a1;border-radius:0;color:#e8f1f9}
+html[data-gg-theme=classic] .gg13 :is(.gg13-shop,.gg13-hangar)>*{background:linear-gradient(130deg,#1a2836,#091018);border-color:#617c92}
+html[data-gg-theme=classic] .gg13 :is(.gg-hangar-item,.gg-empty-slot,.gg-shop-card,.gg-item-art){border-radius:0;background:linear-gradient(145deg,#344957,#0c141d);border-color:#627a8b}
+html[data-gg-theme=classic] .gg13 .gg-hangar-tabs button[aria-pressed=true]{background:linear-gradient(#547b98,#20394f);border-color:#a8d2f5;color:#fff}
+html[data-gg-theme=classic] .gg13 .gg-slot-section h3{background:linear-gradient(#647989,#233848)}
+html[data-gg-theme=classic] .gg13 .gg-hangar-preview{background:repeating-linear-gradient(90deg,transparent 0 25px,#93b4c215 26px 27px),radial-gradient(ellipse,#263c4d,#070d13 80%);border-color:#7b92a4}
+html[data-gg-theme=classic] #hud .gg-event-feed button{background:linear-gradient(#536b7e,#1d2d3d);border-color:#748da2;color:#edf4fa;border-radius:0}
