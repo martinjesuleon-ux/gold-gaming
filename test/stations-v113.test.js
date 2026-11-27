@@ -28,3 +28,21 @@ test('CBS construction consumes owned modules once and rejects occupied asteroid
   assert.equal((await service.status(ids[1])).inventory.length,10);
  }finally{for(const clan of clans)await pool.query('DELETE FROM gg_v15_clans WHERE id=$1',[clan]);for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
+
+test('CBS combat rules protect deflector, require edge destruction, and limit repairs',()=>{
+ const {stationHit,repairModule,passiveRepairRate,destructionShares,DESTRUCTION_REWARD,EMERGENCY}=require('../stations-v113');
+ const now=Date.UTC(2026,10,27,18),modules=validateModules(items(),300000),station={ready_at:now,down_until:now+1800000,modules};
+ assert.equal(stationHit(station,0,1000,now).applied,0);
+ const hit=stationHit(station,2,1000,now);assert.equal(hit.applied,1000);
+ assert.equal(hit.modules[2].shield,modules[2].shield-800);assert.equal(hit.modules[2].hp,modules[2].hp-200);
+ assert.equal(stationHit(station,2,1000,now+1800000).applied,0);
+ assert.equal(passiveRepairRate(modules,now-9000,now),0);assert.equal(passiveRepairRate(modules,now-10000,now),20500);
+ assert.equal(passiveRepairRate(modules.filter(m=>m.code!=='REPM-1'),now-10000,now),1025);
+ assert.equal(repairModule(hit.modules[2],EMERGENCY.rate,EMERGENCY.duration).hp,modules[2].hp);
+ const last={...station,modules:modules.map(m=>m.slot===0?m:{...m,hp:0,shield:0})};
+ assert.equal(stationHit(last,0,10000000,now).stationDestroyed,true);
+ const a=randomUUID(),b=randomUUID(),c=randomUUID(),shares=destructionShares([{accountId:a,at:now,damage:1},{accountId:a,at:now,damage:2},{accountId:b,at:now-600000,damage:3},{accountId:c,at:now-600001,damage:10}],now);
+ assert.equal(shares.length,2);assert.equal(shares.reduce((n,x)=>n+x.credits,0),DESTRUCTION_REWARD.credits);
+ assert.equal(shares.reduce((n,x)=>n+x.xp,0),DESTRUCTION_REWARD.xp);
+ assert.equal(shares.reduce((n,x)=>n+x.honor,0),DESTRUCTION_REWARD.honor);
+});
