@@ -47,3 +47,8 @@ test('mission cards classify actual progress and retain server reward claims',()
  const ui=read('gold-v13.js'),menu=ui.slice(ui.indexOf('function missionPhase('),ui.indexOf('async function socialGroup()'));
  assert.match(menu,/m.conditions.every/);assert.match(menu,/m.claimed/);assert.match(menu,/gg-mission-tabs/);assert.match(menu,/rewardCards\(m.reward\)/);assert.match(menu,/api\('missions',\{action:m.accepted\?'claim':'accept'/);assert.match(ui,/api\('daily',\{\}\)/);
 });
+
+test('social menus retain group and clan permissions and ranking positions when searching',()=>{
+ const ui=read('gold-v13.js'),social=ui.slice(ui.indexOf('async function socialGroup()'),ui.indexOf('function faction()')),rank=ui.slice(ui.indexOf('async function rankingMenu()'),ui.indexOf('let auctionBoard'));
+ assert.match(social,/capacity.max=8/);assert.match(social,/run\('invite',\{target:p.id\}\)/);assert.match(social,/can\('expulsar'\)/);assert.match(social,/run\('permissions'/);assert.match(social,/run\('diplomacy'/);assert.match(rank,/d.rows.forEach\(\(r,i\)/);assert.match(rank,/\[i\+1,r.name/);assert.match(rank,/search.oninput=list/);
+});
