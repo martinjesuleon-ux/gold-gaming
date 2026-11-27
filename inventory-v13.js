@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');
+const crypto=require('node:crypto');const {settle:settleEquipment}=require('./equipment-upgrade-v19');const {createFormations}=require('./formations-v19');const drones=require('./drones-v19');
 const {bonusLoot}=require('./loot-v14');
 const {MAPS,boxFactor}=require('./maps-v14');
 const {rewardFor}=require('./pvp-v15');
@@ -104,7 +104,7 @@ function createInventory(pool){
    await settleEquipment(c,id);
    // Reading inventory must not activate an empty combat loadout.
    const hangar=(await c.query('SELECT ship,configs,active,design FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0]||{ship:'phoenix',configs:[[],[]],active:0};
-   const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
+   const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
    return {balance:p,hangar,items,ammo};
   });
@@ -113,7 +113,7 @@ function createInventory(pool){
   if(!catalog.ships.some(s=>s.id===ship)||![0,1].includes(active))throw fail('Nave o configuración inválida');
   return transaction(id,async c=>{
    await settleEquipment(c,id);
-   const rows=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
+   const rows=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    if(ship!=='phoenix'&&!rows.some(x=>x.category==='ships'&&x.code===ship))throw fail('Nave no adquirida');
    if(design!==null&&(!catalog.designs.some(d=>d.id===design&&d.ship===ship)||!rows.some(x=>x.category==='ship-designs'&&x.code===design)))throw fail('Diseño no adquirido o incompatible');
    const owned=new Map(rows.filter(x=>['lasers','engines','shields','drones','launchers','cpus','robots'].includes(x.category)).map(x=>[x.instanceId,x]));
@@ -127,10 +127,10 @@ function createInventory(pool){
    const upgrades=await settleEquipment(c,id);
    const h=(await c.query('SELECT ship,configs,active,design FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];
    if(!h)return null;
-   const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
+   const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1',[id])).rows;
    const stats=configurations(h.ship,h.configs,new Map(items.map(i=>[i.instanceId,i])));
    const d=catalog.designs.find(d=>d.id===h.design&&d.ship===h.ship&&items.some(i=>i.category==='ship-designs'&&i.code===d.id));
-   const f=await formations.read(c,id);return {ship:h.ship,formation:f.active,formationReadyAt:f.readyAt,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
+   const f=await formations.read(c,id),dr=await drones.read(c,id),mounted=new Set((h.configs[h.active]?.drones||[]).map(d=>d.id));return {ship:h.ship,droneVisuals:dr.drones.filter(d=>mounted.has(d.instanceId)).map(d=>({code:d.code,design:d.design,rank:d.rank})),formation:f.active,formationReadyAt:f.readyAt,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
   });
  }
  async function useCpu(id,code,destination=null){
@@ -190,7 +190,7 @@ function createInventory(pool){
    return {company,map,company_chosen:true,cost,balance};
   });
  }
- async function pvpReward(attacker,victim,ship,honorFactor=1){
+ async function pvpReward(attacker,victim,ship,honorFactor=1,dronePoints=0){
   if(attacker===victim)throw fail('Piloto inválido');
   return transaction(attacker,async c=>{
    const a=(await c.query('SELECT p.level,p.honor,COALESCE(l.company,1) AS company FROM player_progress p LEFT JOIN gg_v14_location l USING(account_id) WHERE p.account_id=$1',[attacker])).rows[0];
@@ -202,7 +202,7 @@ function createInventory(pool){
    if(reward.honor>0)reward.honor=Math.round(reward.honor*Math.max(1,Math.min(1.2,Number(honorFactor)||1)));
    if(reward.penalty)await c.query('INSERT INTO gg_v15_honor_penalty(account_id,ally_step,ally_last) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET ally_step=EXCLUDED.ally_step,ally_last=EXCLUDED.ally_last',[attacker,reward.penalty.next,reward.penalty.last]);
    const balance=(await c.query('UPDATE player_progress SET credits=GREATEST(0,credits+$2),experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[attacker,reward.credits,reward.xp,reward.uridium,reward.honor])).rows[0];
-   return {reward,balance};
+   const rankChanged=reward.honor>=0&&await drones.award(c,attacker,dronePoints);return {reward,balance,rankChanged};
   });
  }
  async function saveLocation(id,company,map){if(![1,2,3].includes(company)||!Object.hasOwn(MAPS,map))throw fail('Mapa inválido');return transaction(id,async c=>{await c.query('INSERT INTO gg_v14_location(account_id,company,map) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET map=EXCLUDED.map',[id,company,map]);return {company,map};});}
@@ -310,7 +310,7 @@ function createInventory(pool){
    return state;
   });
  }
- async function hadesKill(ids,wave,key,payout,killer){
+ async function hadesKill(ids,wave,key,payout,killer,dronePoints=0){
   if(typeof key!=='string'||!/^\d+:\d+$/.test(key)||!ids.includes(killer))throw fail('Enemigo inválido');
   const [group,slot]=key.split(':').map(Number),entry=WAVES.hades[wave]?.[group];
   if(!entry||slot<0||slot>=entry[1]||!payout||!['credits','xp','uridium','honor'].every(k=>Number.isSafeInteger(payout[k])&&payout[k]>=0))throw fail('Recompensa inválida');
@@ -324,7 +324,7 @@ function createInventory(pool){
     g.kills.push(key);await saveGateRow(c,id,g);
     balances[id]=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,share(payout.credits,id),share(payout.xp,id),share(payout.uridium,id),share(payout.honor,id)])).rows[0];
    }
-   return {balances};
+   return {balances,rankChanged:await drones.award(c,killer,dronePoints)};
   });
  }
  async function hadesAdvance(ids,wave,outcome){
@@ -362,7 +362,7 @@ function createInventory(pool){
    return {gate,wave:g.wave,lives:g.lives,completions:g.completions,kills:g.kills};
   });
  }
- async function gateKill(id,gate,wave,key,payout){
+ async function gateKill(id,gate,wave,key,payout,dronePoints=0){
   if(!PLAYABLE.includes(gate)||!Number.isInteger(wave)||typeof key!=='string'||!/^\d+:\d+$/.test(key))throw fail('Enemigo inválido');
   const [group,slot]=key.split(':').map(Number),entry=WAVES[gate]?.[wave]?.[group];
   if(!entry||slot<0||slot>=entry[1]||!payout||!['credits','xp','uridium','honor'].every(k=>Number.isSafeInteger(payout[k])&&payout[k]>=0))throw fail('Recompensa inválida');
@@ -373,7 +373,7 @@ function createInventory(pool){
    g.kills.push(key);await saveGateRow(c,id,g);
    const {credits,xp,uridium,honor}=payout;
    const balance=(await c.query('UPDATE player_progress SET credits=credits+$2,experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[id,credits,xp,uridium,honor])).rows[0];
-   return {balance};
+   return {balance,rankChanged:await drones.award(c,id,dronePoints)};
   });
  }
  async function gateRewardLog(id){
