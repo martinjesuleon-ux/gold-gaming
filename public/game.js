@@ -5,7 +5,11 @@ let camera={x:6000,y:4000}, entities=new Map(), lasers=[], last=performance.now(
 const fmt=n=>Math.floor(n).toLocaleString('es-CL'), clamp=(n,a,b)=>Math.max(a,Math.min(b,n)), distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function resize(){W=innerWidth;H=innerHeight;DPR=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);}
 addEventListener('resize',resize);resize();
-function notice(msg){$('notice').textContent=msg;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',3600);}
+const recentActivity=[];
+window.gg17Activity=()=>recentActivity.slice();
+function recordActivity(msg){recentActivity.unshift({at:Date.now(),message:String(msg)});if(recentActivity.length>100)recentActivity.pop();}
+socket.on('v17:gateReward',r=>{window.dispatchEvent(new CustomEvent('gg17:gateReward',{detail:r}));});
+function notice(msg){recordActivity(msg);$('notice').textContent=msg;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',3600);}
 function join(){if(!profile||!socket.connected)return;$('launch').disabled=true;socket.timeout(6000).emit('join',profile,(err,res)=>{$('launch').disabled=false;if(err||!res?.ok){$('joinStatus').textContent=err?'El servidor no respondió':res?.error||'Error';$('hangar').hidden=false;$('hud').hidden=true;joined=false;$('connection').hidden=true;profile=null;return;}meId=res.id;world=res.world;joined=true;socket.emit('v13:ammo',selectedAmmo);syncAmmoButtons();selected=null;attacking=false;dest=null;pendingSelectUntil=pendingAttackUntil=0;entities.clear();state={players:[],npcs:[],boxes:[]};$('hangar').hidden=true;$('hud').hidden=false;$('connection').hidden=true;$('pilotName').textContent=profile.name;});}
 socket.on('connect',()=>{$('joinStatus').textContent='Servidor conectado · listo para despegar';$('launch').disabled=false;if(profile)join();});
 socket.on('disconnect',()=>{$('joinStatus').textContent='Sin conexión · reconectando';$('launch').disabled=true;if(joined)$('connection').hidden=false;});
