@@ -190,7 +190,7 @@ function createInventory(pool){
    return {company,map,company_chosen:true,cost,balance};
   });
  }
- async function pvpReward(attacker,victim,ship){
+ async function pvpReward(attacker,victim,ship,honorFactor=1){
   if(attacker===victim)throw fail('Piloto inválido');
   return transaction(attacker,async c=>{
    const a=(await c.query('SELECT p.level,p.honor,COALESCE(l.company,1) AS company FROM player_progress p LEFT JOIN gg_v14_location l USING(account_id) WHERE p.account_id=$1',[attacker])).rows[0];
@@ -199,6 +199,7 @@ function createInventory(pool){
    const prev=(await c.query('SELECT ally_step,ally_last FROM gg_v15_honor_penalty WHERE account_id=$1',[attacker])).rows[0];
    const war=(await c.query("SELECT 1 FROM gg_v15_clan_members x JOIN gg_v15_clan_members y ON y.account_id=$2 JOIN gg_v15_clan_diplomacy d ON ((d.source=x.clan_id AND d.target=y.clan_id) OR (d.source=y.clan_id AND d.target=x.clan_id)) WHERE x.account_id=$1 AND d.state='war' LIMIT 1",[attacker,victim])).rowCount>0;
    const reward=rewardFor({...a,company:war?0:a.company,honor:Number(a.honor)},{...b,ship,honor:Number(b.honor)},prev?.ally_step||0,Number(prev?.ally_last||0),Date.now());
+   if(reward.honor>0)reward.honor=Math.round(reward.honor*Math.max(1,Math.min(1.2,Number(honorFactor)||1)));
    if(reward.penalty)await c.query('INSERT INTO gg_v15_honor_penalty(account_id,ally_step,ally_last) VALUES($1,$2,$3) ON CONFLICT(account_id) DO UPDATE SET ally_step=EXCLUDED.ally_step,ally_last=EXCLUDED.ally_last',[attacker,reward.penalty.next,reward.penalty.last]);
    const balance=(await c.query('UPDATE player_progress SET credits=GREATEST(0,credits+$2),experience=experience+$3,uridium=uridium+$4,honor=honor+$5,level=CASE WHEN experience+$3<10000 THEN 1 ELSE 2+FLOOR(LOG(2,((experience+$3)::numeric/10000)))::int END,updated_at=now() WHERE account_id=$1 RETURNING credits,experience,level,uridium,honor',[attacker,reward.credits,reward.xp,reward.uridium,reward.honor])).rows[0];
    return {reward,balance};
