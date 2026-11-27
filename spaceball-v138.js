@@ -7,7 +7,7 @@ const REWARDS=Object.freeze({'RSB-75':[100,500],gateEnergy:[10,20],jumpVouchers:
 const fail=message=>Object.assign(Error(message),{status:400});
 const clamp=(x,min,max)=>Math.max(min,Math.min(max,x)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function createGame(now=Date.now(),w=12000,h=8000){
- const goals=portals('4-4',w,h).filter(p=>/^4-[123]$/.test(p.to)).map(p=>({company:Number(p.to[2]),x:p.x,y:p.y}));
+ const goals=portals('4-4',w,h).filter(p=>/^[123]-5$/.test(p.to)).map(p=>({company:Number(p.to[0]),x:p.x,y:p.y}));
  if(goals.length!==3)throw Error('Porterías no disponibles');
  return {id:crypto.randomUUID(),w,h,goals,ball:{x:w/2,y:h/2},scores:{1:0,2:0,3:0},boxes:new Map(),resetAt:0,active:true,startedAt:now};
 }
