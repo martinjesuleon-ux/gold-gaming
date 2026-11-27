@@ -64,7 +64,24 @@ function draw(){const ship=cat.ships.find(s=>s.id===draft.ship);preview.replaceC
    info.append(el('h3','Nivel '+p.level+' / 20'),el('p',fmt(p.experience)+' EXP'+(p.nextExperience?' / '+fmt(p.nextExperience):' · Nivel máximo')),meter,
     el('p','Vida máxima por nivel: '+fmt(p.maxHp)+' PV'),el('p','Daño +'+p.damageBonus+' % · Escudo +'+p.shieldBonus+' %'),
     el('p','Nivel de equipo permitido: '+p.equipmentTier),el('p','Coste de reparación de referencia: '+fmt(p.repair)+' U'));
-   content.append(info);
+   const hull=el('section',null,'gg13-tile'),hullQuote=p.nextHull;
+   hull.append(el('h3','MEJORA DE VIDA'));
+   if(p.hullPurchasesEnabled){
+    hull.append(el('p','Nivel de vida adquirido: '+p.paidHullTier+' / '+p.level));
+    if(hullQuote){
+     const requestId=crypto.randomUUID();
+     hull.append(el('strong',fmt(hullQuote.maxHp)+' PV máximos'),el('p','+'+fmt(hullQuote.addedHp)+' PV · '+fmt(hullQuote.price)+' U'));
+     const upgrade=button('MEJORAR VIDA',async()=>{
+      if(busy||loading||!confirm('¿Mejorar vida máxima a '+fmt(hullQuote.maxHp)+' PV por '+fmt(hullQuote.price)+' uridium?'))return;
+      busy=true;loading=true;upgrade.disabled=true;
+      try{await api('pet/hull',{tier:hullQuote.tier,requestId});await refresh();status.textContent=balance();await readProgression();await readPetEquipment();}
+      catch(e){status.textContent=e.message;}
+      finally{busy=false;loading=false;if(upgrade.isConnected)upgrade.disabled=Number(p.uridium)<hullQuote.price;}
+     });
+     upgrade.disabled=Number(p.uridium)<hullQuote.price;hull.append(upgrade);
+    }else hull.append(el('small',p.level===20?'Vida máxima alcanzada':'Sube de nivel para desbloquear otra mejora'));
+   }else hull.append(el('p','Precio de referencia del nivel: '+fmt(p.hpUpgrade)+' U'),el('small','Compra pendiente de activación'));
+   content.append(info,hull);
    for(const [type,label] of [['laser','Láseres'],['generator','Generadores'],['gear','Módulos'],['protocol','Protocolos']]){
     const tile=el('section',null,'gg13-tile'),q=p.nextSlots?.[type];
     tile.append(el('h3',label),el('strong',p.slots[type]+' / '+p.limits[type]+' ranuras'),el('small',q?'Siguiente ranura: '+fmt(q.price)+' U':p.level===20?'Límite alcanzado':'Más ranuras al subir de nivel'));
