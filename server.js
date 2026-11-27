@@ -854,7 +854,13 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  if(p.petMode&&p.petMode!=='off'&&now>=p.petUntil&&!p.petPending){
   const mode=p.petMode,generation=p.petGeneration;p.petPending=true;
   const job=p.writes.catch(()=>{}).then(()=>accounts.petInterval(p.accountId,mode)).then(async result=>{
-   if(process.env.GG_PET_VITALS_ENABLED==='1'&&accounts.petVitals){const v=await accounts.petVitals(p.accountId);if(players.get(p.id)===p&&p.petGeneration===generation)p.petVitals=v;if(v.destroyed)throw Object.assign(Error('El P.E.T. está destruido. Repáralo primero'),{status:400});}
+   if(process.env.GG_PET_VITALS_ENABLED==='1'&&accounts.petVitals){
+    const v=await accounts.petVitals(p.accountId);
+    if(v.destroyed)throw Object.assign(Error('El P.E.T. está destruido. Repáralo primero'),{status:400});
+    if(players.get(p.id)!==p||p.petGeneration!==generation||p.deadUntil)return;
+    const recovered=accounts.petRegenerate&&p.petVitals&&!p.attack&&!p.petDamagePending?await accounts.petRegenerate(p.accountId):null;
+    if(players.get(p.id)===p&&p.petGeneration===generation)p.petVitals={...v,...(recovered||{})};
+   }
    if(closing||players.get(p.id)!==p||p.deadUntil||p.petGeneration!==generation)return;
    p.petFuel=result.fuel;p.petUntil=Date.now()+10000;
    if(!Number.isFinite(p.petX)||!Number.isFinite(p.petY)){const home=petFollowGoal(p);p.petX=home.x;p.petY=home.y;p.petAngle=p.angle;}
