@@ -13,3 +13,5 @@ test('catalog visuals load before shop and menu buttons contain visible labels',
  const html=read('index.html'),hud=read('gold-hud.js'),shop=read('gold-v13.js');assert.ok(html.indexOf('shop-visual-v163.js')>=0);assert.ok(html.indexOf('shop-visual-v163.js')<html.indexOf('gold-v13.js'));
  assert.match(hud,/b.append\(menuIcon\(symbols\[i\]\)\)/);assert.match(hud,/label.textContent=name/);assert.match(shop,/visual.art\(category,p\)/);assert.match(shop,/visual.describe\(category,p\)/);
 });
+
+test('laser and drone design colors distinguish individual items',()=>{const window={};vm.runInNewContext(read('shop-visual-v163.js'),{window});const v=window.ggShopVisual;assert.equal(new Set(cat.lasers.map(p=>v.itemColor('lasers',p))).size,cat.lasers.length);assert.equal(v.itemColor('droneDesigns',{id:'Havoc'}),'#ff3838');assert.equal(v.itemColor('droneDesigns',{id:'Hercules'}),'#398dff');assert.equal(v.itemColor('droneDesigns',{id:'Spartan'}),'#ff8a24');assert.match(v.describe('lasers',{id:'LF-4',damage:200}),/200/);assert.match(read('gold-v13.js'),/gg-inventory-filters/);});
