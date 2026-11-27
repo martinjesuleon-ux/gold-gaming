@@ -29,5 +29,18 @@ test('weekly auction escrow, refund, exactly-once module delivery',{skip:process
   await pool.query('UPDATE gg_cbs_auction_lots SET round_start=$1 WHERE round_start=$2 AND code=$3',[start-WEEK,start,code]);
   await svc.settle();await svc.settle();
   const rows=(await pool.query("SELECT code FROM gg_v13_inventory WHERE account_id=$1 AND category='cbs-modules'",[ids[1]])).rows;assert.deepEqual(rows,[{code}]);
+  const hourly=await svc.status(ids[0],'hourly'),daily=await svc.status(ids[0],'daily');
+  assert.equal(hourly.roundEnd-hourly.roundStart,3600000);assert.equal(daily.roundEnd-daily.roundStart,86400000);
+  const buy={board:'hourly',action:'buy',code:'MCB-25',requestId:randomUUID()};
+  const bought=await svc.bid(ids[0],buy);assert.equal(bought.credits,4975000);assert.deepEqual(await svc.bid(ids[0],buy),bought);
+  assert.equal(Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='MCB-25'",[ids[0]])).rows[0].quantity),1000);
+  await assert.rejects(svc.bid(ids[0],{action:'buy',code:'HULM-1',requestId:randomUUID()}),/Solo disponible/);
+  await pool.query('UPDATE player_progress SET uridium=250000 WHERE account_id=$1',[ids[0]]);
+  const design=await svc.bid(ids[0],{board:'daily',action:'buy',code:'Lightning',requestId:randomUUID()});
+  assert.equal(design.uridium,0);
+  await assert.rejects(svc.bid(ids[0],{board:'daily',action:'buy',code:'Lightning',requestId:randomUUID()}),/ya adquirido/);
+  const hourBid={board:'hourly',code:'MCB-50',amount:500000,roundStart:hourly.roundStart,requestId:randomUUID()};await svc.bid(ids[1],hourBid);
+  await pool.query("UPDATE gg_cbs_auction_lots SET round_start=$1 WHERE round_start=$2 AND code='MCB-50'",[hourly.roundStart-3600000,hourly.roundStart]);
+  await svc.settle();await svc.settle();assert.equal(Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='MCB-50'",[ids[1]])).rows[0].quantity),1000);
  }finally{await pool.query('DELETE FROM gg_cbs_auction_lots WHERE bidder=ANY($1::uuid[])',[ids]);for(const id of ids)await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
