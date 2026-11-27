@@ -12,10 +12,12 @@ function nearestRepairPortal(portals,x,y){
  if(!Number.isFinite(x)||!Number.isFinite(y))return null;
  return portals.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&!p.gate&&!p.gateId).reduce((best,p)=>!best||Math.hypot(p.x-x,p.y-y)<Math.hypot(best.x-x,best.y-y)?p:best,null);
 }
+function validDestination(d){return !!d&&typeof d.zone==='string'&&/^[1-5]-[1-8]$/.test(d.zone)&&Number.isFinite(d.x)&&Number.isFinite(d.y)&&d.x>=0&&d.y>=0&&d.x<=12000&&d.y<=8000;}
 function createRespawn(pool){
- async function ready(){await pool.query('CREATE TABLE IF NOT EXISTS gg_respawn_receipts_v222(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,death_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,death_id))');}
+ async function ready(){await pool.query('CREATE TABLE IF NOT EXISTS gg_respawn_receipts_v222(account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,death_id uuid NOT NULL,response jsonb NOT NULL,PRIMARY KEY(account_id,death_id)); ALTER TABLE gg_respawn_receipts_v222 ADD COLUMN IF NOT EXISTS delivered_at timestamptz; ALTER TABLE gg_respawn_receipts_v222 ADD COLUMN IF NOT EXISTS destination jsonb;');}
  async function options(id){const premium=await premiumRead(pool,id);const stock=(await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='repair-voucher'",[id])).rows[0]?.quantity||0;return Object.keys(BASE_COST).map(mode=>repairQuote(mode,premium,stock));}
- async function charge(id,deathId,mode){
+ async function charge(id,deathId,mode,destination=null){
+  if(destination!==null&&!validDestination(destination))throw fail('Destino inválido');
   if(typeof deathId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deathId)||!Object.hasOwn(BASE_COST,mode))throw fail('Solicitud inválida');
   const c=await pool.connect();try{await c.query('BEGIN');
    const p=(await c.query('SELECT uridium FROM player_progress WHERE account_id=$1 FOR UPDATE',[id])).rows[0];if(!p)throw fail('Piloto no disponible',404);
@@ -26,10 +28,17 @@ function createRespawn(pool){
    const q=repairQuote(mode,premium,stock);
    if(q.vouchers){const v=await c.query("UPDATE gg_v13_ammo SET quantity=quantity-1 WHERE account_id=$1 AND code='repair-voucher' AND quantity>=1",[id]);if(!v.rowCount)throw fail('Vale no disponible',409);}
    if(q.uridium){const v=await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1 AND uridium>=$2',[id,q.uridium]);if(!v.rowCount)throw fail('Uridium insuficiente',409);}
+   if(destination){
+    await c.query('UPDATE gg_respawn_receipts_v222 SET delivered_at=now() WHERE account_id=$1 AND destination IS NOT NULL AND delivered_at IS NULL',[id]);
+    await c.query('INSERT INTO gg_respawn_receipts_v222(account_id,death_id,response,destination) VALUES($1,$2,$3,$4)',[id,deathId,JSON.stringify(q),JSON.stringify(destination)]);
+   }else{
    await c.query('INSERT INTO gg_respawn_receipts_v222(account_id,death_id,response) VALUES($1,$2,$3)',[id,deathId,JSON.stringify(q)]);
+   }
    await c.query('COMMIT');return q;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
- return {ready,charge,options};
+ async function pending(id){const row=(await pool.query('SELECT death_id AS "deathId",response,destination FROM gg_respawn_receipts_v222 WHERE account_id=$1 AND destination IS NOT NULL AND delivered_at IS NULL LIMIT 1',[id])).rows[0];return row&&validDestination(row.destination)?row:null;}
+ async function acknowledge(id,deathId){const r=await pool.query('UPDATE gg_respawn_receipts_v222 SET delivered_at=now() WHERE account_id=$1 AND death_id=$2 AND destination IS NOT NULL AND delivered_at IS NULL',[id,deathId]);return !!r.rowCount;}
+ return {ready,charge,options,pending,acknowledge};
 }
-module.exports={BASE_COST,repairQuote,nearestRepairPortal,createRespawn};
+module.exports={BASE_COST,repairQuote,nearestRepairPortal,validDestination,createRespawn};
