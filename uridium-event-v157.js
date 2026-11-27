@@ -18,7 +18,9 @@ function multiply(amount,active){
  if(!Number.isSafeInteger(amount)||amount<0||!Number.isSafeInteger(amount*(active?2:1)))throw Error('Cantidad de uridium inválida');
  return amount*(active?2:1);
 }
-function createUridiumEvent(pool){
+function createUridiumEvent(pool,kind='uridium'){
+ if(!['uridium','gate-special'].includes(kind))throw Error('Evento desconocido');
+ const table=kind==='uridium'?'gg_uridium_event_v157':'gg_gate_special_event_v157';
  async function ready(){
   await pool.query("CREATE TABLE IF NOT EXISTS gg_uridium_event_v157 (id integer PRIMARY KEY CHECK(id=1), mode text NOT NULL CHECK(mode IN ('off','on','scheduled')), start_at timestamptz, end_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(), CHECK ((mode='scheduled' AND start_at IS NOT NULL AND end_at IS NOT NULL AND end_at>start_at) OR (mode<>'scheduled' AND start_at IS NULL AND end_at IS NULL)))");
   await pool.query("INSERT INTO gg_uridium_event_v157(id,mode) VALUES(1,'off') ON CONFLICT(id) DO NOTHING");
