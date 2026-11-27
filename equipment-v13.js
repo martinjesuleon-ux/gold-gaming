@@ -1,5 +1,5 @@
 'use strict';
-const catalog=require('./data/catalog-v13.json');const {extraStats}=require('./cpus-v18');
+const catalog=require('./data/catalog-v13.json');const {extraStats}=require('./cpus-v18');const {rankBonus}=require('./drones-v19');
 const lookup=(list,id)=>list.find(x=>x.id===id);
 const requireRule=(ok,msg)=>{if(!ok)throw new Error(msg);};
 function quote(category,id,quantity=1){
@@ -38,11 +38,11 @@ function configurations(shipId,configs,owned){
   const ids=Array.isArray(config)?config:config?.ship;
   requireRule(Array.isArray(ids),'Configuración inválida');
   const take=id=>{requireRule(typeof id==='string'&&owned.has(id)&&!used.has(id),'Objeto no disponible o duplicado');used.add(id);return {...owned.get(id),instanceId:id};};
-  const droneItems=[],mounted=new Set();
+  const droneItems=[],mounted=new Set(),ranked=[];
   const drones=Array.isArray(config)?[]:config.drones??[];
   requireRule(Array.isArray(drones)&&drones.length<=10,'VANT inválidos');
-  for(const d of drones){const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1});}
-  return {...stats(shipId,ids.map(take),droneItems),droneCount:drones.length};
+  for(const d of drones){const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);ranked.push(drone);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1});}
+  const base=stats(shipId,ids.map(take),droneItems),rank=rankBonus(ranked);return {...base,damage:Math.round(base.damage*rank.damage),shield:Math.round(base.shield*rank.shield),droneRank:rank.mean,droneCount:drones.length};
  });
 }
 function hit(target,amount,absorption=.5){
