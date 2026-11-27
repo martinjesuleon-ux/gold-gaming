@@ -144,6 +144,9 @@
     polygon(c,[[23,4*side],[9,18*side],[-7,(reach-3)*side],[-13,20*side],[-21,12*side],[-5,5*side]],gem,color,.8);
     polygon(c,[[9,18*side],[-7,(reach-3)*side],[-2,12*side]],'#dbf4ffb0',color,.5);
     polygon(c,[[-2,12*side],[-13,20*side],[-21,12*side]],'#122c47',seam,.5);
+    polygon(c,[[9,18*side],[-2,12*side],[3,8*side],[16,9*side]],'#81b4dc',seam,.45);
+    polygon(c,[[-7,(reach-3)*side],[-13,20*side],[-10,25*side]],'#edfaff',color,.4);
+    if(elite){c.fillStyle=radial(c,-9,18*side,9,[[0,'#e8faff'],[.24,color],[1,'#143a6100']]);c.fillRect(-18,18*side-9,18,18);}
     if(big){polygon(c,[[16,10*side],[30,19*side],[17,31*side],[5,23*side]],steel,color,.8);polygon(c,[[20,15*side],[26,19*side],[17,27*side]],gem,color,.6);}
     if(elite){polygon(c,[[-24,12*side],[-36,24*side],[-24,32*side],[-15,21*side]],steel,color,1);polygon(c,[[-31,24*side],[-24,29*side],[-20,22*side]],gem);}
    }
@@ -162,6 +165,7 @@
    polygon(c,[[35,0],[21,-11],[2,-14],[-22,-10],[-34,-4],[-34,4],[-22,10],[2,14],[21,11]],steel,seam,1);
    polygon(c,[[25,0],[12,-7],[-10,-7],[-18,0],[-10,7],[12,7]],'#101d25',color,.8);
    for(let i=0;i<5;i++){c.fillStyle=i===2?color:'#62777d';c.fillRect(-11+i*5,-3,3,6);}
+   for(const side of [-1,1]){polygon(c,[[-23,6*side],[-8,10*side],[8,10*side],[17,6*side]],steel,seam,.5);for(let j=0;j<3;j++){c.fillStyle='#0c1b23';c.fillRect(-17+j*7,7*side-1,4,2);c.fillStyle=color;c.fillRect(-17+j*7,7*side-1,2,.7);}}
   }else{
    // Three-dimensional modular cube; three visible faces and separately recessed plates.
    const top=[[0,-42],[38,-22],[0,-2],[-38,-22]],left=[[-38,-22],[0,-2],[0,42],[-38,22]],right=[[0,-2],[38,-22],[38,22],[0,42]];
@@ -196,6 +200,10 @@
   polygon(c,[[nose*.78,0],[nose*.25,-body*.44],[-body*.6,-body*.5],[-back*.6,0],[-body*.6,body*.5],[nose*.25,body*.44]],plating,color,.6);
   polygon(c,[[nose*.48,0],[nose*.1,-body*.27],[-body*.4,0],[nose*.1,body*.27]],'#17232a',color,.6);
   polygon(c,[[nose*.38,0],[nose*.08,-body*.14],[-body*.12,0],[nose*.08,body*.14]],color);
+  for(const s of [-1,1]){
+   polygon(c,[[nose*.25,body*.44*s],[-body*.6,body*.5*s],[-back*.48,body*.42*s],[-body*.4,body*.32*s]],steel,'#8ca0aa',.45);
+   if(elite){c.fillStyle=color;c.fillRect(-body*.45,body*.48*s-.6,body*.7,1.2);}
+  }
  }
  function vant(c,kind,color){
   const id=kind.slice(6),red=color==='#ff3838',blue=color==='#398dff',spartan=color==='#ff8a24';
