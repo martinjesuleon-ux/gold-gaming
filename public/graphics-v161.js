@@ -55,7 +55,32 @@
   }
   path(c,[[23,0],[7,-8],[-10,-7],[-15,0],[-10,7],[7,8]],'#111c2a',color,1);path(c,[[15,0],[2,-4],[-6,0],[2,4]],color,'#e0f5ff',.65);
  }
- function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key))return cache.get(key);const size=kind==='drone'?42:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind==='drone')drone(c,color);else if(kind==='pet')pet(c,color);else if(['crystal','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=64)cache.clear();cache.set(key,value);return value;}
+ // Original player hull profiles, independent of equipment and combat parameters.
+ const shipProfiles=Object.freeze({
+ phoenix:[30,13,18,9,0],yamato:[31,19,20,12,1],defcom:[29,20,23,10,2],
+ liberator:[32,23,18,13,1],piranha:[34,18,25,8,2],nostromo:[29,24,21,15,3],
+ bigboy:[28,30,24,19,3],leonov:[33,20,17,10,4],vengeance:[37,23,28,8,2],
+ goliath:[33,30,25,15,4],spearhead:[40,17,24,7,0],aegis:[29,27,25,17,1],citadel:[30,32,28,22,3]
+ });
+ const designColors=Object.freeze({Diminisher:'#e36c45',Sentinel:'#5a93e7',Solace:'#69d8c1',Spectrum:'#aa83ee',Venom:'#87e363',Lightning:'#f5c349',Bastion:'#4798ec',Enforcer:'#f05b51',Centaur:'#eab671',Exalted:'#e2d5b2',Veteran:'#7ab9c4',Goal:'#73d58c',Referee:'#e5e7ec',Kick:'#e4954f',Revenge:'#ef7056',Avenger:'#71c0ff',Saturn:'#d6b2ee','aegis-veteran':'#72b4c9','aegis-elite':'#e9bd67','citadel-veteran':'#72b4c9','citadel-elite':'#e9bd67','spearhead-veteran':'#72b4c9','spearhead-elite':'#e9bd67'});
+ function playerStyle(ship,design,isMe){const id=String(ship||'').toLowerCase();return {kind:Object.hasOwn(shipProfiles,id)?'ship-'+id:id==='tank'?'tank':'scout',color:Object.hasOwn(designColors,design)?designColors[design]:isMe?'#76f5bd':'#77c6ff'};}
+ function playerHull(c,id,color){
+  const [nose,wing,back,body,style]=shipProfiles[id],armor=gradient(c,wing,[[0,'#bdc9d4'],[.16,'#657587'],[.38,'#243442'],[.5,'#101a24'],[.68,'#53687b'],[1,'#15222e']]),accent=gradient(c,wing,[[0,color],[.4,'#15343b'],[.6,'#101d28'],[1,color]]);
+  for(const side of [-1,1]){
+   const tip=style===0?-back:style===1?-back*.45:style===2?-back*.85:style===3?body*.45:nose*.25;
+   const shoulder=style===3?nose*.65:nose*.32;
+   path(c,[[shoulder,body*.55*side],[tip,wing*side],[-back,wing*.82*side],[-back+5,body*.6*side],[-body,body*.35*side]],armor,'#9baab8',.85);
+   path(c,[[shoulder-3,body*.65*side],[tip,wing*.86*side],[-back+5,wing*.72*side],[-body,body*.55*side]],accent,color,.8);
+   path(c,[[-back+2,wing*.64*side],[-back+2,wing*.82*side],[-back+7,wing*.77*side],[-back+7,wing*.58*side]],'#c1d0dd',color,.5);
+   engine(c,-back+2,wing*.48*side,color);
+   if(style===3||style===4){path(c,[[nose*.48,body*.62*side],[nose*.25,wing*.58*side],[-back*.5,wing*.55*side],[-back*.65,body*.58*side]],armor,color,.75);}
+  }
+  path(c,[[nose,0],[nose*.5,-body*.65],[-body,-body],[-back,-body*.5],[-back,body*.5],[-body,body],[nose*.5,body*.65]],armor,'#abbcc8',1);
+  path(c,[[nose-5,0],[nose*.34,-body*.52],[-body,-body*.45],[-back+5,0],[-body,body*.45],[nose*.34,body*.52]],accent,color,.8);
+  path(c,[[nose*.5,0],[nose*.12,-body*.31],[-body*.15,0],[nose*.12,body*.31]],'#e0f5ff',color,.6);
+  if(style===3)for(const side of [-1,1])path(c,[[nose*.65,body*.4*side],[nose*.4,body*.78*side],[nose*.12,body*.64*side],[nose*.35,body*.3*side]],color);
+ }
+ function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),key=kind+':'+color+':'+dpr;if(cache.has(key))return cache.get(key);const size=kind==='drone'?42:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(kind==='drone')drone(c,color);else if(kind==='pet')pet(c,color);else if(['crystal','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5)))playerHull(c,kind.slice(5),color);else vessel(c,kind,color);const value={canvas,size};if(cache.size>=64)cache.clear();cache.set(key,value);return value;}
  function draw(c,kind,color){const s=sprite(kind,color);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
  function portal(c,color,t){
   const center=c.createRadialGradient(0,0,3,0,0,46);center.addColorStop(0,'#03060d');center.addColorStop(.45,'#0b1625');center.addColorStop(.78,color+'24');center.addColorStop(1,color+'00');c.fillStyle=center;c.beginPath();c.arc(0,0,46,0,Math.PI*2);c.fill();
@@ -64,5 +89,5 @@
  }
  const droneColors=Object.freeze({Havoc:'#ff3838',Hercules:'#398dff',Spartan:'#ff8a24'});
  function droneColor(design){return Object.hasOwn(droneColors,design)?droneColors[design]:'#aab4bd';}
- root.ggGraphics161={draw,portal,droneColor,npcStyle};
+ root.ggGraphics161={draw,portal,droneColor,npcStyle,playerStyle};
 })(window);
