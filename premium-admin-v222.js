@@ -7,11 +7,12 @@ function grantInput(body,now=Date.now()){
  const days=body.days??null,until=body.until??null;
  if((days===null)===(until===null))throw fail('Selecciona días o fecha');
  if(days!==null&&![1,3,7,30].includes(days))throw fail('Duración inválida');
- if(until!==null&&(typeof until!=='string'||!Number.isFinite(Date.parse(until))||new Date(until).toISOString()!==until||Date.parse(until)<=now||Date.parse(until)>now+366*DAY))throw fail('Fecha inválida');
+ if(until!==null&&(typeof until!=='string'||!Number.isFinite(Date.parse(until))||new Date(until).toISOString()!==until))throw fail('Fecha inválida');
  return {username:body.username.trim(),requestId:body.requestId,days,until};
 }
 function grantExpiry(old,input,now){
  const base=Math.max(Number(old||0),now),next=input.days!==null?base+input.days*DAY:Date.parse(input.until);
+ if(input.until!==null&&next>now+366*DAY)throw fail('Fecha fuera de rango');
  if(!Number.isSafeInteger(next)||next<=base)throw fail('La fecha debe ampliar el Premium existente',409);
  return next;
 }
