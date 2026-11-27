@@ -109,7 +109,8 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const hangar=(await c.query('SELECT ship,configs,active,design FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0]||{ship:'phoenix',configs:[[],[]],active:0};
    const items=(await c.query('SELECT instance_id AS "instanceId",code,category,level,drone_points AS points FROM gg_v13_inventory WHERE account_id=$1 ORDER BY category,code,instance_id',[id])).rows;
    const ammo=(await c.query('SELECT code,quantity FROM gg_v13_ammo WHERE account_id=$1',[id])).rows;
-   return {balance:p,hangar,items,ammo};
+   const petEquipment=(await c.query('SELECT equipment FROM gg_pet_equipment_v173 WHERE account_id=$1',[id])).rows[0]?.equipment||{laser:[],generator:[]};
+   return {balance:p,hangar,items,ammo,petEquipment};
   });
  }
  async function equip(id,{ship,configs,active,design=null}){
