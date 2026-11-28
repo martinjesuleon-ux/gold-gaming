@@ -3,7 +3,7 @@
  const KEY='sprite:classic-ship-goliath';
  const formats=Object.freeze([{cols:8,rows:4,w:208,h:168,frames:32,offset:0},{cols:12,rows:10,w:252,h:200,frames:120,offset:60}]);
  let format=formats[1];
- let atlas=null,generation=0,hasIris=false;
+ let atlas=null,generation=0,hasIris=false,hasRanks=false,revision=0;
  const active=()=>root.ggVisualTheme?.current()==='classic';
  // Original SWF sheets: frame 0 faces +X, and frames increase clockwise.
  function headingFrame(angle,n,offset=0){const a=Number.isFinite(angle)?angle:0;return ((Math.round(a*n/(Math.PI*2))+offset)%n+n)%n;}
@@ -22,10 +22,11 @@
   if(typeof url!=='string'||!/^data:image\/(png|webp);base64,/i.test(url))throw Error('Formato de imagen local inválido.');
   if(token!==generation)return false;
   const img=new root.Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('No se pudo decodificar el atlas PNG o WebP.'));img.src=url;});
-   const combined=img.naturalWidth===1664&&img.naturalHeight===1152;const selected=combined?formats[0]:formats.find(f=>img.naturalWidth===f.cols*f.w&&img.naturalHeight===f.rows*f.h);if(!selected)throw Error('Atlas inválido: utiliza el paquete Goliath + Iris (1664 × 1152) o un atlas Goliath compatible.');
-   if(token!==generation)return false;format=selected;hasIris=combined;atlas=img;return true;
+   const ranked=img.naturalWidth===1664&&img.naturalHeight===1184,combined=ranked||(img.naturalWidth===1664&&img.naturalHeight===1152);const selected=combined?formats[0]:formats.find(f=>img.naturalWidth===f.cols*f.w&&img.naturalHeight===f.rows*f.h);if(!selected)throw Error('Atlas inválido: utiliza el paquete Goliath + Iris (1664 × 1152) o un atlas Goliath compatible.');
+   if(token!==generation)return false;format=selected;hasIris=combined;hasRanks=ranked;atlas=img;revision++;return true;
  }
- function clear(){generation++;atlas=null;hasIris=false;}
+ function clear(){generation++;atlas=null;hasIris=false;hasRanks=false;revision++;}
+ function rank(c,n,width=48){n=Number(n);if(!active()||!atlas||!hasRanks||!Number.isInteger(n)||n<1||n>21)return false;c.save();c.imageSmoothingEnabled=false;c.drawImage(atlas,n*16,1152,16,16,-width/2,-width/2,width,width);c.restore();return true;}
  function iris(c,rank,angle=0,rotated=false,width=100*60/208){if(!atlas||!hasIris||!active()||!c)return false;const r=Math.max(0,Math.min(5,Math.floor(Number(rank)||1)-1)),a=Number.isFinite(angle)?angle:0,n=headingFrame(a,32);const x=(r%3)*480+(n%8)*60,y=672+Math.floor(r/3)*240+Math.floor(n/8)*60;c.save();if(rotated)c.rotate(-a);c.drawImage(atlas,x,y,60,60,-width/2,-width/2,width,width);c.restore();return true;}
  const pack=root.ggClassicPack;
  if(pack){const originalDraw=pack.draw,originalShop=pack.shop;
@@ -36,11 +37,11 @@
  }
  function controls(doc){
   const wrap=doc.createElement('section'),title=doc.createElement('strong'),hint=doc.createElement('small'),input=doc.createElement('input'),status=doc.createElement('small'),reset=doc.createElement('button');
-  title.textContent='Prueba gráfica local · Goliath e Iris';hint.textContent='Carga el atlas autorizado Goliath + Iris (1664 × 1152) o uno de Goliath (1664 × 672 / 3024 × 2000). Solo se usa en este navegador hasta recargar; no se envía al servidor.';
+  title.textContent='Prueba gráfica local · Goliath, Iris y rangos';hint.textContent='Carga el atlas autorizado Goliath + Iris + rangos (1664 × 1184), Goliath + Iris (1664 × 1152) o uno de Goliath (1664 × 672 / 3024 × 2000). Solo se usa en este navegador hasta recargar; no se envía al servidor.';
   input.type='file';input.accept='image/png,image/webp';input.setAttribute('aria-label','Atlas local Goliath e Iris');status.setAttribute('role','status');reset.type='button';reset.textContent='Restaurar gráficos del servidor';
-  const sync=()=>{wrap.hidden=!active();status.textContent=atlas?'Atlas activo · Goliath '+format.frames+' perspectivas'+(hasIris?' + Iris rangos 1–6':'')+'. Cierra y vuelve a abrir la tienda si estaba abierta.':'Sin atlas local.';};
+  const sync=()=>{wrap.hidden=!active();status.textContent=atlas?'Atlas activo · Goliath '+format.frames+' perspectivas'+(hasIris?' + Iris rangos 1–6':'')+(hasRanks?' + 21 emblemas clásicos':'')+'. Cierra y vuelve a abrir la tienda si estaba abierta.':'Sin atlas local.';};
   input.onchange=async()=>{const file=input.files?.[0];if(!file)return;try{status.textContent='Cargando atlas…';if(await load(file))sync();}catch(e){status.textContent=e.message;}finally{input.value='';}};
   reset.onclick=()=>{clear();sync();};wrap.append(title,hint,input,status,reset);root.addEventListener?.('gg:visualTheme',sync);sync();return wrap;
  }
- root.ggLocalGoliath={frame,rect,draw,iris,load,clear,controls,loaded:()=>!!atlas};
+ root.ggLocalGoliath={frame,rect,draw,iris,rank,revision:()=>revision,load,clear,controls,loaded:()=>!!atlas};
 })(window);

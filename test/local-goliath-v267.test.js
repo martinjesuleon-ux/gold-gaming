@@ -26,6 +26,11 @@ test('local Goliath matches atlas headings, never changes GOLD, and restores fal
  for(let rank=1;rank<=6;rank++){calls.length=0;assert.equal(a.iris(c,rank,0,false),true);assert.deepEqual(calls[0].slice(1,5),[((rank-1)%3)*480,672+Math.floor((rank-1)/3)*240,60,60]);}
  // All headings share the exact same frame index in both original SWF atlases.
  for(let n=0;n<32;n++){const angle=n*Math.PI/16;assert.equal(a.frame(angle),n);calls.length=0;assert.equal(a.iris(c,6,angle,true),true);assert.equal(calls[0],-angle);assert.deepEqual(calls[1].slice(1,5),[960+(n%8)*60,912+Math.floor(n/8)*60,60,60]);}
+ assert.equal(a.rank(c,1),false);
+ const before=a.revision();dimensions=[1664,1184];await a.load({type:'image/png',size:1500000});assert.equal(a.revision(),before+1);
+ for(let rank=1;rank<=21;rank++){calls.length=0;assert.equal(a.rank(c,rank),true);assert.deepEqual(calls[0].slice(1,5),[rank*16,1152,16,16]);}
+ assert.equal(a.rank(c,22),false);assert.equal(a.rank(c,23),false);
+ theme='gold';assert.equal(a.rank(c,21),false);theme='classic';
  theme='gold';assert.equal(a.iris(c,6,0),false);theme='classic';a.clear();assert.equal(a.iris(c,6,0),false);
 
 });
