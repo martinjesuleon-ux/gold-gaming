@@ -25,6 +25,13 @@ test('PostgreSQL: Premium purchase, gate spins, cargo and repairs return to norm
  const ordinary=await inv.purchase(id,{category:'lasers',code:'LF-1',quantity:1,requestId:randomUUID()});assert.equal(ordinary.total,10000);
  const normalGate=await inv.gateStatus(id);assert.equal(normalGate.spinPrice,100);assert.equal(normalGate.lifePrice,25000);
  assert.equal((await lab.status(id)).capacity,initial.capacity);
- assert.equal((await repair.options(id)).find(x=>x.mode==='position').uridium,1000);
+ // A random gate spin can award a repair voucher. Test both quote states explicitly.
+ const voucherStock=Number((await pool.query("SELECT quantity FROM gg_v13_ammo WHERE account_id=$1 AND code='repair-voucher'",[id])).rows[0]?.quantity||0);
+ const afterExpiry=(await repair.options(id)).find(x=>x.mode==='position');
+ assert.equal(afterExpiry.premium,false);assert.equal(afterExpiry.vouchers,voucherStock>0?1:0);assert.equal(afterExpiry.uridium,voucherStock>0?0:1000);
+ await pool.query("DELETE FROM gg_v13_ammo WHERE account_id=$1 AND code='repair-voucher'",[id]);
+ const noVoucher=(await repair.options(id)).find(x=>x.mode==='position');assert.equal(noVoucher.uridium,1000);assert.equal(noVoucher.vouchers,0);
+ await pool.query("INSERT INTO gg_v13_ammo(account_id,code,quantity) VALUES($1,'repair-voucher',1)",[id]);
+ const withVoucher=(await repair.options(id)).find(x=>x.mode==='position');assert.equal(withVoucher.premium,false);assert.equal(withVoucher.uridium,0);assert.equal(withVoucher.vouchers,1);
  }finally{await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
