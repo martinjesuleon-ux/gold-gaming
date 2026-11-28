@@ -30,7 +30,7 @@
  }
  function draw(ctx,s,screen,glow=1,classic=false){
   if(!s)return;const h=screen(s.head.x,s.head.y),tail=screen(s.tail.x,s.tail.y);
-  ctx.save();ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=9*glow;ctx.lineCap='round';
+  ctx.save();ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=s.alien?0:9*glow;ctx.lineCap='round';
   if(s.impact!==null){const f=s.impact;ctx.globalAlpha=(1-f)*.85;ctx.lineWidth=2;ctx.beginPath();ctx.arc(h.x,h.y,2+f*(s.rocket?24:13),0,Math.PI*2);ctx.stroke();}
   else if(s.alien){
    // A compact, single faceted energy pulse, visually distinct from player beams.
