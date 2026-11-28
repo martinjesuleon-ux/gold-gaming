@@ -1,0 +1,15 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const src=fs.readFileSync(require.resolve('../server'),'utf8');
+const guard=src.slice(src.indexOf(' function shootPetGuard('),src.indexOf(' function hitGuardPet('));
+const actual=src.slice(src.indexOf(' function actualLaserDamage('),src.indexOf(' function laser(',src.indexOf(' function actualLaserDamage(')));
+function setup({pvp=false,miss=false}={}){
+ const events=[],finished=[],p={id:'p',accountId:'account',zone:'1-1',petX:0,petY:0,petGeneration:1,writes:Promise.resolve(),target:'unrelated',attack:true},n={id:'n',name:'target',x:10,y:10,hp:20,shield:30,formation:'normal',type:'drone'};
+ const players=new Map([['p',p],...(pvp?[['n',n]]:[])]),npcs=new Map(pvp?[]:[['n',n]]),pending=new Set();
+ const fn=vm.runInNewContext(actual+guard+'\nshootPetGuard',{require:()=>({guardEnabled:()=>true,testKitEnabled:()=>true}),accounts:{petGuardShot:async()=>({code:'UCB-100',stock:99,count:1,damage:100})},players,npcs,pending,closing:false,process:{env:{}},selectGuardTarget:()=>pvp?null:n,selectPilotGuardTarget:()=>pvp?n:null,pilotGuardTarget:()=>true,guardTarget:()=>true,canPvp:()=>true,safeZone:()=>false,immune:()=>false,abilityActive:()=>false,distance:()=>10,damageFactor:()=>1,incoming:()=>1,formationBonus:()=>({}),protectDamage:()=>25,formationAbsorption:()=>1,hit:()=>({hp:20,shield:5}),laser:()=>{},salvo:()=>({damage:miss?0:400,target:{hp:0,shield:0}}),laserDamage:(p,n,amount)=>events.push(['damage',amount]),finishCombat:(p,n,pvp,independent)=>finished.push(independent),finishNPC:(p,n,defer,independent)=>finished.push(independent),io:{to:()=>({emit:(name,value)=>events.push([name,value])})}});
+ return {p,n,events,finished,run:async()=>{fn(p,Date.now(),{npcFor:()=>[n],pilotsFor:()=>[n]});await p.writes;}};
+}
+test('PET guard reports effective NPC damage instead of uncapped salvo',async()=>{const f=setup();await f.run();assert.equal(f.events.find(x=>x[0]==='damage')[1],50);assert.equal(f.events.find(x=>x[0]==='v14:petGuard')[1].damage,50);assert.deepEqual(f.finished,[true]);assert.equal(f.p.target,'unrelated');});
+test('PET PvP guard reports mitigated shield loss',async()=>{const f=setup({pvp:true});await f.run();assert.equal(f.events.find(x=>x[0]==='damage')[1],25);assert.equal(f.events.find(x=>x[0]==='v14:petGuard')[1].damage,25);assert.deepEqual(f.finished,[true]);});
+test('miss reports zero without damage popup or kill',async()=>{const f=setup({miss:true});await f.run();assert.equal(f.events.find(x=>x[0]==='v14:petGuard')[1].damage,0);assert.equal(f.events.some(x=>x[0]==='damage'),false);assert.deepEqual(f.finished,[]);});
+test('admin Kamikaze retains damage, range and zero cooldown; uses independent kill and applied damage',()=>{assert.match(src,/TEST_KAMIKAZE=Object.freeze\(\{damage:100000000,radius:5000,cooldown:0\}\)/);const k=src.slice(src.indexOf("socket.on('v16:kamikaze'"),src.indexOf("socket.on('v180:comboRepair'"));assert.match(k,/laserDamage\(p,n,actualLaserDamage\(before,n\)/);assert.match(k,/finishNPC\(p,n,true,true\)/);});
