@@ -1,11 +1,13 @@
 'use strict';
 (function(root){
  const KEY='sprite:classic-ship-goliath';
- const formats=Object.freeze([{cols:8,rows:4,w:208,h:168,frames:32},{cols:12,rows:10,w:252,h:200,frames:120}]);
+ const formats=Object.freeze([{cols:8,rows:4,w:208,h:168,frames:32,offset:0},{cols:12,rows:10,w:252,h:200,frames:120,offset:60}]);
  let format=formats[1];
  let atlas=null,generation=0,hasIris=false;
  const active=()=>root.ggVisualTheme?.current()==='classic';
- function frame(angle){const a=Number.isFinite(angle)?angle:0,n=format.frames;return ((Math.round(a*n/(Math.PI*2))+n/2)%n+n)%n;}
+ // Original SWF sheets: frame 0 faces +X, and frames increase clockwise.
+ function headingFrame(angle,n,offset=0){const a=Number.isFinite(angle)?angle:0;return ((Math.round(a*n/(Math.PI*2))+offset)%n+n)%n;}
+ function frame(angle){return headingFrame(angle,format.frames,format.offset);}
  function rect(angle){const n=frame(angle);return {x:n%format.cols*format.w,y:Math.floor(n/format.cols)*format.h,w:format.w,h:format.h};}
  function draw(c,angle=0,rotated=false,width=100){
   if(!atlas||!active())return false;
@@ -24,7 +26,7 @@
    if(token!==generation)return false;format=selected;hasIris=combined;atlas=img;return true;
  }
  function clear(){generation++;atlas=null;hasIris=false;}
- function iris(c,rank,angle=0,rotated=false,width=100*60/208){if(!atlas||!hasIris||!active()||!c)return false;const r=Math.max(0,Math.min(5,Math.floor(Number(rank)||1)-1)),a=Number.isFinite(angle)?angle:0,n=((Math.round(-a*32/(Math.PI*2))%32)+32)%32;const x=(r%3)*480+(n%8)*60,y=672+Math.floor(r/3)*240+Math.floor(n/8)*60;c.save();if(rotated)c.rotate(-a);c.drawImage(atlas,x,y,60,60,-width/2,-width/2,width,width);c.restore();return true;}
+ function iris(c,rank,angle=0,rotated=false,width=100*60/208){if(!atlas||!hasIris||!active()||!c)return false;const r=Math.max(0,Math.min(5,Math.floor(Number(rank)||1)-1)),a=Number.isFinite(angle)?angle:0,n=headingFrame(a,32);const x=(r%3)*480+(n%8)*60,y=672+Math.floor(r/3)*240+Math.floor(n/8)*60;c.save();if(rotated)c.rotate(-a);c.drawImage(atlas,x,y,60,60,-width/2,-width/2,width,width);c.restore();return true;}
  const pack=root.ggClassicPack;
  if(pack){const originalDraw=pack.draw,originalShop=pack.shop;
   pack.draw=function(c,key,options={}){return (key===KEY&&draw(c,options.angle,options.rotated))||originalDraw.call(pack,c,key,options);};
