@@ -304,26 +304,46 @@
    if(elite){c.fillStyle=color;c.fillRect(-body*.45,body*.48*s-.6,body*.7,1.2);}
   }
  }
+ // Reference-derived original artwork: six actual rank silhouettes per VANT.
  function vant(c,kind,color){
-  const id=kind.slice(6),red=color==='#ff3838',blue=color==='#398dff',spartan=color==='#ff8a24';
-  const special=red||blue||spartan,wing=red?'#a32228':blue?'#2055a4':spartan?'#315f91':'#a98d42';
-  const light=blue?'#b8e3f3':red?'#fac3aa':spartan?'#d5bf8d':'#c2d1d7',span=id==='flax'?5:id==='apis'?10:id==='zeus'?11:8;
-  const steel=linear(c,-12,-8,12,8,[[0,'#e0e8ee'],[.23,'#758b9b'],[.48,'#202d3a'],[.72,'#536575'],[1,'#101820']]);
-  const paint=linear(c,-8,-span,8,span,[[0,'#a4afb5'],[.14,wing],[.38,'#2b343c'],[.60,'#111923'],[.82,wing],[1,'#080d16']]);
-  for(const side of [-1,1]){
-   const y=side*span;
-   const hull=spartan?[[12,2*side],[8,y],[-9,y],[-13,5*side],[-6,2*side]]:[[8,2*side],[3,y],[-3,y*1.12],[-11,y*.75],[-8,3*side],[-2,2*side]];
-   polygon(c,hull,paint,'#778995',.6);
-   polygon(c,[[5,3*side],[1,y*.83],[-6,y*.78],[-3,3*side]],wing,'#b0bbc5',.35);
-   polygon(c,[[-11,2*side],[-6,2*side],[-4,4*side],[-10,5*side]],steel,'#101821',.4);
-   if(spartan||id==='zeus')polygon(c,[[-9,5*side],[-5,6*side],[-3,3*side],[-8,2*side]],'#b13237','#a5bac9',.4);
-   if(id==='apis'||id==='zeus')polygon(c,[[0,y],[4,y*.8],[6,y*.45],[2,y*.52]],'#c3a05a','#69542d',.4);
+  const [model,level]=kind.slice(6).split(':'),id=['flax','iris','apis','zeus'].includes(model)?model:'iris',rank=Math.max(1,Math.min(6,Math.floor(Number(level)||6)));
+  const flax=id==='flax',apis=id==='apis',zeus=id==='zeus',red=color==='#ff3838',blue=color==='#398dff',spartan=color==='#ff8a24',special=red||blue||spartan;
+  const dark=red?'#501417':blue?'#142a4a':spartan?'#21374d':apis?'#101e2d':zeus?'#392d21':'#686762';
+  const mid=red?'#ac292d':blue?'#3269ab':spartan?'#456d93':apis?'#30445b':zeus?'#775b3c':'#b9b7ae';
+  const bright=red?'#e87967':blue?'#8cb5e0':spartan?'#a5c1d9':apis?'#8093a5':zeus?'#c4a575':'#f1f0e5';
+  const steel=linear(c,-8,-9,10,9,[[0,'#f4f2e9'],[.18,'#b9b8af'],[.39,'#62615e'],[.57,'#202020'],[.76,'#b7b4a9'],[1,'#484645']]);
+  const wing=linear(c,-15,-16,12,16,[[0,bright],[.3,mid],[.64,dark],[.85,mid],[1,dark]]);
+  const lens=zeus&&!special?'#e9e7cf':blue?'#bce8ff':spartan?'#fff0be':'#ffda58';
+  function oval(x,y,rx,ry,fill,stroke,w=.5){c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=w;c.stroke();}}
+  function blade(side){
+   c.beginPath();c.moveTo(-2,3*side);c.bezierCurveTo(-6,7*side,-14,10*side,-15,13*side);c.bezierCurveTo(-11,19*side,-6,20*side,-1,15*side);c.quadraticCurveTo(3,11*side,4,5*side);c.closePath();c.fillStyle=wing;c.fill();c.strokeStyle=bright;c.lineWidth=.65;c.stroke();
+   c.beginPath();c.moveTo(-2,5*side);c.quadraticCurveTo(-6,12*side,-13,13*side);c.strokeStyle=dark;c.lineWidth=.65;c.stroke();
   }
-  polygon(c,[[12,0],[7,-4],[-5,-5],[-11,-3],[-11,3],[-5,5],[7,4]],steel,'#a3b4c2',.75);
-  polygon(c,[[9,-2],[3,-4],[-4,-3],[-7,0],[-4,3],[3,4],[9,2]],'#172330','#9cacb9',.5);
-  polygon(c,[[9,0],[5,-3.6],[1,-2.6],[-1,0],[1,2.6],[5,3.6]],steel,'#0a1118',.6);
-  polygon(c,[[7.4,0],[4.6,-1.8],[1.5,-1.2],[1.5,1.2],[4.6,1.8]],linear(c,1,-2,8,2,[[0,'#101922'],[.45,light],[.64,special?wing:'#7f929f'],[1,'#111923']]),'#17222a',.4);
-  for(const side of [-1,1]){c.fillStyle='#c4d3db';c.fillRect(-7,side*3,2,.65);}
+  function rail(side){
+   c.beginPath();c.moveTo(-6,3*side);c.bezierCurveTo(-13,5*side,-20,13*side,-14,17*side);c.bezierCurveTo(-7,20*side,1,10*side,3,5*side);c.lineTo(0,4*side);c.bezierCurveTo(-4,10*side,-11,15*side,-13,14*side);c.bezierCurveTo(-16,12*side,-10,8*side,-4,5*side);c.closePath();c.fillStyle=wing;c.fill();c.strokeStyle=bright;c.lineWidth=.55;c.stroke();
+  }
+  c.save();
+  // The photographs show three swept open rails for rank-six Flax, and
+  // broad curved fins with short transverse stabilizers on the other models.
+  if(flax){
+   if(rank===6){rail(1);rail(-1);c.save();c.rotate(Math.PI);c.scale(.78,.72);rail(1);c.restore();}
+   else if(rank>=4){for(const side of rank===4?[1]:[-1,1])polygon(c,[[-4,2*side],[-7,5*side],[-14,8*side],[-5,7*side],[1,4*side]],wing,bright,.45);}
+  }else{
+   if(rank>=4)blade(1);
+   if(rank>=5)blade(-1);
+   if(rank>=6)for(const side of [-1,1]){polygon(c,[[-7,1.5*side],[-13,5.5*side],[-17,6*side],[-11,8*side],[-2,5.5*side],[3,3*side]],wing,bright,.55);polygon(c,[[-15,6*side],[-10,5*side],[-5,4*side],[-9,6.7*side]],steel,'#4f4e47',.4);}
+  }
+  const rx=flax?8.7:7.5,ry=flax?5.1:7.1;
+  oval(-1.5,0,rx,ry,steel,'#3f403e',.7);
+  oval(-3.2,0,rx*.70,ry*.91,linear(c,-9,-6,1,6,[[0,'#d5d3c9'],[.25,'#96948a'],[.50,'#353532'],[1,'#14191b']]),'#77746b',.5);
+  if(rank>=2)for(const side of [-1,1])polygon(c,[[-5,ry*.82*side],[-1,ry*.97*side],[2,ry*.75*side],[0,ry*.57*side]],wing,bright,.38);
+  if(rank>=3)for(const side of [-1,1]){polygon(c,[[-6,ry*.42*side],[-3,ry*.79*side],[-.4,ry*.68*side],[-2,ry*.37*side]],'#272a29','#c0b9a4',.4);c.fillStyle=zeus?'#d0ab62':'#aaa499';c.fillRect(-4.2,ry*.58*side-.45,1.4,.9);}
+  // Layered circular optical assembly, recessed dark gasket and warm lens.
+  oval(3,0,flax?5.3:5.8,flax?4.5:6.2,steel,'#35332e',.55);
+  oval(4.3,0,4.1,flax?3.5:4.9,'#302b23','#e3d9bb',.75);
+  oval(4.8,0,3.0,flax?2.7:3.7,radial(c,4,-1,4,[[0,'#fffce8'],[.32,lens],[.74,zeus?'#9f9676':'#b78d2f'],[1,'#3f3823']]),'#d7c18a',.48);
+  if(special){c.fillStyle=bright;c.fillRect(-5,-1,2.3,2);}
+  c.restore();
  }
  // Hand-authored half-hull outlines, reflected around the centerline. Nose faces +X.
  const pilotOutlines={

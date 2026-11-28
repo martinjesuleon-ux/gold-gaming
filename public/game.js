@@ -444,7 +444,7 @@ function ship(v,isMe,npc,dt=0){
  ctx.restore();
 }
 function drawFormation(o,offsets){
- const graphics=window.ggGraphics161;offsets.forEach(({x,y},i)=>{ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=graphics.droneColor(drone?.design);graphics.draw(ctx,graphics.droneKind(drone?.code),color);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();});
+ const graphics=window.ggGraphics161;offsets.forEach(({x,y},i)=>{ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=graphics.droneColor(drone?.design);graphics.draw(ctx,graphics.droneKind(drone?.code,drone?.rank),color);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();});
 }
 // Visual-only interpolation: server positions remain authoritative for combat and rewards.
 function smoothPetPosition(previous,pet,alpha){

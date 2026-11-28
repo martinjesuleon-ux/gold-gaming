@@ -25,7 +25,7 @@
  apis:[[12,0],[4,-5],[0,-10],[-9,-8],[-12,-3],[-6,0],[-12,3],[-9,8],[0,10],[4,5]],
  zeus:[[13,0],[7,-6],[-2,-11],[-10,-10],[-13,-5],[-8,0],[-13,5],[-10,10],[-2,11],[7,6]]
  });
- function droneKind(code){return Object.hasOwn(droneHulls,code)?'drone-'+code:'drone';}
+ function droneKind(code,rank=6){const kind=Object.hasOwn(droneHulls,code)?'drone-'+code:'drone';return root.ggVisualTheme?.current()==='classic'?kind+':'+Math.max(1,Math.min(6,Math.floor(Number(rank)||1))):kind;}
  function drone(c,color,kind){
   const code=kind.slice(6),hull=droneHulls[code]||droneHulls.iris;
   const metal=gradient(c,11,[[0,'#c1ccd5'],[.25,'#506477'],[.55,'#18232f'],[1,'#627282']]);
