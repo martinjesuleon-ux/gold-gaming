@@ -8,4 +8,7 @@ const MILESTONES=Object.freeze({
  100:{days:180,packs:{'NBX-B01':30,'QR-01':30},stacks:{'gate-energy':30000,'RSB-75':350000,'UCB-100':550000},items:[['lasers','LF-4',10,1],['lasers','LF-4',1,20],['shields','SG3N-B03',1,20],...['Havoc','Hercules','Spartan'].map(x=>['drone-designs',x,1,1])],pending:{specialShipDesign:1}}
 });
 function availableMilestones(count,claimed=[],blocked=false){return blocked?[]:Object.keys(MILESTONES).map(Number).filter(n=>count>=n&&!claimed.includes(n));}
-module.exports={MILESTONES,availableMilestones};
+function pendingRewards(history=[]){
+ const out=[];for(const row of history){const milestone=Number(row.milestone),pending=row.reward?.pending;if(!Object.hasOwn(MILESTONES,milestone)||!pending)continue;for(const kind of ['sharedCombatHours','specialPetDesign','specialShipDesign']){const quantity=pending[kind];if(Number.isSafeInteger(quantity)&&quantity>0)out.push({milestone,kind,quantity,state:'reserved'});}}return out.sort((a,b)=>a.milestone-b.milestone||a.kind.localeCompare(b.kind));
+}
+module.exports={MILESTONES,availableMilestones,pendingRewards};
