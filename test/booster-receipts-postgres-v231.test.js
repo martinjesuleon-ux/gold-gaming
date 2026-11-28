@@ -13,7 +13,7 @@ test('PostgreSQL: booster receipts bind operation, prevent duplicate charge and 
  const legacy=randomUUID();await pool.query('INSERT INTO gg_booster_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,legacy,JSON.stringify(one)]);
  await assert.rejects(booster.action(id,{...body,requestId:legacy}),{status:409});
  const balance=(await pool.query('SELECT uridium FROM player_progress WHERE account_id=$1',[id])).rows[0];assert.equal(Number(balance.uridium),40000);
- const ent=(await pool.query("SELECT seconds FROM gg_v16_entitlements WHERE account_id=$1 AND code='DMG-B01'",[id])).rows[0];assert.equal(Number(ent.seconds),36000);
- const activated=await booster.action(id,{action:'activate',code:'DMG-B01',requestId:randomUUID()});assert.ok(activated);
+ const ent=(await pool.query("SELECT seconds FROM gg_v16_entitlements WHERE account_id=$1 AND code='DMG-B01'",[id])).rows[0];assert.equal(Number(ent?.seconds||0),0);assert.ok(one.active['DMG-B01']>Date.now()+35990000);assert.equal((await booster.status(id)).active['DMG-B01'],one.active['DMG-B01']);
+ await assert.rejects(booster.action(id,{action:'activate',code:'DMG-B01',requestId:randomUUID()}),/Sin tiempo/);
  }finally{await pool.query('DELETE FROM accounts WHERE id=$1',[id]);}
 });
