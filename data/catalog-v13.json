@@ -740,6 +740,396 @@
       "bonus": {
         "damage": 1.05
       }
+    },
+    {
+      "id": "Champion",
+      "name": "Goliath Champion",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#d5b26b"
+    },
+    {
+      "id": "Champion-albania",
+      "name": "Goliath Champion · Albania",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#da233a"
+    },
+    {
+      "id": "Champion-austria",
+      "name": "Goliath Champion · Austria",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#e52a40"
+    },
+    {
+      "id": "Champion-belgium",
+      "name": "Goliath Champion · Bélgica",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#202128"
+    },
+    {
+      "id": "Champion-croatia",
+      "name": "Goliath Champion · Croacia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#e43c44"
+    },
+    {
+      "id": "Champion-czechia",
+      "name": "Goliath Champion · República Checa",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#edf4f9"
+    },
+    {
+      "id": "Champion-england",
+      "name": "Goliath Champion · Inglaterra",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#edf4f9"
+    },
+    {
+      "id": "Champion-france",
+      "name": "Goliath Champion · Francia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#2456b0"
+    },
+    {
+      "id": "Champion-germany",
+      "name": "Goliath Champion · Alemania",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#1c1e25"
+    },
+    {
+      "id": "Champion-hungary",
+      "name": "Goliath Champion · Hungría",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#d93949"
+    },
+    {
+      "id": "Champion-iceland",
+      "name": "Goliath Champion · Islandia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#2355a4"
+    },
+    {
+      "id": "Champion-ireland",
+      "name": "Goliath Champion · Irlanda",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#238a5b"
+    },
+    {
+      "id": "Champion-italy",
+      "name": "Goliath Champion · Italia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#23885f"
+    },
+    {
+      "id": "Champion-northern-ireland",
+      "name": "Goliath Champion · Irlanda del Norte",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#edf4f9"
+    },
+    {
+      "id": "Champion-poland",
+      "name": "Goliath Champion · Polonia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#edf4f9"
+    },
+    {
+      "id": "Champion-portugal",
+      "name": "Goliath Champion · Portugal",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#23834e"
+    },
+    {
+      "id": "Champion-romania",
+      "name": "Goliath Champion · Rumania",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#254dad"
+    },
+    {
+      "id": "Champion-russia",
+      "name": "Goliath Champion · Rusia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#edf4f9"
+    },
+    {
+      "id": "Champion-slovakia",
+      "name": "Goliath Champion · Eslovaquia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#edf4f9"
+    },
+    {
+      "id": "Champion-spain",
+      "name": "Goliath Champion · España",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#d83a43"
+    },
+    {
+      "id": "Champion-sweden",
+      "name": "Goliath Champion · Suecia",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#245aa2"
+    },
+    {
+      "id": "Champion-switzerland",
+      "name": "Goliath Champion · Suiza",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#d53343"
+    },
+    {
+      "id": "Champion-turkey",
+      "name": "Goliath Champion · Turquía",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#d52e40"
+    },
+    {
+      "id": "Champion-ukraine",
+      "name": "Goliath Champion · Ucrania",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#2865b5"
+    },
+    {
+      "id": "Champion-usa",
+      "name": "Goliath Champion · Estados Unidos",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#24478b"
+    },
+    {
+      "id": "Champion-wales",
+      "name": "Goliath Champion · Gales",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#edf4f9"
+    },
+    {
+      "id": "Champion-chile",
+      "name": "Goliath Champion · Chile",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#224b9b"
+    },
+    {
+      "id": "Champion-argentina",
+      "name": "Goliath Champion · Argentina",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#62addc"
+    },
+    {
+      "id": "Champion-brazil",
+      "name": "Goliath Champion · Brasil",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#249653"
+    },
+    {
+      "id": "Champion-mexico",
+      "name": "Goliath Champion · México",
+      "ship": "goliath",
+      "price": null,
+      "currency": null,
+      "bonus": {
+        "damage": 1.05,
+        "honor": 1.1
+      },
+      "acquisition": "admin",
+      "liveryColor": "#238458"
     }
   ],
   "cpus": [
