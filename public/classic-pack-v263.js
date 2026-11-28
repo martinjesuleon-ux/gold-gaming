@@ -45,7 +45,7 @@
   c.drawImage(img,(frame%e.columns)*sw,Math.floor(frame/e.columns)*sh,sw,sh,-w/2,-h/2,w,h);c.restore();return true;
  }
  function cover(c,key,w,h){const e=resolve(key);if(!e||e.mode!=='static')return false;const img=image(e);if(!img||!img.naturalWidth||!img.naturalHeight||img.naturalWidth>8192||img.naturalHeight>8192)return false;const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight),dw=img.naturalWidth*scale,dh=img.naturalHeight*scale;c.drawImage(img,(w-dw)/2,(h-dh)/2,dw,dh);return true;}
- function icon(c,key,w,h){if(!active())return false;
+ function icon(c,key,w,h){if(!c||!active())return false;
   const paint=()=>{if(!active())return false;const e=resolve(key);if(!e)return false;const img=image(e,paint);if(!img||e.mode!=='static'||!img.naturalWidth||!img.naturalHeight||img.naturalWidth>8192||img.naturalHeight>8192)return false;const cw=c.canvas?.width||w,ch=c.canvas?.height||h;c.save();c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,cw,ch);c.translate(cw/2,ch/2);const done=draw(c,key,{width:cw,height:ch});c.restore();return done;};
   if(state==='loading'){root.addEventListener?.('gg:classicPack',paint,{once:true});return false;}return paint();
  }
