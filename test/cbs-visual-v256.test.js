@@ -1,0 +1,20 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
+const ui=require('../public/cbs-visual-v256'),{MODULES,validateModules}=require('../stations-v113');
+const {randomUUID}=require('node:crypto');
+const inventory=['HULM-1','DEFM-1','REPM-1','HONM-1','XPM-1','DMGM-1','LTM-LR','LTM-MR','LTM-HR','RAM-LA','RAM-MA','LTM-LR','REPM-1'].map(code=>({code,instanceId:randomUUID(),level:1}));
+test('every server CBS module has a distinct visual identity',()=>{assert.deepEqual(Object.keys(ui.specs).sort(),Object.keys(MODULES).sort());assert.equal(new Set(Object.values(ui.specs).map(x=>x[2]+' '+x[3])).size,Object.keys(MODULES).length);});
+test('CBS layout rejects wrong slots and duplicate unique types, supports swaps and validates server payload',()=>{
+ let slots=Array(10).fill(null);
+ assert.equal(ui.place(slots,inventory,inventory[0].instanceId,3,MODULES),null);
+ assert.equal(ui.place(slots,inventory,inventory[2].instanceId,0,MODULES),null);
+ for(let i=0;i<10;i++)slots=ui.place(slots,inventory,inventory[i].instanceId,i,MODULES);
+ assert.equal(ui.complete(slots,inventory,MODULES),true);
+ assert.equal(validateModules(slots.map(id=>inventory.find(x=>x.instanceId===id)),300000).length,10);
+ assert.equal(ui.place(slots,inventory,inventory[12].instanceId,5,MODULES),null);
+ const next=ui.place(slots,inventory,inventory[6].instanceId,7,MODULES);
+ assert.equal(next[6],slots[7]);assert.equal(next[7],slots[6]);assert.equal(ui.complete(next,inventory,MODULES),true);
+ const repeat=ui.place(slots,inventory,inventory[11].instanceId,9,MODULES);assert.equal(ui.complete(repeat,inventory,MODULES),true);
+ const missing=slots.slice();missing[3]=null;assert.equal(ui.complete(missing,inventory,MODULES),false);
+});
+test('CBS visuals load before station menu and render live modules on map',()=>{const html=fs.readFileSync(require.resolve('../public/index.html'),'utf8');assert.ok(html.includes('cbs-visual-v256.css'));assert.ok(html.indexOf('cbs-visual-v256.js')>=0&&html.indexOf('cbs-visual-v256.js')<html.indexOf('./gold-v13.js'));const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8');assert.match(game,/ggCBSVisual\.drawStation\(ctx,a\.station\.modules/);});
