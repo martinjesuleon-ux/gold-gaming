@@ -28,6 +28,29 @@
   const a=s.head,b=s.impact!==null?a:s.tail;
   return Math.max(a.x,b.x)>=left&&Math.min(a.x,b.x)<=right&&Math.max(a.y,b.y)>=top&&Math.min(a.y,b.y)<=bottom;
  }
+ // External art uses the same sampled trajectory and salvo geometry.
+ function drawPack(ctx,s,screen,pack,time=0){
+  if(!s||!pack?.draw)return false;
+  const h=screen(s.head.x,s.head.y),tail=screen(s.tail.x,s.tail.y),id=s.ammo||s.kind;
+  const at=(keys,x,y,angle,options)=>{ctx.save();ctx.translate(x,y);ctx.rotate(angle);const drawn=keys.some(key=>pack.draw(ctx,key,{angle,rotated:true,time,...options}));ctx.restore();return drawn;};
+  if(s.impact!==null)return at(['impact:'+id,'impact:'+(s.rocket?'rocket':s.alien?'alien':'laser')],h.x,h.y,0,{time:s.impact*(s.rocket?150:100)});
+  const length=Math.hypot(h.x-tail.x,h.y-tail.y);
+  if(length<=.1)return false;
+  if(s.rocket){
+   // Verify the first sprite before committing to replacing this whole salvo.
+   const ho=salvoOffsets(s.count,s.progress),to=salvoOffsets(s.count,s.tailProgress);
+   const keys=['projectile:rocket:'+id,'projectile:rocket:default'];
+   for(let i=0;i<ho.length;i++){
+    const x=h.x+s.sideX*ho[i],y=h.y+s.sideY*ho[i],tx=tail.x+s.sideX*to[i],ty=tail.y+s.sideY*to[i];
+    const ok=at(keys,x,y,Math.atan2(y-ty,x-tx),{width:18,height:9});
+    if(!ok)return false;
+   }
+   return true;
+  }
+  const family=s.alien?'alien':'laser',wide=s.enhanced&&!s.alien;
+  const keys=[...(wide?['projectile:laser:'+id+':wide']:[]),'projectile:'+family+':'+id,'projectile:'+family+':default'];
+  return at(keys,(h.x+tail.x)/2,(h.y+tail.y)/2,s.angle,{width:length,height:s.alien?10:wide?18:6});
+ }
  function draw(ctx,s,screen,glow=1,classic=false){
   if(!s)return;const h=screen(s.head.x,s.head.y),tail=screen(s.tail.x,s.tail.y);
   ctx.save();ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=s.alien?0:9*glow;ctx.lineCap='round';
@@ -61,5 +84,5 @@
    }
   }ctx.restore();
  }
- const api={LIFE,prepare,sample,visible,draw,salvoOffsets,playerColor};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggProjectiles238=api;
+ const api={LIFE,prepare,sample,visible,draw,drawPack,salvoOffsets,playerColor};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggProjectiles238=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
