@@ -5,7 +5,7 @@ const shot={x:10,y:20,tx:710,ty:20,kind:'player',ammo:'MCB-50',born:1000};
 test('laser advances continuously from fixed origin to fixed destination',()=>{
  const a=sample(shot,1000),b=sample(shot,1050),c=sample(shot,1100);
  assert.equal(a.head.x,10);assert.equal(b.head.x,360);assert.equal(c.head.x,710);
- assert.equal(c.impact,0);assert.equal(b.color,'#579dff');assert.ok(b.tail.x<b.head.x);
+ assert.equal(c.impact,0);assert.equal(b.color,'#83e83f');assert.ok(b.tail.x<b.head.x);
  assert.equal(sample(shot,1200),null);
 });
 test('rockets have slower travel and a bounded impact phase',()=>{
@@ -39,3 +39,45 @@ test('geometry is reused between frames and invalidated on visual input change',
  s.ammo='RSB-75';assert.notEqual(prepare(s),first);assert.equal(sample(s,1050).color,'#ffc04f');
  s.tx=1410;assert.notEqual(prepare(s).len,first.len);s.x=NaN;assert.equal(prepare(s),null);
 });
+
+test('NPC projectiles use short distinct pulses without modifying travel time',()=>{
+ const npc={...shot,kind:'normal'},boss={...shot,kind:'boss'};
+ const p=prepare(shot),n=prepare(npc),b=prepare(boss);
+ assert.equal(p.alien,false);assert.equal(n.alien,true);assert.equal(b.alien,true);
+ assert.equal(n.travel,p.travel);assert.equal(b.travel,p.travel);
+ assert.equal(n.trail,22);assert.equal(b.trail,30);assert.equal(p.trail,85);
+ assert.equal(sample(npc,1050).head.x,sample(shot,1050).head.x);
+ assert.equal(sample(npc,1050).head.x-sample(npc,1050).tail.x,22);
+ assert.equal(prepare({...shot,kind:'rocket'}).alien,false);
+});
+test('alien pulses use filled geometry rather than player beam strokes in both themes',()=>{
+ const {draw}=require('../public/projectiles-v238');
+ for(const classic of [false,true]){
+  const calls=[],ctx=new Proxy({},{get:(o,k)=>o[k]||((...a)=>calls.push([k,...a])),set:(o,k,v)=>(o[k]=v,true)});
+  draw(ctx,sample({...shot,kind:'normal'},1050),(x,y)=>({x,y}),1,classic);
+  assert.equal(calls.filter(c=>c[0]==='fill').length,2);
+  assert.equal(calls.filter(c=>c[0]==='stroke').length,0);
+ }
+});
+
+test('normal and enhanced laser profiles distinguish reference ammunition',()=>{
+ const {playerColor}=require('../public/projectiles-v238');
+ assert.equal(playerColor({ammo:'LCB-10'}),'#ef4643');assert.equal(playerColor({ammo:'MCB-25',allLF3:true}),'#579dff');
+ assert.equal(prepare({...shot,enhanced:true}).enhanced,true);assert.equal(prepare(shot).enhanced,false);
+ assert.equal(prepare({...shot,ammo:'SAB-50'}).color,'#73e8ee');
+});
+test('Hellstorm salvo carries actual count and converges on original destination',()=>{
+ const {salvoOffsets,draw}=require('../public/projectiles-v238');
+ for(const count of [1,3,5]){
+  const r={...shot,kind:'rocket',ammo:'ECO-10',count};const mid=sample(r,1100);
+  assert.equal(mid.count,count);assert.equal(new Set(salvoOffsets(count,.5)).size,count);
+  assert.ok(salvoOffsets(count,1).every(x=>Math.abs(x)<1e-10));
+  const calls=[],ctx=new Proxy({},{get:(o,k)=>o[k]||((...a)=>calls.push([k,...a])),set:(o,k,v)=>(o[k]=v,true)});
+  draw(ctx,mid,(x,y)=>({x,y}));assert.equal(calls.filter(c=>c[0]==='fill').length,count);
+ }
+ const server=require('node:fs').readFileSync(require.resolve('../server.js'),'utf8');
+ assert.ok(server.includes("kind:'rocket',ammo:code,count}"));assert.ok(server.includes("kind:'rocket',ammo:code,count:1}"));
+});
+
+test('full PvP skill unlocks wide laser against every target',()=>{const {bonus,enhancedLaser}=require('../pilot-v19');const full=bonus({bounty1:2,bounty2:3}),partial=bonus({bounty1:2,bounty2:2}),alien=bonus({alien:5});assert.equal(enhancedLaser(full,true),true);assert.equal(enhancedLaser(full,false),true);assert.equal(enhancedLaser(partial,true),false);assert.equal(enhancedLaser(partial,false),false);assert.equal(enhancedLaser(alien,false),true);assert.equal(enhancedLaser(alien,true),false);assert.equal(enhancedLaser(undefined,false),false);assert.ok(Math.abs(full.pvp-1.12)<1e-9);assert.equal(full.npc,1);});
+test('enhanced laser has triple normal beam width in both visual modes',()=>{const {draw}=require('../public/projectiles-v238');function width(enhanced,classic,ammo){const calls=[],ctx=new Proxy({},{get:(o,k)=>o[k]||((...a)=>calls.push([k,...a])),set:(o,k,v)=>(o[k]=v,true)});draw(ctx,sample({...shot,ammo,enhanced},1050),(x,y)=>({x,y}),1,classic);return Math.max(...calls.filter(c=>c[0]==='lineTo').map(c=>Math.abs(c[2])));}for(const classic of [false,true])for(const ammo of ['LCB-10','MCB-25','MCB-50','UCB-100','RSB-75'])assert.equal(width(true,classic,ammo),width(false,classic,ammo)*3);});

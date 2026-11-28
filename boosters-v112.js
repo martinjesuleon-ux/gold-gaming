@@ -60,7 +60,7 @@ function createBoosters(pool,{allowPremium=premiumAllowed}={}){
    if(action==='buy'){
     if(!def.price)throw fail('Booster no disponible en tienda');
     const paid=await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1 AND uridium>=$2',[id,def.price]);if(!paid.rowCount)throw fail('Uridium insuficiente');
-    await c.query('INSERT INTO gg_v16_entitlements(account_id,code,seconds) VALUES($1,$2,$3) ON CONFLICT(account_id,code) DO UPDATE SET seconds=gg_v16_entitlements.seconds+EXCLUDED.seconds',[id,code,def.seconds]);
+    await extend(c,id,code,def.seconds);
    }else{
     const keys=[code,...(def.legacy?[def.legacy]:[])];let total=0;
     for(const key of keys){const r=(await c.query('SELECT seconds FROM gg_v16_entitlements WHERE account_id=$1 AND code=$2 FOR UPDATE',[id,key])).rows[0];const n=Number(r?.seconds||0);if(n>0){total+=n;await c.query('UPDATE gg_v16_entitlements SET seconds=0 WHERE account_id=$1 AND code=$2',[id,key]);}}

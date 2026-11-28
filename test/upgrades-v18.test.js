@@ -20,3 +20,6 @@ test('rocket purchase pricing uses correct currency and amount',()=>{
  assert.deepEqual(quote('rockets','PLT-2021',100),{id:'PLT-2021',category:'rockets',quantity:100,currency:'uridium',total:500});
  assert.equal(quote('rockets','R-310',20).total,2000);
 });
+
+test('Seprom changes successful laser damage by 60 percent, including the last enhanced shot',()=>{const {consume}=require('../upgrades-v18');const base=10000,ammo=4;let u=load({},'laser','seprom',1);for(let i=0;i<10;i++){const r=consume(u,['laser']);assert.equal(Math.round(base*ammo*r.factors.laser),64000);u=r.next;}assert.equal(Math.round(base*ammo*consume(u,['laser']).factors.laser),40000);});
+test('Hitac and Ice use the atomic mineral-enhanced shot path',()=>{const src=require('node:fs').readFileSync(require.resolve('../server.js'),'utf8');for(const name of ['shootIce','shootHitac']){const start=src.indexOf('function '+name+'('),end=src.indexOf('\n const ',start),block=src.slice(start,end);assert.match(block,/accounts\.upgradedShot\(p.accountId,code,count,'laser'/);assert.match(block,/a\.multiplier\*\(p.boost\?\.damage\|\|1\)\*shot.factor/);assert.doesNotMatch(block,/ubaAuthorizeAmmo/);}});

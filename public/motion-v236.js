@@ -36,5 +36,14 @@
  }
  // Update only the visual direction during the existing network throttle window.
  function preview(intent,x,y,now){if(!intent||![intent.at,x,y,now].every(Number.isFinite)||now<intent.at||now-intent.at>100)return intent;return {...intent,x,y};}
- const api={record,position,angle,anticipate,preview};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
+ // Pointer direction is independent of snapshot position. Never restart visual
+ // translation when a new drag command refreshes its timestamp.
+ function steer(position,intent,previousHeading){
+  if(!position||!intent||![position.x,position.y,intent.x,intent.y].every(Number.isFinite))return position;
+  const dx=intent.x-position.x,dy=intent.y-position.y;
+  const a=Math.hypot(dx,dy)<8?(Number.isFinite(previousHeading)?previousHeading:position.a):Math.atan2(dy,dx);
+  return {...position,a};
+ }
+ function combatHeading(ship,target,active,alpha){if(!active||!ship||!target||![ship.x,ship.y,ship.a,target.x,target.y,alpha].every(Number.isFinite))return ship?.a;const dx=target.x-ship.x,dy=target.y-ship.y;if(Math.hypot(dx,dy)<.01)return ship.a;return angle(ship.a,Math.atan2(dy,dx),clamp(alpha,0,1));}
+ const api={record,position,angle,anticipate,preview,steer,combatHeading};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -86,3 +86,22 @@ test('graphics quality profiles change rendering only and retain full game entit
 });
 
 test('classic hangar groups equipment and displays rank ladder',()=>{const ui=read('gold-v13.js'),css=read('gold-v13.css');for(const label of ['LÁSERES','LANZAMISILES','GENERADORES','EXTRAS'])assert.ok(ui.includes("group('"+label+"'"));assert.match(ui,/gg-empty-slot/);assert.match(ui,/ggRankVisual.list/);assert.match(css,/gg-hangar-wide/);});
+
+test('individual silhouettes cover every equipment SKU and every PET module including Kamikaze',()=>{
+ const window={};vm.runInNewContext(read('shop-visual-v163.js'),{window});const v=window.ggShopVisual;
+ for(const category of ['lasers','shields','engines','cpus','robots','ammo','rockets','specialRockets','launchers','launcherAmmo','mines','consumables','resources']){
+  const shapes=cat[category].map(p=>v.equipmentRecipe(category,p.id));
+  assert.ok(shapes.every(Boolean),category);
+  assert.equal(new Set(shapes.map(s=>s.slice(0,2).join(':'))).size,shapes.length,category);
+ }
+ const gears=Object.keys(require('../pet-gear-levels-v177').GEARS);
+ const shapes=gears.map(id=>v.equipmentRecipe('petGear',id));assert.ok(shapes.every(Boolean));
+ assert.equal(new Set(shapes.map(s=>s.slice(0,2).join(':'))).size,gears.length);
+ assert.equal(v.equipmentRecipe('petGear','G-KK1')[0],'kamikaze');
+});
+
+test('registration disks and green loot keys are directly accessible without changing purchase category',()=>{const ui=read('gold-v13.js'),disk=cat.consumables.find(p=>p.id==='log-disk'),key=cat.consumables.find(p=>p.id==='green-key');assert.equal(disk.price,300);assert.equal(key.price,1500);assert.equal(key.currency,'uridium');assert.match(ui,/pilotDisks:'log-disk',lootKeys:'green-key'/);assert.match(ui,/category=code\?'consumables':section/);assert.match(ui,/filter\(p=>p.id===code\)/);assert.match(ui,/button\('COMPRAR DISCOS',\(\)=>open\('Discos de registro'\)\)/);assert.match(ui,/Llaves de botín verdes/);});
+
+test('all existing boosters have distinct functional icon families and shared variants',()=>{const {CATALOG}=require('../boosters-v112');const gradient={addColorStop(){}},ctx=new Proxy({createRadialGradient:()=>gradient},{get:(o,k)=>o[k]||(()=>{})});const window={},document={createElement:()=>({style:{},setAttribute(){},getContext:()=>ctx})};vm.runInNewContext(read('shop-visual-v163.js'),{window,document});const v=window.ggShopVisual;const styles=new Set();for(const item of Object.values(CATALOG)){const s=v.boosterStyle(item.code);styles.add(s.shape);assert.equal(v.boosterArt(item).height,64);assert.equal(s.shared,item.code.endsWith('-B02'));}assert.equal(styles.size,11);assert.equal(v.boosterStyle('DMG-B01').color,'#ff5044');assert.equal(v.boosterStyle('SHD-B01').shape,'shield');assert.match(read('gold-v13.js'),/ggShopVisual.boosterArt\(item\)/);});
+
+test('reference CPU artwork matches slot capacity families and repair robot tiers',()=>{const window={};vm.runInNewContext(read('shop-visual-v163.js'),{window});const v=window.ggShopVisual;for(let i=1;i<=4;i++){const spec=v.equipmentRecipe('cpus','SL-0'+i);assert.equal(spec[0],'slotBoard');assert.equal(spec[1],i-1);}for(const p of cat.robots)assert.equal(v.equipmentRecipe('robots',p.id)[0],'repairPod');assert.equal(v.equipmentRecipe('cpus','AROL-X')[0],'triangleCPU');assert.equal(v.equipmentRecipe('cpus','AJP-01')[0],'jumpCPU');assert.match(read('gold-v13.js'),/tile.append\(extraArt\(code\)/);});

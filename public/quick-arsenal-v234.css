@@ -47,3 +47,5 @@
 #hud .gg-quick-status:empty{display:none}
 #hud .gg-quick-wrap .gg-quick-slot[data-shortcut]::after{font:700 8px/10px monospace;right:1px;bottom:1px}
 @media(max-width:800px){#hud .arsenal[data-quick-arsenal=true]{width:calc(100vw - 72px)!important}#hud .gg-quick-wrap{--slot:clamp(26px,6.4vw,42px)}}
+
+#hud .gg-quick-wrap .gg-premium-slots{gap:2px;margin:0;padding:0;background:transparent}#hud .gg-quick-wrap .gg-premium-slots .gg-quick-slot[data-shortcut]::after{content:attr(data-shortcut);position:absolute;bottom:1px;right:1px;color:#ffe4a0;background:#06101a;font:700 8px/10px monospace;pointer-events:none}#hud .gg-quick-wrap .gg-premium-slots .gg-quick-slot{border-color:#b99a51}

@@ -264,8 +264,8 @@
  function labelLayout(o,visual,npc,scale=1,angle=0,offsets=[]){
   const kind=visual.kind,base=kind==='crystal-elite'?44:/^classic-(sibelon|lordakium|deadly-battleray|annihilator)/.test(kind)?46:kind.startsWith('classic-kristallon')?47:kind.startsWith('classic-kristallin')?40:kind.startsWith('classic-devolarium')?45:kind.startsWith('classic-mordon')?40:kind.startsWith('classic-cubikon')?47:kind==='cube'?35:(kind.startsWith('ship-')||kind.startsWith('classic-ship-'))?46:36;
   let above=base*scale,below=above;
-  const sin=Math.sin(angle),cos=Math.cos(angle);
-  if(!npc)for(const {x,y} of offsets){const v=(x*sin+y*cos)*scale;above=Math.max(above,-v+15*scale);below=Math.max(below,v+19*scale);}
+  // Use the full rotational envelope, not the current angle, for stable labels.
+  if(!npc)for(const {x,y} of offsets){const r=Math.hypot(x,y)*scale;above=Math.max(above,r+15*scale);below=Math.max(below,r+19*scale);}
   return {top:Math.ceil(above+14),name:Math.ceil(below+15),width:o.type==='boss'?90:58,ring:Math.ceil(base*scale+4)};
  }
  function nameWidth(ctx,cache,name){const font=ctx.font;if(cache.name!==name||cache.font!==font||!Number.isFinite(cache.width)){cache.name=name;cache.font=font;cache.width=ctx.measureText(name).width;}return cache.width;}

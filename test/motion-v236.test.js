@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const {record,position,angle,anticipate,preview}=require('../public/motion-v236');
+const {record,position,angle,anticipate,preview,steer}=require('../public/motion-v236');
 const p=(x,y=0,angle=0)=>({x,y,angle});
 test('remote movement fills the gaps between authoritative snapshots',()=>{
  let h=record(null,p(0),1000,0);h=record(h,p(100),1100,100);
@@ -29,7 +29,7 @@ test('history stays bounded and render clock does not reverse on jitter',()=>{
 test('render integration leaves server data untouched and loads helper first',()=>{
  const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8'),html=fs.readFileSync(require.resolve('../public/index.html'),'utf8');
  assert.ok(game.includes('ggMotion236?.record'));assert.ok(game.includes('ggMotion236?.position'));
- assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2530'));assert.ok(game.includes('old.data=o'));
+ assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2539'));assert.ok(game.includes('old.data=o'));
 });
 
 test('mouse anticipation begins immediately and never exceeds 24 world units',()=>{
@@ -50,3 +50,24 @@ test('local anticipation is disabled during attack and does not mutate server da
 });
 
 test('drag preview changes direction without extending prediction lifetime or mutating intent',()=>{const intent={x:200,y:100,at:10},a=p(100,100);const next=preview(intent,100,200,50);assert.deepEqual(next,{x:100,y:200,at:10});assert.deepEqual(intent,{x:200,y:100,at:10});assert.equal(anticipate(a,next,50,400).y,116);assert.equal(anticipate(a,next,111,400),null);assert.equal(preview(intent,100,200,111),intent);assert.equal(preview(intent,NaN,200,50),intent);});
+
+test('direction changes do not reset interpolated translation at each drag packet',()=>{
+ const q={x:132,y:115,a:0};
+ for(const at of [0,90,180,270]){
+  const next=steer(q,{x:132,y:300,at},0);
+  assert.equal(next.x,132);assert.equal(next.y,115);assert.equal(next.a,Math.PI/2);
+ }
+ assert.deepEqual(q,{x:132,y:115,a:0});
+ assert.equal(steer(q,{x:133,y:114},1.2).a,1.2);
+ assert.equal(steer(q,null,1.2),q);
+});
+test('live drag uses direction-only preview and never draws a destination marker',()=>{
+ const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8');
+ assert.ok(game.includes('ggMotion236?.steer(q,v.visualIntent,v.ta)'));
+ assert.ok(!game.includes('ggMotion236?.anticipate(v.data'));
+ assert.ok(!game.includes("ctx.strokeStyle='#7fe5c7a0'"));
+ assert.ok(game.includes('!dragging&&distance(me.data,dest)<8'));
+ assert.ok(game.includes('local?alpha:motionAlpha'));
+});
+
+test('combat heading follows enemy independently of movement and uses shortest turn',()=>{const {combatHeading}=require('../public/motion-v236');const ship={x:50,y:50,a:0};assert.equal(combatHeading(ship,{x:50,y:100},true,1),Math.PI/2);assert.equal(combatHeading(ship,{x:50,y:100},false,1),0);assert.equal(combatHeading(ship,null,true,1),0);assert.equal(combatHeading(ship,{x:50,y:50},true,1),0);assert.equal(combatHeading(ship,{x:0,y:50},true,.5),Math.PI/2);assert.deepEqual(ship,{x:50,y:50,a:0});const src=fs.readFileSync(require.resolve('../server.js'),'utf8');assert.match(src,/if\(p.attack&&p.target\)\{const aim=/);});

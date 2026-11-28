@@ -99,6 +99,7 @@ test('adaptive labels clear ten drone formations at all rotations, bars stay bou
  const offsets=g.formationOffsets(10,formation);assert.equal(offsets.length,10);
  for(const angle of [0,Math.PI/4,Math.PI/2,Math.PI,Math.PI*1.5]){
  const layout=g.labelLayout({},visual,false,1,angle,offsets);
+ assert.deepEqual(layout,g.labelLayout({},visual,false,1,0,offsets));
  for(const {x,y} of offsets){const v=x*Math.sin(angle)+y*Math.cos(angle);assert.ok(layout.top>=-v+15);assert.ok(layout.name>=v+19);}
  }}
  assert.equal(g.formationOffsets(99,'normal').length,10);assert.equal(g.formationOffsets(-1,'normal').length,0);
@@ -196,4 +197,10 @@ test('pilot name metrics reuse width and invalidate when name, clan or font chan
  assert.equal(nameWidth(ctx,cache,'[GG] Pilot'),60);assert.equal(calls,2);
  ctx.font='13px system-ui';assert.equal(nameWidth(ctx,cache,'[GG] Pilot'),80);assert.equal(calls,3);
  assert.equal(nameWidth(ctx,{},'Pilot'),40);assert.equal(calls,4);
+});
+
+test('name, rank and gate marks retain one screen-space anchor during a full turn',()=>{
+ const game=read('game.js');
+ assert.ok(game.includes('layout=graphics.labelLayout(o,visual,npc,size,0,targetOffsets)'));
+ assert.ok(game.includes('nameY=p.y+layout.name+(marks?.offset||0)'));
 });
