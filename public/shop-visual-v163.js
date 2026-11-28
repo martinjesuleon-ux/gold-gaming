@@ -84,5 +84,33 @@ case 'consumables':if(id==='green-key'){c.beginPath();c.arc(-15,0,13,0,Math.PI*2
 default:rect(-31,-23,62,46,metal);for(let i=0;i<6;i++){rect(-26+i*9,-29,4,6,color);rect(-26+i*9,23,4,6,color);}rect(-15,-12,30,24,color+'66');rect(-7,-5,14,10,color);
 }
 c.fillStyle=color;c.font='9px system-ui';c.textAlign='center';c.fillText(id,0,42);return canvas;}
-window.ggShopVisual={palette,itemColor,describe,stats,art,equipmentRecipe};
+const boosterStyles={DMG:['burst','#ff5044'],EP:['sun','#ffab36'],HON:['medal','#f4e7d6'],HP:['life','#83e344'],REP:['repair','#c994ff'],RES:['cargo','#f5d54e'],SHD:['shield','#8de9ff'],MUL:['multi','#75c7ff'],NBX:['box','#ffe18b'],QR:['mission','#b8a7ff'],PREMIUM:['crown','#eac060']};
+function boosterStyle(code){const prefix=String(code).split('-')[0];const [shape,color]=boosterStyles[prefix]||['multi','#94afd2'];return {shape,color,shared:/-B02$/.test(code)};}
+function boosterArt(item){
+ const canvas=document.createElement('canvas');canvas.width=144;canvas.height=64;canvas.className='gg-booster-icon';canvas.style.width='100%';canvas.style.objectFit='contain';canvas.setAttribute('role','img');canvas.setAttribute('aria-label',item.name||item.code);
+ const c=canvas.getContext('2d');if(!c)return canvas;const {shape,color,shared}=boosterStyle(item.code);
+ const bg=c.createRadialGradient(72,32,2,72,32,65);bg.addColorStop(0,color+'35');bg.addColorStop(1,'#0b1520');c.fillStyle=bg;c.fillRect(0,0,144,64);c.translate(72,32);
+ const poly=(pts,fill=color,stroke='#1a2430')=>{c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=fill;c.fill();c.strokeStyle=stroke;c.lineWidth=1.2;c.stroke();};
+ const circle=(x,y,r,fill)=>{c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fillStyle=fill;c.fill();};
+ const rect=(x,y,w,h,fill)=>{c.fillStyle=fill;c.fillRect(x,y,w,h);};
+ const ray=(pts,stroke=color,w=3)=>{c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.strokeStyle=stroke;c.lineWidth=w;c.lineCap='round';c.lineJoin='round';c.stroke();};
+ const radial=(n,outer,inner)=>Array.from({length:n*2},(_,i)=>{const a=i*Math.PI/n-Math.PI/2,r=i%2?inner:outer;return [Math.cos(a)*r,Math.sin(a)*r];});
+ c.shadowColor=color;c.shadowBlur=7;
+ switch(shape){
+ case 'burst':poly([[-25,14],[-10,9],[-19,-9],[-3,0],[3,-25],[9,-6],[25,-17],[18,6],[29,11],[8,21],[-10,20]],color);poly([[-8,12],[3,0],[8,14],[18,11],[7,19]],'#ffb06b');break;
+ case 'sun':poly(radial(8,27,17),color);circle(0,0,15,'#f07824');circle(0,0,10,'#ffca6a');ray([[-7,0],[7,0]],'#fff0bb',2);break;
+ case 'medal':poly([[-19,-26],[-4,-26],[5,-3],[-8,1]],'#fa593e');poly([[19,-26],[4,-26],[-5,-3],[8,1]],'#fa593e');poly(radial(5,19,9),'#e6e8eb');circle(0,0,5,'#fff8ce');break;
+ case 'life':poly(radial(4,26,10),color);poly([[-9,-5],[-5,-10],[0,-6],[5,-10],[9,-5],[8,1],[0,9],[-8,1]],'#c7ff8a');ray([[-5,0],[5,0]],'#256f27',2);break;
+ case 'repair':c.save();c.rotate(-.70);poly([[-6,-24],[6,-24],[6,-13],[14,-13],[14,-4],[6,-4],[6,23],[-6,23],[-6,-4],[-14,-4],[-14,-13],[-6,-13]],color);c.restore();for(const [x,y] of [[-20,-15],[20,15],[-21,13],[17,-20]])circle(x,y,2.5,'#fff');break;
+ case 'cargo':poly([[-20,-23],[20,-23],[12,-6],[4,3],[17,19],[9,24],[0,13],[-9,24],[-17,19],[-4,3],[-12,-6]],color);poly([[-12,-17],[12,-17],[0,-4]],'#fff2ac');break;
+ case 'shield':poly([[0,-26],[22,-18],[19,5],[12,18],[0,26],[-12,18],[-19,5],[-22,-18]],color);poly([[0,-18],[15,-13],[12,4],[0,18],[-12,4],[-15,-13]],'#2b92b6');ray([[-12,-8],[0,-13],[12,-8]],'#d8fcff',3);break;
+ case 'multi':for(let i=0;i<3;i++){const a=i*2*Math.PI/3-Math.PI/2;circle(Math.cos(a)*15,Math.sin(a)*15,11,['#ff5c4c','#ffbe45','#79dbff'][i]);}poly(radial(4,10,4),'#fff4be');break;
+ case 'box':rect(-16,-16,32,32,'#f5dd83');rect(-9,-9,18,18,'#fff5cb');for(const x of [-23,16])for(const y of [-23,16])rect(x,y,7,7,'#ffa840');break;
+ case 'mission':poly([[0,-26],[22,-13],[22,12],[0,26],[-22,12],[-22,-13]],color);ray([[-10,0],[-2,9],[13,-9]],'#fff',5);break;
+ case 'crown':poly([[-25,-16],[-11,-4],[0,-25],[11,-4],[25,-16],[19,20],[-19,20]],color);rect(-16,12,32,4,'#fff0ad');break;
+ }
+ c.shadowBlur=0;if(shared){for(const x of [-41,41]){circle(x,-16,4,color);ray([[x-6,-7],[x,-11],[x+6,-7]],color,2);}}
+ return canvas;
+}
+window.ggShopVisual={palette,itemColor,describe,stats,art,equipmentRecipe,boosterStyle,boosterArt};
 })();
