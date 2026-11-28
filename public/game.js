@@ -432,7 +432,7 @@ function ship(v,isMe,npc,dt=0){
  const boss=o.type==='boss',tank=o.ship==='tank',size=boss?1.7:tank?1.2:1,graphics=window.ggGraphics161;
  const visual=npc?graphics.npcStyle(o.name,o.type):graphics.playerStyle(o.ship,o.design,isMe);
  const targetOffsets=npc?[]:graphics.formationOffsets(o.droneCount,o.formation),offsets=npc?[]:(v.droneOffsets=window.ggCompanions237?.formation(v.droneOffsets,targetOffsets,dt)||targetOffsets),layout=graphics.labelLayout(o,visual,npc,size,0,targetOffsets);
- ctx.save();ctx.translate(p.x,p.y);ctx.scale(size,size);ctx.rotate(v.a);graphics.draw(ctx,visual.kind,visual.color);
+ ctx.save();ctx.translate(p.x,p.y);ctx.scale(size,size);ctx.rotate(v.a);if(visual.kind==='classic-ship-goliath')graphics.draw(ctx,visual.kind,visual.color,v.a);else graphics.draw(ctx,visual.kind,visual.color);
  if(!npc)drawFormation(o,offsets);ctx.restore();
  if(!isMe&&selected===o.id){ctx.strokeStyle='#ff725e';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.beginPath();ctx.arc(p.x,p.y,layout.ring,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
  if(isMe){ctx.strokeStyle='#71ecc04d';ctx.beginPath();ctx.arc(p.x,p.y,layout.ring,0,Math.PI*2);ctx.stroke();}

@@ -106,6 +106,55 @@
   polygon(c,[[9,-1.4],[19,-1.5],[27,0],[19,1.5],[9,1.4]],pale,'#6b777d',.5);
   c.restore();
  }
+ // Independently modeled, low-profile crescent based on the 120-view reference.
+ // A shared 3D mesh is projected into cached directional sprites; no imported artwork.
+ let goliathMesh=null;
+ function buildGoliathMesh(){
+  const faces=[],add=(p,metal)=>faces.push({p,metal});
+  function loft(rings,metal,segments=12){
+   const verts=rings.map(([x,y,z,ry,rz])=>Array.from({length:segments},(_,i)=>{const t=i*2*Math.PI/segments;return [x,y+Math.cos(t)*ry,z+Math.sin(t)*rz];}));
+   for(let i=0;i<verts.length-1;i++)for(let j=0;j<segments;j++)add([verts[i][j],verts[i+1][j],verts[i+1][(j+1)%segments],verts[i][(j+1)%segments]],metal);
+   add(verts[0].slice().reverse(),metal);add(verts.at(-1),metal);
+  }
+  function plate(outline,z,depth,metal){
+   const top=outline.map(([x,y])=>[x,y,z]),bottom=outline.map(([x,y])=>[x,y,z-depth]);
+   add(top,metal);add(bottom.slice().reverse(),metal);
+   for(let i=0;i<top.length;i++){const j=(i+1)%top.length;add([top[i],bottom[i],bottom[j],top[j]],metal);}
+  }
+  // Fuselage at the rear of the crescent, not a long solid bar across the opening.
+  loft([[-43,0,0,.8,.6],[-38,0,.2,2.4,1.2],[-33,0,.6,5,2.2],[-26,0,1,7.3,3.4],[-17,0,1.5,7.7,4.6],[-9,0,1,5.6,3.6],[-2,0,.4,3.7,2.1],[5,0,0,1.9,1.3],[10,0,0,.65,.55]],'silver',16);
+  loft([[-28,0,3.5,1.7,.8],[-20,0,5,2.7,1.5],[-11,0,4.8,2.4,1.2],[-5,0,2.6,.65,.45]],'glass',12);
+  loft([[4,0,.3,1.2,1.1],[11,0,.4,.95,.8],[20,0,-.1,.3,.3]],'silver',8);
+  for(const s of [-1,1]){
+   const m=p=>p.map(([x,y])=>[x,y*s]);
+   // Swept rear wings and tail stabilizers.
+   plate(m([[-12,5],[-19,12],[-32,22],[-34,17],[-27,8],[-35,4]]),1.8,1.3,'silver');
+   plate(m([[-17,8],[-24,13],[-31,19],[-28,19],[-22,13],[-15,8]]),2.05,.32,'pale');
+   plate(m([[-37,1.6],[-43,5.5],[-39,6],[-33,2.3]]),1.4,.55,'pale');
+   loft([[-37,4*s,-1,1.5,1.3],[-31,4.5*s,0,2.8,2],[-23,5.2*s,.8,2.8,2.1],[-17,4.5*s,1,1.8,1.2]],'dark',10);
+   loft([[-35,4*s,-1,1,.8],[-31,4.5*s,-.2,1.5,1.2]],'engine',8);
+   // Thin outboard struts, followed by a curved, tapering armored scythe.
+   loft([[-13,5*s,.1,2.1,1.7],[-8,10*s,.3,3.1,2.2],[-3,17*s,.6,3.6,2.8]],'silver',12);
+   const curve=[[-5,16,1,3.0,2.0],[-1,22,1.6,4.0,3.1],[5,26,1.9,4.6,3.6],[12,28,1.7,4.3,3.4],[19,27.8,1.1,3.9,3.1],[26,25.5,.6,3.2,2.7],[32,22,.3,2.5,2.2],[38,17.3,.1,1.65,1.5],[43,12.2,0,.9,.9],[46,7.4,-.2,.14,.18]];
+   const n=16,rs=curve.map(([x,y,z,w,h],i)=>{const a=curve[Math.max(0,i-1)],b=curve[Math.min(curve.length-1,i+1)],dx=b[0]-a[0],dy=(b[1]-a[1])*s,l=Math.hypot(dx,dy)||1;return Array.from({length:n},(_,j)=>{const t=j*2*Math.PI/n;return [x-dy/l*w*Math.cos(t),y*s+dx/l*w*Math.cos(t),z+h*Math.sin(t)];});});
+   for(let i=0;i<rs.length-1;i++)for(let j=0;j<n;j++){const k=(j+1)%n,upper=Math.sin((j+.5)*2*Math.PI/n);const material=(i===1||i===5)&&upper>.2?'silver':upper>.82?'rail':upper<-.5?'under':'carbon';add([rs[i][j],rs[i+1][j],rs[i+1][k],rs[i][k]],material);}
+   add(rs[0].slice().reverse(),'dark');add(rs.at(-1),'silver');
+   // Light colored outboard winglets attached to the curved arms.
+   plate(m([[2,27],[7,34],[20,37],[24,31],[16,27]]),.15,1.1,'pale');
+   plate(m([[8,29],[13,33],[21,34],[19,31]]),.45,.25,'silver');
+   plate(m([[23,24],[28,28],[32,28],[29,24]]),.4,.7,'dark');
+   // Narrow inner hooks: deliberately leave the opening transparent.
+   plate(m([[10,21],[14,17],[24,13],[19,19],[13,24]]),-.6,.8,'silver');
+  }
+  return faces;
+ }
+ function directionalGoliath(c,color,angle=0){
+  if(!goliathMesh)goliathMesh=buildGoliathMesh();
+  const cs=Math.cos(angle),sn=Math.sin(angle),proj=([x,y,z])=>{const u=x*cs-y*sn,v=x*sn+y*cs;return [u,v*.47-z*.88,v*.88+z*.47];};
+  const palette={silver:[151,160,167],pale:[181,189,192],glass:[48,75,85],dark:[42,48,51],carbon:[47,52,55],under:[25,30,34],rail:[115,124,130],engine:[105,135,145]};
+  const faces=goliathMesh.map(({p,metal})=>{const q=p.map(proj),a=q[0],b=q[1],d=q[2],u=b.map((v,i)=>v-a[i]),v=d.map((v,i)=>v-a[i]),normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],len=Math.hypot(...normal)||1;const nx=normal[0]/len,ny=normal[1]/len,nz=normal[2]/len,light=.55+.62*Math.abs(nx*-.37+ny*-.64+nz*.67),spec=Math.pow(Math.abs(nx*-.27+ny*-.71+nz*.65),12)*(metal==='carbon'||metal==='rail'?42:28);const base=palette[metal],fill='#'+base.map(v=>Math.max(0,Math.min(255,Math.round(v*light+spec))).toString(16).padStart(2,'0')).join('');return {q,fill,depth:q.reduce((n,p)=>n+p[2],0)/q.length};}).sort((a,b)=>a.depth-b.depth);
+  for(const {q,fill} of faces)polygon(c,q.map(p=>[p[0],p[1]]),fill,fill,.22);
+ }
  // Shop presentation uses the same hull in an oblique view in a lit hangar.
  // The product title, price and purchase data remain supplied by the catalog.
  function goliathPortrait(c,w,h){
@@ -124,7 +173,7 @@
   c.fillStyle=linear(c,0,44,0,52,[[0,'#8cb8cf00'],[.5,'#c9edff'],[1,'#8cb8cf00']]);c.fillRect(48,43,192,10);
   c.beginPath();c.ellipse(144,164,84,15,0,0,Math.PI*2);c.fillStyle='#0b151f';c.fill();c.strokeStyle='#6c8694';c.lineWidth=2;c.stroke();
   c.beginPath();c.ellipse(144,164,66,10,0,0,Math.PI*2);c.strokeStyle='#354e60';c.lineWidth=1;c.stroke();
-  c.translate(144,106);c.rotate(2.12);c.scale(1.68,1.39);goliath(c,'#aab4bd');c.restore();
+  c.translate(144,101);c.scale(2.20,2.20);directionalGoliath(c,'#aab4bd',2.65);c.restore();
  }
  // Original organic radial hulls, based on the shape language of the reference set.
  function radialAlien(c,large,elite,color){
@@ -470,5 +519,5 @@
   else{polygon(c,[[-43,-16],[-23,-24],[23,-24],[38,-13],[38,13],[23,24],[-23,24],[-43,16]],metal,'#9dafb6',1);for(let i=0;i<6;i++){c.fillStyle='#0f1b24';c.fillRect(-26+i*9,-15,6,30);c.fillStyle=color;c.fillRect(-25+i*9,-10,4,20);}}
   c.fillStyle='#e1edf4';c.font='9px Arial';c.textAlign='center';c.fillText(id,0,42);return true;
  }
- root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,goliathPortrait,alien,mine,station,largeAlien,raider,vant,pilot,pet,portal,base,beam,beamColor,equipment};
+ root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,directionalGoliath,goliathPortrait,alien,mine,station,largeAlien,raider,vant,pilot,pet,portal,base,beam,beamColor,equipment};
 })(window);
