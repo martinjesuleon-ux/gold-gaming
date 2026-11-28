@@ -555,7 +555,7 @@ function radar(){
  const wallNow=Date.now();m.drawImage(radarGrid,0,0);
  function dot(x,y,c,radius){const px=left+x*sx,py=top+y*sy;if(theme==='classic'&&window.ggClassicHud){window.ggClassicHud.marker(m,px,py,c,radius);return;}m.fillStyle=c;m.beginPath();m.arc(px,py,radius,0,Math.PI*2);m.fill();}
  for(const mine of state.mines||[])dot(mine.x,mine.y,'#ff654b',1.5);
- for(const b of state.boxes)dot(b.x,b.y,b.kind==='pirate'?'#49f79a':b.kind==='paladio'?'#50dfdb':b.kind==='cargo'?'#9ecbff':'#bc9551',b.kind==='pirate'||b.kind==='paladio'?2:1.2);
+ for(const b of state.boxes)dot(b.x,b.y,b.kind==='pirate'?'#49f79a':b.kind==='paladio'?'#50dfdb':b.kind==='cargo'?(window.ggVisualTheme?.current()==='classic'?'#ef943d':'#9ecbff'):'#bc9551',b.kind==='pirate'||b.kind==='paladio'?2:1.2);
  if(petLocatorView?.map===state.map&&petLocatorView.until>wallNow&&petLocatorView.mode===petMode){const x=left+petLocatorView.x*sx,y=top+petLocatorView.y*sy;m.save();m.strokeStyle=petMode==='locate-resource'?'#62ffdc':'#ffb657';m.lineWidth=2;m.beginPath();m.arc(x,y,6,0,Math.PI*2);m.stroke();m.beginPath();m.moveTo(x-9,y);m.lineTo(x+9,y);m.moveTo(x,y-9);m.lineTo(x,y+9);m.stroke();m.restore();}
  if(icePing?.map===state.map&&icePing.until>wallNow)dot(icePing.x,icePing.y,'#4fff89',4);
  if(hitacPing?.map===state.map&&hitacPing.until>wallNow)dot(hitacPing.x,hitacPing.y,'#bc86ff',4);
