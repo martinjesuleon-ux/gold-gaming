@@ -42,3 +42,20 @@ html[data-gg-theme=classic] #hud .gg-stat-grid b{color:#f1f5f8}
 html[data-gg-theme=classic] :is(.gg-layout-settings,.gg-key-settings){background:#14222e;color:#e1edf5;border:2px ridge #8296a6;border-radius:0}
 html[data-gg-theme=classic] :is(.gg-layout-settings,.gg-key-settings) :is(button,select){background:linear-gradient(#516878,#203443);color:#f0f7ff;border:1px solid #859ba8;border-radius:0}
 html[data-gg-theme=classic] .gg13 :is(.gg-shop-card,.gg-hangar-item,.gg-empty-slot){box-shadow:inset 0 0 0 1px #0b151d}
+
+/* RC59: sober tactical cockpit, machined frames and restrained status accents. */
+html[data-gg-theme=classic] #hud :is(.topbar,.vitals,.radar,.target,.arsenal,.gg-window){
+ background:linear-gradient(145deg,rgb(23 32 39 / var(--gg-panel-opacity,.95)),rgb(8 13 19 / var(--gg-panel-opacity,.95)) 42%,rgb(16 24 31 / var(--gg-panel-opacity,.95)));
+ border:1px solid #5e6d78;border-right-color:#293743;border-bottom-color:#293743;
+ box-shadow:inset 0 0 0 1px #111a22,0 3px 8px #0008;border-radius:1px;
+}
+html[data-gg-theme=classic] #hud :is(.panel h2,.gg-window h2,.brand){background:linear-gradient(#3d4b55,#202c35);border:1px solid #566572;border-bottom-color:#0d171e;color:#d5dfe6;letter-spacing:.09em;font:bold 10px Arial,sans-serif;text-shadow:0 1px #000}
+html[data-gg-theme=classic] #hud :is(.gg-tool button,.gg-slots button,.small,.gg-window button){background:linear-gradient(#37434c,#17232d 49%,#101922 50%,#25313a);border:1px solid #64727c;border-bottom-color:#27323c;border-right-color:#27323c;box-shadow:inset 0 1px #ffffff12;color:#dce6eb;border-radius:1px}
+html[data-gg-theme=classic] #hud .gg-slots .gg-ammo-slot{background:linear-gradient(#26333d,#0c141b);box-shadow:inset 0 0 0 1px #0b1015;border-radius:0}
+html[data-gg-theme=classic] #hud .gg-slots .gg-ammo-slot.active{outline:1px solid #b8d4e2;background:linear-gradient(#344d5e,#192a35)}
+html[data-gg-theme=classic] #hud .radar canvas{border:1px solid #617582;box-shadow:0 0 0 1px #080d13}
+html[data-gg-theme=classic] .gg13{background:#101820;border:1px solid #62707b;box-shadow:0 12px 40px #000b;color:#cdd8e0}
+html[data-gg-theme=classic] .gg13 :is(header,footer){background:linear-gradient(#35434d,#1d2933);border-color:#4d5f6e}
+html[data-gg-theme=classic] .gg13 :is(button,select,input){background:linear-gradient(#303d47,#1a242d);border:1px solid #586b78;color:#e0e8ed;border-radius:1px}
+html[data-gg-theme=classic] .gg13 :is(.gg-hangar-item,.gg-empty-slot,.gg-shop-card,.gg-item-art){background:linear-gradient(135deg,#1e2b35,#0a121a);border-color:#3c4c58}
+html[data-gg-theme=classic] .gg13 :is(.gg13-shop,.gg13-hangar)>*{background:linear-gradient(135deg,#18242c,#0a1219);border-color:#445461}
