@@ -21,3 +21,12 @@ test('PET snapshots interpolate and clear on deactivation',()=>{
  assert.equal(motion.position(h,170).x,150);assert.equal(recordPet(motion,h,null,1200,200),null);
  h=recordPet(motion,null,{x:7000,y:100,angle:1},1300,300);assert.equal(motion.position(h,300).x,7000);
 });
+
+test('opposite-side formation transitions arc around the hull, settle exactly and preserve frame-rate independence',()=>{
+ const start=[{x:100,y:0}],goal=[{x:-100,y:0}];let a=start,b=start;
+ for(let i=0;i<12;i++){a=formation(a,goal,1/60);assert.ok(Math.hypot(a[0].x,a[0].y)>99.9);}
+ for(let i=0;i<24;i++)b=formation(b,goal,1/120);
+ assert.ok(Math.hypot(a[0].x-b[0].x,a[0].y-b[0].y)<1e-8);
+ for(let i=0;i<120;i++)a=formation(a,goal,1/60);
+ assert.deepEqual(a,goal);assert.deepEqual(start,[{x:100,y:0}]);
+});
