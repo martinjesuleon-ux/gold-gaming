@@ -69,7 +69,7 @@ test('HUD layout preferences validate sizes and clamp draggable windows inside v
  const vm=require('node:vm'),context={window:{innerWidth:800,innerHeight:600}};vm.runInNewContext(src+';this.clamp=clampPosition',context);
  assert.equal(JSON.stringify(context.clamp(-40,900,200,100)),JSON.stringify({x:0,y:500}));
  assert.equal(JSON.stringify(context.clamp(90,40,900,700)),JSON.stringify({x:0,y:0}));
- assert.match(hud,/localStorage.setItem\(preferenceKey/);assert.match(hud,/pointerdown/);assert.match(hud,/preferences=\{size:'normal',labels:true,opacity:95,focus:false,performance:false,quality:'high',fpsLimit:0,positions:\{\}\}/);assert.match(css,/gg-custom-position/);assert.match(css,/data-control-size=large/);
+ assert.match(hud,/localStorage.setItem\(preferenceKey/);assert.match(hud,/pointerdown/);assert.match(hud,/preferences=\{size:'normal',labels:true,opacity:95,focus:false,performance:false,quality:'high',fpsLimit:0,webglStars:false,positions:\{\}\}/);assert.match(css,/gg-custom-position/);assert.match(css,/data-control-size=large/);
 });
 
 test('HUD transparency and combat focus remain local and preserve essential controls',()=>{
