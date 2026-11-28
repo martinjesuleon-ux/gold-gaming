@@ -29,9 +29,9 @@
   const original=[...source.querySelectorAll('button')],sourceById=new Map(defaults.map((id,i)=>[id,original[i]]));
   const mk=(tag,cls,text)=>{const n=d.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;};
   const btn=(cls,label)=>{const b=mk('button',cls);b.type='button';b.title=label;b.setAttribute('aria-label',label);return b;};
-  const wrap=mk('section','gg-quick-wrap'),expanded=mk('section','gg-quick-expanded'),tray=mk('div','gg-quick-tray'),categories=mk('div','gg-quick-categories'),bar=mk('div','gg-quick-bar gg-slots'),toggle=btn('gg-quick-toggle','Desplegar arsenal'),hint=mk('small','gg-quick-hint','Arrastra un objeto a una ranura o selecciónalo y pulsa una ranura.'),notice=mk('div','gg-quick-status');
+  const wrap=mk('section','gg-quick-wrap'),expanded=mk('section','gg-quick-expanded'),tray=mk('div','gg-quick-tray'),categories=mk('div','gg-quick-categories'),bar=mk('div','gg-quick-bar gg-slots'),toggle=btn('gg-quick-toggle','Desplegar arsenal'),hint=mk('small','gg-quick-hint','Arrastra un objeto a una ranura. Clic: usar · Shift+clic: asignar.'),notice=mk('div','gg-quick-status');
   notice.setAttribute('role','status');toggle.textContent='▸';toggle.setAttribute('aria-expanded','false');expanded.hidden=true;expanded.append(tray,categories,hint);wrap.append(expanded,bar,toggle,notice);panel.insertBefore(wrap,source);
-  let account=null,slots=[...defaults],group=0,drag=null,chosen=null,inventory={},owned=new Set(),lastTheme='',open=false;
+  let account=null,slots=[...defaults],group=0,drag=null,chosen=null,inventory={},open=false;
   const buttons=[],categoryButtons=[],trayButtons=new Map();
   const say=t=>{notice.textContent=t;};
   function persist(){if(account&&!save(root.localStorage,account,slots))say('No se pudo guardar la configuración en este navegador');}
@@ -52,12 +52,12 @@
    b.classList.toggle('active',!!active);b.classList.toggle('gg-quick-chosen',chosen===id&&!!id);
    const label=item?(src?.title||item[1]):'Ranura vacía';if(b.title!==label)b.title=label;b.setAttribute('aria-label',label);
   }
-  function refresh(){for(let i=0;i<20;i++)paint(buttons[i],slots[i]);for(const [id,b] of trayButtons)paint(b,id);root.ggArsenalKeys?.decorate();}
+  function refresh(){for(let i=0;i<20;i++)paint(buttons[i],slots[i]);for(const [id,b] of trayButtons)paint(b,id);}
   function change(index,id,from=null){slots=assign(slots,index,id,from);chosen=null;persist();refresh();say('Ranura '+(index+1)+' configurada');}
   async function use(id){if(!id||!root.ggArsenalCanUse?.())return;const src=sourceById.get(id);if(src){src.click();refresh();return;}const item=items.get(id);if(!item)return;try{if(item[3]==='menu'){root.gg13Open?.(id.slice(5));return;}const fn=root[item[3]];if(typeof fn!=='function')throw Error('Acción no disponible');await fn(id.startsWith('formation:')?id.slice(10):id);if(root.gg13RefreshInventory)await root.gg13RefreshInventory();say(item[1]+' confirmado');}catch(e){say(e.message||'Acción no disponible');}}
   function start(e,id,from=null){if(!id)return;drag={id,from};chosen=null;e.dataTransfer?.setData('text/plain',id);if(e.dataTransfer)e.dataTransfer.effectAllowed=from===null?'copy':'move';}
   function end(){drag=null;for(const b of buttons)b.classList.remove('gg-quick-drop');}
-  function buildTray(){tray.replaceChildren();trayButtons.clear();for(const [id] of groups[group][3]){const b=btn('gg-quick-item',items.get(id)[1]);b.draggable=true;b.ondragstart=e=>start(e,id);b.ondragend=end;b.onclick=()=>{chosen=chosen===id?null:id;refresh();say(chosen?'Seleccionado: '+items.get(id)[1]+' · pulsa una ranura':'Selección cancelada');};trayButtons.set(id,b);tray.append(b);}categoryButtons.forEach((b,i)=>b.setAttribute('aria-pressed',String(i===group)));refresh();}
+  function buildTray(){tray.replaceChildren();trayButtons.clear();for(const [id] of groups[group][3]){const b=btn('gg-quick-item',items.get(id)[1]);b.draggable=true;b.ondragstart=e=>start(e,id);b.ondragend=end;b.onclick=e=>{if(e.shiftKey){chosen=chosen===id?null:id;refresh();say(chosen?'Seleccionado: '+items.get(id)[1]+' · pulsa una ranura':'Selección cancelada');}else{chosen=null;use(id);}};trayButtons.set(id,b);tray.append(b);}categoryButtons.forEach((b,i)=>b.setAttribute('aria-pressed',String(i===group)));refresh();}
   for(let i=0;i<20;i++){const b=btn('gg-quick-slot','Ranura '+(i+1));b.dataset.slot=String(i+1);b.draggable=true;b.onclick=()=>{if(chosen)change(i,chosen);else use(slots[i]);};b.ondragstart=e=>{if(!slots[i]){e.preventDefault();return;}start(e,slots[i],i);};b.ondragend=end;b.ondragover=e=>{if(drag){e.preventDefault();b.classList.add('gg-quick-drop');}};b.ondragleave=()=>b.classList.remove('gg-quick-drop');b.ondrop=e=>{e.preventDefault();if(drag)change(i,drag.id,drag.from);end();};b.oncontextmenu=e=>{e.preventDefault();if(open)change(i,null);};buttons.push(b);bar.append(b);}
   groups.forEach((g,i)=>{const b=btn('gg-quick-category',g[1]);b.textContent=g[2];b.onclick=()=>{group=i;chosen=null;buildTray();};categoryButtons.push(b);categories.append(b);});
   const reset=btn('gg-quick-reset','Restaurar ranuras originales');reset.textContent='Restaurar';reset.onclick=()=>{slots=[...defaults];chosen=null;persist();refresh();say('Ranuras restauradas');};hint.append(' · Clic derecho para vaciar. ',reset);
@@ -65,7 +65,7 @@
   root.ggQuickArsenal={refresh,nameAt:i=>items.get(slots[i])?.[1]||'Ranura vacía',useSlot:i=>use(slots[i])};
   root.addEventListener('gg13:inventory',e=>{const id=e.detail?.accountId;if(id!==account){account=id||null;slots=load(root.localStorage,account);chosen=null;end();}inventory=Object.fromEntries((e.detail?.ammo||[]).map(a=>[a.code,a.quantity]));refresh();});
   root.addEventListener('gg:visualTheme',refresh);root.addEventListener('gg18:abilityState',refresh);
-  refresh();
+  refresh();root.ggArsenalKeys?.decorate();
  }
  if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',init);else init();
 })(typeof window==='undefined'?globalThis:window);
