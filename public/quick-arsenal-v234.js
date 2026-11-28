@@ -64,7 +64,7 @@
    if(b.dataset.iconStamp===stamp)return;b.dataset.iconStamp=stamp;b.replaceChildren();
    if(!item){b.append(mk('span','gg-quick-icon','+'));return;}
    const category=item[2],code=id==='repair'?(root.gg15Pilot?.()?.robot||'REP-1'):id.split(':').at(-1);let art;
-   if(id.startsWith('formation:')&&root.ggGraphics161){art=mk('canvas');art.width=64;art.height=44;const c=art.getContext('2d');if(c){c.translate(32,22);c.scale(.24,.24);c.fillStyle='#67c8f3';c.fillRect(-9,-9,18,18);c.fillStyle='#f8d57a';for(const q of root.ggGraphics161.formationOffsets(10,code))c.fillRect(q.x-6,q.y-6,12,12);}}
+   if(id.startsWith('formation:')&&root.ggGraphics161){art=mk('canvas');art.width=64;art.height=44;const c=art.getContext('2d');if(c){if(code==='drill'){c.translate(32,29);c.scale(.145,.145);c.fillStyle='#67c8f3';c.beginPath();c.moveTo(0,-30);c.lineTo(22,18);c.lineTo(0,9);c.lineTo(-22,18);c.closePath();c.fill();c.fillStyle='#f8d57a';for(const q of root.ggGraphics161.formationOffsets(10,code))c.fillRect(q.y-10,-q.x-10,20,20);}else{c.translate(32,22);c.scale(.24,.24);c.fillStyle='#67c8f3';c.fillRect(-9,-9,18,18);c.fillStyle='#f8d57a';for(const q of root.ggGraphics161.formationOffsets(10,code))c.fillRect(q.x-6,q.y-6,12,12);}}}
    else if(category){art=root.ggShopVisual?.art(category,{id:code})||combatArt(category,code);}
    if(art){art.setAttribute('aria-hidden','true');art.removeAttribute('role');art.removeAttribute('aria-label');b.append(art);}else b.append(mk('span','gg-quick-icon',id==='fire'?'✴':id.startsWith('menu:')?'◈':'⬡'));
    b.append(mk('span','gg-quick-code',item[1]),mk('span','gg-quick-count'),mk('span','gg-quick-cool'),mk('span','gg-quick-state'));
