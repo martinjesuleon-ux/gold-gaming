@@ -49,3 +49,14 @@ test('PET escort keeps independent spacing and heading in both themes',()=>{
  assert.ok(Math.abs(turn.angle-Math.PI)<.001);
  assert.match(server,/nearestEligible\(p,boxes.inZone\(zoneOf\(p\)\),p\.petLootRange\|\|700/);
 });
+
+test('adaptive quality responds to sustained slow frames in classic and GOLD while manual stays fixed',()=>{
+ let theme='classic',changes=[];
+ const ctx={window:{ggVisualTheme:{current:()=>theme}},document:{hidden:false},joined:true,qualityPreference:'auto',quality:'high',adaptiveQuality:{start:0,frames:0,slow:0,fast:0,changedAt:0,theme:null}};
+ ctx.setEffectiveQuality=v=>{ctx.quality=v;changes.push(v);};
+ const run=vm.runInNewContext(extract('function resetAdaptiveQuality(','window.ggSetQuality=')+extract('function nextAdaptiveQuality(','function resize(')+';adaptQuality',ctx);
+ for(let t=25;t<=9000;t+=25)run(t);
+ assert.ok(changes.includes('medium'));assert.equal(ctx.adaptiveQuality.theme,'classic');
+ theme='gold';run(9025);assert.equal(ctx.adaptiveQuality.theme,'gold');assert.equal(ctx.adaptiveQuality.slow,0);
+ ctx.qualityPreference='high';const before=changes.length;for(let t=9050;t<=19000;t+=25)run(t);assert.equal(changes.length,before);
+});
