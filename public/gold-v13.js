@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const labels={ships:'Naves',designs:'Diseños',lasers:'Armas',ammo:'Munición',rockets:'Cohetes',specialRockets:'Cohetes especiales',launchers:'Hellstorm',launcherAmmo:'Munición Hellstorm',mines:'Minas',consumables:'Consumibles',cpus:'CPU',robots:'Robots de reparación',shields:'Escudos',engines:'Motores',drones:'VANT',pet:'P.E.T.',fuel:'Combustible P.E.T.',petGear:'Módulos P.E.T.',resources:'Recursos'};
+const labels={ships:'Naves',designs:'Diseños',lasers:'Armas',ammo:'Munición',rockets:'Cohetes',specialRockets:'Cohetes especiales',launchers:'Lanzamisiles',launcherAmmo:'Munición de lanzamisiles',mines:'Minas',consumables:'Consumibles',cpus:'CPU',robots:'Robots de reparación',shields:'Escudos',engines:'Motores',drones:'VANT',pet:'P.E.T.',fuel:'Combustible P.E.T.',petGear:'Módulos P.E.T.',resources:'Recursos'};
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;};
 const fmt=n=>Number(n).toLocaleString('es-CL');
 async function api(path,body){const res=await fetch('/api/v13/'+path,{credentials:'same-origin',...(body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});const data=await res.json();if(!res.ok)throw Object.assign(Error(data.error||'Operación no disponible'),{status:res.status});return data;}
