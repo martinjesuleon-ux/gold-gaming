@@ -60,5 +60,17 @@
   panel.ondragend=()=>{selected=null;paint();};minutes.oninput=()=>{build.disabled=!enabled||!complete(slots,inventory,catalog)||!minutes.checkValidity();};build.onclick=()=>{if(enabled&&complete(slots,inventory,catalog)&&minutes.checkValidity())onBuild({moduleIds:slots.slice(),minutes:Number(minutes.value)});};
   const controls=el('div','gg-cbs-controls');controls.append(el('label',null,'Minutos (5–60)'),minutes,reset,build);panel.append(el('h3',null,'Inventario de módulos'),stock,el('h3',null,'Plano de estación'),board,counter,hint,controls);paint();return panel;
  }
- const api={specs,allows,place,complete,art,builder,installed};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggCBSVisual=api;
+ const palette={hull:'#c5ccd4',shield:'#60a9ef',repair:'#60db9e',honor:'#e6c069',xp:'#ab89e9',damage:'#f18061','laser-a':'#f46b66','laser-b':'#f0a84c','laser-c':'#81d5f4','rocket-a':'#d7be98','rocket-b':'#bcdf83'};
+ const sprites=new Map();
+ function sprite(code){
+  if(sprites.has(code))return sprites.get(code);const spec=specs[code];if(!spec||!root.Path2D||!root.document)return null;
+  const canvas=root.document.createElement('canvas');canvas.width=canvas.height=64;const c=canvas.getContext('2d');if(!c)return null;
+  c.fillStyle='#263747';c.strokeStyle='#a4b4c5';c.lineWidth=2.5;c.lineJoin='round';const shell=new root.Path2D(spec[2]);c.fill(shell);c.stroke(shell);c.fillStyle=palette[spec[1]];c.strokeStyle='#0c1520';c.lineWidth=1;const detail=new root.Path2D(spec[3]);c.fill(detail);c.stroke(detail);sprites.set(code,canvas);return canvas;
+ }
+ function drawStation(ctx,modules,color){
+  ctx.save();ctx.fillStyle='#182531';ctx.strokeStyle='#7f93a4';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,54,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.lineWidth=2;ctx.strokeStyle=color;ctx.beginPath();ctx.arc(0,0,43,0,Math.PI*2);ctx.stroke();
+  for(let slot=0;slot<10;slot++){const m=modules.find(x=>x.slot===slot),angle=(slot-2)*Math.PI/4-Math.PI/2,x=slot<2?(slot===0?-17:17):Math.cos(angle)*62,y=slot<2?0:Math.sin(angle)*62,size=slot<2?34:28;ctx.save();ctx.translate(x,y);if(m?.hp<=0)ctx.globalAlpha=.35;ctx.fillStyle='#17212d';ctx.strokeStyle='#77899a';ctx.lineWidth=2;ctx.fillRect(-size/2,-size/2,size,size);ctx.strokeRect(-size/2,-size/2,size,size);const img=m&&sprite(m.code);if(img)ctx.drawImage(img,-size/2,-size/2,size,size);ctx.restore();}
+  ctx.restore();
+ }
+ const api={specs,allows,place,complete,art,builder,installed,drawStation};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggCBSVisual=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
