@@ -14,3 +14,14 @@ test('local MOD validates metadata, preserves original renderer and isolates GOL
  assert.throws(()=>m.validate({version:1,assets:[{...asset,frames:0}]}),/inválidos/);assert.equal(m.count(),1);
  m.clear();assert.equal(window.ggClassicPack.draw(c,asset.key),false);assert.equal(fallback,3);
 });
+
+test('unified MOD loads the embedded VANT atlas and preserves older packages',async()=>{
+ let installed=null,clears=0;const window={ggVisualTheme:{current:()=> 'classic'},ggClassicPack:{draw(){return false},shop(){return false},cover(){return false}},ggLocalGoliath:{async loadData(v){installed=v;return true;},clear(){clears++;installed=null;}}};
+ vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../public/local-pack-v274.js'),'utf8'),{window});const m=window.ggLocalPack;
+ const atlas='data:image/webp;base64,AAAA',asset={key:'map:1-1',source:'background1.swf',data:'data:image/webp;base64,AAAA'};
+ const file=data=>({size:100,text:async()=>JSON.stringify(data)});
+ await m.load(file({version:1,atlas,assets:[asset]}));assert.equal(installed,atlas);assert.equal(m.count(),1);
+ await assert.rejects(m.load(file({version:1,atlas:'https://example.com/a.png',assets:[asset]})),/Atlas incluido inválido/);assert.equal(installed,atlas);assert.equal(m.count(),1);
+ await m.load(file({version:1,assets:[asset]}));assert.equal(installed,atlas);
+ m.clear();assert.equal(m.count(),0);assert.equal(installed,null);assert.equal(clears,1);
+});
