@@ -72,6 +72,7 @@ function stats(p){const result=[];for(const [k,label] of Object.entries(names)){
  }
 
 function art(category,p){const canvas=document.createElement('canvas');canvas.width=144;canvas.height=96;canvas.className='gg-item-art';canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Ilustración de '+(p.name||p.id));const c=canvas.getContext('2d');if(!c)return canvas;
+if(window.ggClassicPack?.shop(c,category,String(p.id),144,96))return canvas;
 if(category==='ships'&&String(p.id).toLowerCase()==='goliath'&&window.ggVisualTheme?.current()==='classic'&&window.ggClassicArt?.goliathPortrait){canvas.width=288;canvas.height=192;window.ggClassicArt.goliathPortrait(c,288,192);return canvas;}
 const color=itemColor(category,p),id=String(p.id),seed=[...id].reduce((a,b)=>((a*31+b.charCodeAt(0))>>>0),0),variant=seed%5;const glow=c.createRadialGradient(72,48,2,72,48,68);glow.addColorStop(0,color+'36');glow.addColorStop(1,'#080e18');c.fillStyle=glow;c.fillRect(0,0,144,96);c.translate(72,48);c.lineWidth=1.5;c.strokeStyle=color;
 if(window.ggGraphics161&&['ships','designs','drones','pet'].includes(category)){const g=window.ggGraphics161;const model=category==='ships'||category==='designs'?g.playerStyle(category==='ships'?id:p.ship,category==='designs'?id:null,true):{kind:category==='pet'?'pet':g.droneKind(id),color:category==='drones'?'#aab4bd':color};const scale=category==='drones'?1.9:category==='pet'?1.35:.85;c.scale(scale,scale);g.draw(c,model.kind,model.color);return canvas;}
