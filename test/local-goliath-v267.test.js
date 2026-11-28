@@ -41,7 +41,7 @@ test('local Goliath matches atlas headings, never changes GOLD, and restores fal
   assert.deepEqual(calls[1].slice(1,5),expected);assert.ok(expected[1]+60<=6464);
  }
  assert.equal(a.drone(c,'iris',6,'Spartan'),false);assert.equal(a.drone(c,'unknown',6,'Havoc'),false);
- assert.equal(a.rank(c,21),true);theme='gold';assert.equal(a.drone(c,'zeus',6,'Havoc'),false);theme='classic';
+ assert.equal(a.rank(c,21),true);await a.loadData('data:image/webp;base64,AA==');assert.equal(a.rank(c,21),true);await assert.rejects(a.loadData('data:image/svg+xml;base64,AA=='),/Formato/);assert.equal(a.rank(c,21),true);theme='gold';assert.equal(a.drone(c,'zeus',6,'Havoc'),false);theme='classic';
  theme='gold';assert.equal(a.iris(c,6,0),false);theme='classic';a.clear();assert.equal(a.iris(c,6,0),false);
 
 });
