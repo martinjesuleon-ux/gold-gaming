@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const {record,position,angle}=require('../public/motion-v236');
+const {record,position,angle,anticipate}=require('../public/motion-v236');
 const p=(x,y=0,angle=0)=>({x,y,angle});
 test('remote movement fills the gaps between authoritative snapshots',()=>{
  let h=record(null,p(0),1000,0);h=record(h,p(100),1100,100);
@@ -30,4 +30,21 @@ test('render integration leaves server data untouched and loads helper first',()
  const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8'),html=fs.readFileSync(require.resolve('../public/index.html'),'utf8');
  assert.ok(game.includes('ggMotion236?.record'));assert.ok(game.includes('ggMotion236?.position'));
  assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2360'));assert.ok(game.includes('old.data=o'));
+});
+
+test('mouse anticipation begins immediately and never exceeds 24 world units',()=>{
+ const a=p(100,100),intent={x:200,y:100,at:0};assert.deepEqual(anticipate(a,intent,0,400),{x:100,y:100,a:0});
+ assert.equal(anticipate(a,intent,20,400).x,108);assert.equal(anticipate(a,intent,90,400).x,124);
+ assert.equal(anticipate(a,intent,101,400),null);assert.deepEqual(a,p(100,100));
+});
+test('short clicks do not overshoot; invalid or stale intent is ignored',()=>{
+ const a=p(100,100);assert.equal(anticipate(a,{x:103,y:100,at:0},80,400).x,103);
+ assert.equal(anticipate(a,{x:100,y:100,at:0},80,400),null);
+ assert.equal(anticipate(a,{x:NaN,y:100,at:0},80,400),null);
+ assert.equal(anticipate(a,{x:120,y:100,at:100},80,400),null);
+});
+test('local anticipation is disabled during attack and does not mutate server data',()=>{
+ const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8');
+ assert.ok(game.includes('local&&!v.data.deadUntil&&!attacking&&dest'));
+ assert.ok(game.includes('distance(me.data,dest)<8'));assert.ok(game.includes('me.visualIntent={...dest,at:performance.now()}'));
 });
