@@ -156,7 +156,7 @@
  bigboy:[25,32,26,20,7],leonov:[34,21,17,10,4],vengeance:[38,24,29,8,8],
  goliath:[34,31,25,15,4],spearhead:[44,14,25,6,9],aegis:[27,29,25,17,10],citadel:[30,35,30,23,11]
  });
- const shipColors=Object.freeze({phoenix:'#e0a563',yamato:'#5999e6',defcom:'#e56b52',liberator:'#66bfae',piranha:'#d6d94d',nostromo:'#b49bdc',bigboy:'#cc8f62',leonov:'#76cf77',vengeance:'#e54e83',goliath:'#e4bb52',spearhead:'#a1d9fa',aegis:'#47d6d8',citadel:'#b8c3d5'});
+ const shipColors=Object.freeze({phoenix:'#aa4c40',yamato:'#5999e6',defcom:'#e56b52',liberator:'#66bfae',piranha:'#d6d94d',nostromo:'#55c9e0',bigboy:'#cc8f62',leonov:'#9baeb5',vengeance:'#4aaec6',goliath:'#79c985',spearhead:'#5dbfa5',aegis:'#5f9ee9',citadel:'#77a95d'});
  const designColors=Object.freeze({Diminisher:'#e36c45',Sentinel:'#5a93e7',Solace:'#69d8c1',Spectrum:'#aa83ee',Venom:'#87e363',Lightning:'#f5c349',Bastion:'#4798ec',Enforcer:'#f05b51',Centaur:'#eab671',Exalted:'#e2d5b2',Veteran:'#7ab9c4',Goal:'#73d58c',Referee:'#e5e7ec',Kick:'#e4954f',Revenge:'#ef7056',Avenger:'#71c0ff',Saturn:'#d6b2ee','aegis-veteran':'#72b4c9','aegis-elite':'#e9bd67','citadel-veteran':'#72b4c9','citadel-elite':'#e9bd67','spearhead-veteran':'#72b4c9','spearhead-elite':'#e9bd67'});
  function playerStyle(ship,design,isMe){const id=String(ship||'').toLowerCase();const known=Object.hasOwn(shipProfiles,id),equipped=Object.hasOwn(designColors,design),classic=root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.pilot;return {kind:known?(classic?'classic-ship-'+id+(equipped?':'+design:''):'ship-'+id):id==='tank'?'tank':'scout',color:equipped?designColors[design]:known?shipColors[id]:isMe?'#76f5bd':'#77c6ff'};}
  function playerHull(c,id,color){
@@ -210,7 +210,100 @@
   c.fillStyle='#f0d69a';c.fillRect(nose*.64-1,-.55,2,1.1);
   c.restore();
  }
- function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),theme=root.ggVisualTheme?.current()||'gold',key=theme+':'+kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(theme==='classic'&&kind.startsWith('classic-ship-')&&root.ggClassicArt?.pilot)root.ggClassicArt.pilot(c,kind,color);else if(theme==='classic'&&kind==='streuner-original'&&root.ggClassicArt?.streuner)root.ggClassicArt.streuner(c,color);else if(theme==='classic'&&kind==='ship-goliath'&&root.ggClassicArt?.goliath)root.ggClassicArt.goliath(c,color);else if(theme==='classic'&&/^classic-(lordakia|saimon)(-|$)/.test(kind)&&root.ggClassicArt?.alien)root.ggClassicArt.alien(c,kind,color);else if(theme==='classic'&&/^classic-(kristallin|kristallon|mordon|devolarium|cubikon)(-|$)/.test(kind)&&root.ggClassicArt?.largeAlien)root.ggClassicArt.largeAlien(c,kind,color);else if(theme==='classic'&&/^classic-(sibelonit|sibelon|lordakium|interceptor|vagrant|marauder|barracuda|saboteur|annihilator|deadly-battleray)(-|$)/.test(kind)&&root.ggClassicArt?.raider)root.ggClassicArt.raider(c,kind,color);else if(theme==='classic'&&kind.startsWith('drone')&&root.ggClassicArt?.vant)root.ggClassicArt.vant(c,kind,color);else if(kind.startsWith('drone'))drone(c,color,kind);else if(theme==='classic'&&kind==='pet'&&root.ggClassicArt?.pet)root.ggClassicArt.pet(c,color);else if(kind==='pet')pet(c,color);else if(kind==='streuner-original')streunerHull(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5))){const id=kind.slice(5);playerHull(c,id,color);if(theme==='gold')goldShipFinish(c,id,color);}else vessel(c,kind,color);if(theme==='classic')root.ggClassicArt?.finish(c,kind,color,size);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
+ // Individual industrial fleet: separate chassis, nacelles, armor and role-specific hardware.
+ // All detail is baked into the existing sprite cache; flight and hitboxes are untouched.
+ const fleetArt=Object.freeze({
+  phoenix:{metal:['#c9b6aa','#70534f','#39272a'],body:[[25,0],[23,6],[18,10],[9,12],[-4,12],[-15,9],[-21,4],[-22,0]],wing:[[4,8],[-4,16],[-18,18],[-16,13],[-22,10],[-8,7]],plate:[[-4,10],[-7,14],[-15,15],[-13,11]],jets:[[-19,5]],cockpit:[7,15,6],role:'capsule'},
+  yamato:{metal:['#b9c6d7','#4b6077','#202c42'],body:[[32,0],[21,8],[3,11],[-23,9],[-28,0]],wing:[[18,7],[6,13],[-4,23],[-25,21],[-29,13],[-12,10]],plate:[[4,13],[-4,21],[-21,19],[-24,14],[-9,13]],jets:[[-25,15],[-24,5]],cockpit:[13,8,4],role:'pods'},
+  defcom:{metal:['#b6aaa3','#6a514b','#302827'],body:[[32,0],[15,7],[-6,10],[-27,6],[-29,0]],wing:[[18,5],[13,17],[5,24],[-15,27],[-27,18],[-20,12],[-8,8]],plate:[[9,17],[3,23],[-13,24],[-20,18],[-8,13]],jets:[[-25,16]],cockpit:[13,7,3],role:'guns'},
+  liberator:{metal:['#bdc7bc','#536861','#263d39'],body:[[33,0],[25,9],[10,13],[-21,11],[-28,0]],wing:[[21,8],[10,18],[-3,26],[-23,27],[-30,16],[-25,9]],plate:[[8,17],[-4,24],[-21,24],[-24,17],[-6,14]],jets:[[-25,19],[-25,7]],cockpit:[16,8,4],role:'rails'},
+  piranha:{metal:['#a9b19a','#626c48','#242c23'],body:[[39,0],[20,4],[5,8],[-20,7],[-31,0]],wing:[[20,5],[9,14],[-4,18],[-15,26],[-30,19],[-23,9],[-6,7]],plate:[[5,13],[-9,20],[-18,23],[-25,17],[-15,12]],jets:[[-28,16]],cockpit:[20,9,2.8],role:'blade'},
+  nostromo:{metal:['#a9bfc8','#536572','#23333d'],body:[[36,0],[26,5],[14,8],[-7,13],[-24,11],[-31,0]],wing:[[6,9],[-4,16],[-9,27],[-25,28],[-34,19],[-30,10],[-15,8]],plate:[[-5,16],[-11,24],[-25,25],[-30,19],[-22,13]],jets:[[-29,20],[-28,7]],cockpit:[19,13,3.6],role:'twin'},
+  bigboy:{metal:['#c0b29b','#74614c','#3b3025'],body:[[28,0],[26,15],[12,19],[-26,17],[-35,0]],wing:[[24,13],[13,31],[-15,34],[-33,25],[-36,14],[-20,10]],plate:[[12,21],[8,29],[-14,31],[-29,24],[-30,17],[-8,18]],jets:[[-32,22],[-33,9]],cockpit:[12,10,5],role:'cargo'},
+  leonov:{metal:['#c5cbd0','#67717b','#263138'],body:[[40,0],[28,4],[14,8],[-6,13],[-26,12],[-33,0]],wing:[[35,4],[20,13],[5,22],[-19,25],[-32,15],[-30,8],[-9,8],[16,6]],plate:[[22,11],[5,19],[-18,22],[-28,14],[-10,12]],jets:[[-27,15],[-28,6]],cockpit:[16,14,4],role:'twinblade'},
+  vengeance:{metal:['#9aa8ae','#495761','#222d35'],body:[[34,0],[25,7],[9,12],[-13,12],[-25,9],[-32,0]],wing:[[17,9],[12,19],[2,25],[-16,29],[-30,23],[-36,14],[-24,9]],plate:[[8,15],[2,23],[-18,26],[-29,21],[-26,13]],jets:[[-31,20],[-29,8]],cockpit:[17,10,4],role:'turbine'},
+  goliath:{metal:['#b9c4bd','#52665b','#273a31'],body:[[25,0],[17,5],[7,7],[-9,13],[-23,11],[-31,0]],wing:[[-20,6],[-15,16],[-7,25],[7,32],[23,34],[38,27],[42,18],[36,21],[27,23],[17,22],[5,17],[-2,9]],plate:[[-12,13],[-4,23],[8,29],[23,31],[35,26],[23,25],[9,23],[-2,16]],jets:[[-25,7]],cockpit:[11,9,3.5],role:'crescent'},
+  spearhead:{metal:['#a7bcb7','#4c6660','#233a35'],body:[[46,0],[32,3],[11,6],[-12,7],[-27,5],[-32,0]],wing:[[12,5],[-2,9],[-11,20],[-23,32],[-27,33],[-24,21],[-20,10],[-30,6]],plate:[[-5,9],[-13,18],[-22,27],[-21,18],[-17,10]],jets:[[-29,4]],cockpit:[24,10,2.4],role:'needle'},
+  aegis:{metal:['#a5b8d2','#536985','#263747'],body:[[37,0],[26,6],[9,9],[-13,12],[-26,10],[-33,0]],wing:[[1,8],[-3,17],[-13,28],[-28,29],[-35,17],[-29,9]],plate:[[-5,14],[-14,25],[-27,26],[-31,18],[-20,13]],jets:[[-30,21],[-29,6]],cockpit:[17,13,4],role:'support'},
+  citadel:{metal:['#a8b7bc','#4d616a','#25363c'],body:[[37,0],[35,9],[23,19],[8,21],[-22,18],[-37,10],[-40,0]],wing:[[29,15],[23,31],[7,35],[-16,35],[-34,28],[-41,16],[-26,10]],plate:[[20,19],[15,29],[1,32],[-20,32],[-32,25],[-33,18],[-8,17]],jets:[[-36,25],[-35,12]],cockpit:[19,10,5],role:'fortress'},
+ });
+ function industrialHull(c,id,color){
+  const a=fleetArt[id];if(!a)return;
+  const [light,mid,dark]=a.metal;
+  const metal=(x,y,u,v)=>{const g=c.createLinearGradient(x,y,u,v);[[0,light],[.19,mid],[.46,dark],[.64,mid],[.82,dark],[1,'#101820']].forEach(([p,k])=>g.addColorStop(p,k));return g;};
+  const half=(p,s)=>p.map(([x,y])=>[x,y*s]);
+  const mirror=p=>p.concat(p.slice(1,-1).reverse().map(([x,y])=>[x,-y]));
+  const inset=(p,f)=>{const x=p.reduce((n,v)=>n+v[0],0)/p.length,y=p.reduce((n,v)=>n+v[1],0)/p.length;return p.map(([u,v])=>[x+(u-x)*f,y+(v-y)*f]);};
+  const plate=(p,s)=>{const q=half(p,s);path(c,q,metal(-20,-30*s,24,30*s),'#121b23',1.25);path(c,inset(q,.87),metal(-12,-18*s,12,18*s),light,.42);};
+  const line=(p,col,w=.7)=>{c.beginPath();p.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.strokeStyle=col;c.lineWidth=w;c.stroke();};
+  const rect=(x,y,w,h,fill)=>{c.fillStyle=fill;c.fillRect(x,y,w,h);};
+  const pod=(x,y,l,w)=>{path(c,[[x-l/2,y-w],[x+l/2-3,y-w],[x+l/2,y],[x+l/2-3,y+w],[x-l/2,y+w]],metal(x-l/2,y-w,x+l/2,y+w),'#0a1018',1);rect(x-l/2+1,y-w+1,3,w*2-2,dark);rect(x+l/2-5,y-.6,3,1.2,color);};
+  const disc=(x,y,rx,ry,fill,stroke,w=.8)=>{c.save();c.translate(x,y);c.scale(rx,ry);c.beginPath();c.arc(0,0,1,0,Math.PI*2);c.restore();c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=w;c.stroke();}};
+  c.save();
+  for(const s of [-1,1])for(const [x,y] of a.jets){engine(c,x-1,y*s,color);}
+  for(const s of [-1,1]){
+   path(c,half(a.wing,s),metal(-30,-32*s,30,32*s),'#080e14',1.5);
+   plate(a.plate,s);
+   const p=a.plate,edge=p[1],end=p[2];line(half([edge,end],s),light,1.1);
+   const inner=inset(p,.55);line(half([inner[0],inner[1],inner[2]],s),color,1.4);
+   for(const [x,y] of a.jets){pod(x+4,y*s,11,3.4);rect(x-1,y*s-1.1,3,2.2,color);rect(x-1,y*s-.4,2,.8,'#e6f5ff');}
+   const y=(id==='phoenix'?8:id==='spearhead'?11:id==='citadel'?24:id==='bigboy'?23:id==='aegis'?23:16)*s;
+   if(a.role==='crescent'){
+    // Open forward arc: preserve the negative space between the two claws.
+    line(half([[-10,17],[0,25],[13,29],[27,29],[36,24]],s),color,1.7);
+    line(half([[6,27],[15,31],[26,30]],s),light,1.2);
+    for(const [x,v] of [[-6,19],[3,24],[14,28],[25,28]]){line([[x-2,(v-3)*s],[x+1,(v+2)*s]],'#131c22',1.2);}
+   }else if(a.role==='turbine'){
+    for(const [x,v,rx,ry] of [[-16,19,11,8],[-1,18,7,7]]){
+     disc(x,v*s,rx,ry,metal(x-rx,v*s-ry,x+rx,v*s+ry),'#0c151c',1.1);
+     disc(x,v*s,rx*.64,ry*.65,'#141f29',light,.7);disc(x-1,v*s,rx*.26,ry*.28,color,'#17222c',.6);
+    }
+   }else if(a.role==='twin'||a.role==='support'){
+    pod(-14,18*s,25,a.role==='support'?5:6);
+    disc(-25,19*s,6,6,metal(-31,19*s-6,-19,19*s+6),'#14202a',1);
+    disc(-25,19*s,3.2,3.2,color,'#0a161e',.8);
+    if(a.role==='support'){rect(-9,18*s-.9,8,1.8,color);rect(-6,18*s-3.6,2,7.2,color);}
+   }else if(a.role==='twinblade'){
+    line(half([[30,7],[13,15],[-8,18],[-24,16]],s),light,1.5);
+    line(half([[24,10],[9,16],[-8,20]],s),color,1.15);
+   }else if(a.role==='needle'){
+    line(half([[-6,11],[-15,21],[-24,30]],s),color,1.3);
+    pod(-18,7*s,15,2.2);
+   }else if(a.role==='capsule'){
+    line(half([[-4,12],[-14,15],[-17,14]],s),color,1.6);
+   }else if(a.role==='guns'||a.role==='fortress'){pod(13,y,21,a.role==='fortress'?4.8:3.6);rect(17,y-1,10,2,light);rect(25,y-1.4,3,2.8,'#101820');}
+   else if(a.role==='cargo'){for(let j=0;j<3;j++){pod(-19+j*8,y,7,4);rect(-21+j*8,y-.5,4,1,color);}}
+   else if(a.role==='medic'){pod(-5,y,17,5);rect(-10,y-.8,10,1.6,color);rect(-6,y-3.5,2,7,color);}
+   else if(a.role==='pods'||a.role==='rails'){pod(-4,y,23,2.8);rect(-10,y-1,12,1,color);}
+   else if(a.role==='fork'||a.role==='blade'||a.role==='stealth'){line([[1,y*.78],[12,y*.52],[24,y*.29]],light,.7);line([[-17,y*.9],[-6,y*.83]],color,1.5);}
+   else {pod(-8,y,10,2.2);}
+   for(let j=0;j<3;j++){const x=-12+j*3.1;rect(x,y*.67-1.1,2,2.2,'#0b141c');rect(x,y*.67-1.1,2,.5,light);}
+  }
+  if(a.role==='capsule'){
+   disc(0,0,24,12,metal(-23,-12,23,12),'#15151d',1.3);
+   disc(2,0,20,9,metal(-20,-10,20,10),light,.7);
+   line([[-12,-10],[-18,-5],[-18,5],[-12,10]],color,2);
+  }else{
+   path(c,mirror(a.body),metal(-35,-17,35,17),'#080e14',1.35);
+   path(c,inset(mirror(a.body),.86),metal(-24,-12,24,12),light,.48);
+  }
+  const [x,l,w]=a.cockpit;
+  path(c,[[x+l/2+2,0],[x+l/2-2,-w-1.5],[x-l/2,-w-1.5],[x-l/2-3,0],[x-l/2,w+1.5],[x+l/2-2,w+1.5]],'#131f2b',light,.65);
+  const glass=c.createLinearGradient(x,-w,x,w);[[0,'#142333'],[.28,'#83b5ca'],[.48,'#d5e3df'],[.58,'#315766'],[1,'#0b1520']].forEach(([p,k])=>glass.addColorStop(p,k));
+  path(c,[[x+l/2,0],[x+l/2-2,-w],[x-l/2,-w],[x-l/2-1,0],[x-l/2,w],[x+l/2-2,w]],glass,'#101c25',.6);
+  const rear=a.body[a.body.length-1][0];
+  for(const s of [-1,1]){
+   line([[rear+7,3*s],[-12,5*s],[x-l/2-5,4*s]],'#121b22',1.1);
+   line([[rear+8,2*s],[-12,3.7*s]],light,.5);
+   for(let j=0;j<4;j++){rect(rear+9+j*3,1.7*s-.65,1.6,1.3,'#101820');rect(rear+9+j*3,1.7*s-.65,1.6,.45,mid);}
+   rect(x-l/2-4,3.8*s-.55,2.4,1.1,color);
+  }
+  if(a.role==='fortress'){pod(-6,-9,20,4);pod(-6,9,20,4);}
+  if(a.role==='medic'){rect(-15,-1,10,2,color);rect(-11,-4,2,8,color);}
+  if(a.role==='stealth'){line([[rear+6,0],[-10,0],[x-l/2-4,0]],color,.9);}
+  c.restore();
+ }
+ function sprite(kind,color){const dpr=Math.min(2,Math.max(1,root.devicePixelRatio||1)),theme=root.ggVisualTheme?.current()||'gold',key=theme+':'+kind+':'+color+':'+dpr;if(cache.has(key)){const hit=cache.get(key);cache.delete(key);cache.set(key,hit);return hit;}const size=kind.startsWith('drone')?52:kind==='pet'?62:112,canvas=root.document.createElement('canvas');canvas.width=canvas.height=size*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);c.translate(size/2,size/2);if(theme==='classic'&&kind.startsWith('classic-ship-')&&root.ggClassicArt?.pilot)root.ggClassicArt.pilot(c,kind,color,industrialHull);else if(theme==='classic'&&kind==='streuner-original'&&root.ggClassicArt?.streuner)root.ggClassicArt.streuner(c,color);else if(theme==='classic'&&kind==='ship-goliath'&&root.ggClassicArt?.goliath)root.ggClassicArt.goliath(c,color);else if(theme==='classic'&&/^classic-(lordakia|saimon)(-|$)/.test(kind)&&root.ggClassicArt?.alien)root.ggClassicArt.alien(c,kind,color);else if(theme==='classic'&&/^classic-(kristallin|kristallon|mordon|devolarium|cubikon)(-|$)/.test(kind)&&root.ggClassicArt?.largeAlien)root.ggClassicArt.largeAlien(c,kind,color);else if(theme==='classic'&&/^classic-(sibelonit|sibelon|lordakium|interceptor|vagrant|marauder|barracuda|saboteur|annihilator|deadly-battleray)(-|$)/.test(kind)&&root.ggClassicArt?.raider)root.ggClassicArt.raider(c,kind,color);else if(theme==='classic'&&kind.startsWith('drone')&&root.ggClassicArt?.vant)root.ggClassicArt.vant(c,kind,color);else if(kind.startsWith('drone'))drone(c,color,kind);else if(theme==='classic'&&kind==='pet'&&root.ggClassicArt?.pet)root.ggClassicArt.pet(c,color);else if(kind==='pet')pet(c,color);else if(kind==='streuner-original')streunerHull(c,color);else if(['crystal','crystal-elite','scout-npc','claw','wing','armor','cube','pirate'].includes(kind))npcHull(c,kind,color);else if(kind.startsWith('ship-')&&Object.hasOwn(shipProfiles,kind.slice(5))){const id=kind.slice(5);industrialHull(c,id,color);}else vessel(c,kind,color);if(theme==='classic')root.ggClassicArt?.finish(c,kind,color,size);const value={canvas,size};if(cache.size>=128)cache.delete(cache.keys().next().value);cache.set(key,value);return value;}
  function draw(c,kind,color){const s=sprite(kind,color);c.drawImage(s.canvas,-s.size/2,-s.size/2,s.size,s.size);}
  function portal(c,color,t){
   if(root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.portal){root.ggClassicArt.portal(c,color,t);return;}
