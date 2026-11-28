@@ -99,3 +99,5 @@ test('individual silhouettes cover every equipment SKU and every PET module incl
  assert.equal(new Set(shapes.map(s=>s.slice(0,2).join(':'))).size,gears.length);
  assert.equal(v.equipmentRecipe('petGear','G-KK1')[0],'kamikaze');
 });
+
+test('registration disks and green loot keys are directly accessible without changing purchase category',()=>{const ui=read('gold-v13.js'),disk=cat.consumables.find(p=>p.id==='log-disk'),key=cat.consumables.find(p=>p.id==='green-key');assert.equal(disk.price,300);assert.equal(key.price,1500);assert.equal(key.currency,'uridium');assert.match(ui,/pilotDisks:'log-disk',lootKeys:'green-key'/);assert.match(ui,/category=code\?'consumables':section/);assert.match(ui,/filter\(p=>p.id===code\)/);assert.match(ui,/button\('COMPRAR DISCOS',\(\)=>open\('Discos de registro'\)\)/);assert.match(ui,/Llaves de botín verdes/);});
