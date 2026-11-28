@@ -86,3 +86,16 @@ test('graphics quality profiles change rendering only and retain full game entit
 });
 
 test('classic hangar groups equipment and displays rank ladder',()=>{const ui=read('gold-v13.js'),css=read('gold-v13.css');for(const label of ['LÁSERES','LANZAMISILES','GENERADORES','EXTRAS'])assert.ok(ui.includes("group('"+label+"'"));assert.match(ui,/gg-empty-slot/);assert.match(ui,/ggRankVisual.list/);assert.match(css,/gg-hangar-wide/);});
+
+test('individual silhouettes cover every equipment SKU and every PET module including Kamikaze',()=>{
+ const window={};vm.runInNewContext(read('shop-visual-v163.js'),{window});const v=window.ggShopVisual;
+ for(const category of ['lasers','shields','engines','cpus','robots','ammo','rockets','specialRockets','launchers','launcherAmmo','mines','consumables','resources']){
+  const shapes=cat[category].map(p=>v.equipmentRecipe(category,p.id));
+  assert.ok(shapes.every(Boolean),category);
+  assert.equal(new Set(shapes.map(s=>s.slice(0,2).join(':'))).size,shapes.length,category);
+ }
+ const gears=Object.keys(require('../pet-gear-levels-v177').GEARS);
+ const shapes=gears.map(id=>v.equipmentRecipe('petGear',id));assert.ok(shapes.every(Boolean));
+ assert.equal(new Set(shapes.map(s=>s.slice(0,2).join(':'))).size,gears.length);
+ assert.equal(v.equipmentRecipe('petGear','G-KK1')[0],'kamikaze');
+});
