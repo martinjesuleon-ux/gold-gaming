@@ -187,3 +187,13 @@ test('all catalog formations have distinct ten-drone visual geometry and no over
  const {FORMATIONS}=require('../formations-v19');const fingerprints=new Set();
  for(const f of FORMATIONS){const points=g.formationOffsets(10,f.id);assert.equal(points.length,10,f.id);const fingerprint=points.map(p=>p.x+','+p.y).sort().join(';');assert.equal(new Set(points.map(p=>p.x+','+p.y)).size,10,f.id);assert.ok(!fingerprints.has(fingerprint),f.id);fingerprints.add(fingerprint);assert.equal(g.formationOffsets(6,f.id).length,6);}
 });
+
+test('pilot name metrics reuse width and invalidate when name, clan or font changes',()=>{
+ const window={};vm.runInNewContext(read('graphics-v161.js'),{window});
+ const {nameWidth}=window.ggGraphics161,cache={};let calls=0;
+ const ctx={font:'11px system-ui',measureText(name){calls++;return {width:name.length*(this.font.startsWith('11')?6:8)};}};
+ assert.equal(nameWidth(ctx,cache,'Pilot'),30);assert.equal(nameWidth(ctx,cache,'Pilot'),30);assert.equal(calls,1);
+ assert.equal(nameWidth(ctx,cache,'[GG] Pilot'),60);assert.equal(calls,2);
+ ctx.font='13px system-ui';assert.equal(nameWidth(ctx,cache,'[GG] Pilot'),80);assert.equal(calls,3);
+ assert.equal(nameWidth(ctx,{},'Pilot'),40);assert.equal(calls,4);
+});
