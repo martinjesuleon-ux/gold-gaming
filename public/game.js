@@ -380,7 +380,31 @@ function drawGoldStars(){
   for(let x=startX;x<W;x+=span)for(let y=startY;y<H;y+=span)ctx.drawImage(tile,x,y);
  }
 }
-function stars(){window.ggGraphics161.sky(ctx,W,H);if((window.ggVisualTheme?.current()||'gold')==='gold'){drawGoldStars();}else{for(const [layer,par,size,cell] of [[1,.12,.7,110],[2,.38,1.0,155],[3,.75,1.5,240]].slice(0,qualityProfiles[quality].stars)){const ox=camera.x*par-W/2,oy=camera.y*par-H/2;for(let ix=Math.floor(ox/cell);ix<=Math.ceil((ox+W)/cell);ix++)for(let iy=Math.floor(oy/cell);iy<=Math.ceil((oy+H)/cell);iy++){const x=ix*cell+hash(ix,iy,layer)*cell-ox,y=iy*cell+hash(ix,iy,layer+4)*cell-oy;ctx.globalAlpha=.18+hash(ix,iy,layer+9)*.55;ctx.fillStyle=layer===3?'#a4d6ff':'#d1dcf3';ctx.beginPath();ctx.arc(x,y,size*(.35+hash(ix,iy,layer+15)*.65),0,Math.PI*2);ctx.fill();}}}ctx.globalAlpha=1;const corner=screen(0,0);ctx.strokeStyle='#647d994d';ctx.lineWidth=2;ctx.strokeRect(corner.x,corner.y,world.w,world.h);}
+// Classic retains the original world-coordinate hashes. Cache nearby tiles only.
+const classicStarTiles=new Map(),CLASSIC_STAR_BUDGET=48*1024*1024;
+let classicStarBytes=0;
+function classicStarTile(layer,size,cell,cx,cy){
+ const key=layer+':'+cx+':'+cy;
+ if(classicStarTiles.has(key)){const tile=classicStarTiles.get(key);classicStarTiles.delete(key);classicStarTiles.set(key,tile);return tile;}
+ const count=4,span=cell*count,tile=document.createElement('canvas');
+ tile.width=tile.height=span;const a=tile.getContext('2d');
+ a.fillStyle=layer===3?'#a4d6ff':'#d1dcf3';
+ for(let ix=-1;ix<=count;ix++)for(let iy=-1;iy<=count;iy++){
+  const wx=cx*count+ix,wy=cy*count+iy,x=ix*cell+hash(wx,wy,layer)*cell,y=iy*cell+hash(wx,wy,layer+4)*cell,r=size*(.35+hash(wx,wy,layer+15)*.65);
+  if(x+r<0||x-r>span||y+r<0||y-r>span)continue;
+  a.globalAlpha=.18+hash(wx,wy,layer+9)*.55;a.beginPath();a.arc(x,y,r,0,Math.PI*2);a.fill();
+ }
+ a.globalAlpha=1;const bytes=span*span*4;
+ while(classicStarBytes+bytes>CLASSIC_STAR_BUDGET&&classicStarTiles.size){const first=classicStarTiles.keys().next().value,old=classicStarTiles.get(first);classicStarBytes-=old.width*old.height*4;classicStarTiles.delete(first);}
+ classicStarTiles.set(key,tile);classicStarBytes+=bytes;return tile;
+}
+function drawClassicStars(){
+ for(let i=0;i<qualityProfiles[quality].stars;i++){
+  const [layer,par,size,cell]=goldStarLayers[i],span=cell*4,ox=camera.x*par-W/2,oy=camera.y*par-H/2;
+  for(let x=Math.floor(ox/span);x<Math.ceil((ox+W)/span);x++)for(let y=Math.floor(oy/span);y<Math.ceil((oy+H)/span);y++)ctx.drawImage(classicStarTile(layer,size,cell,x,y),x*span-ox,y*span-oy);
+ }
+}
+function stars(){window.ggGraphics161.sky(ctx,W,H);if((window.ggVisualTheme?.current()||'gold')==='gold')drawGoldStars();else drawClassicStars();ctx.globalAlpha=1;const corner=screen(0,0);ctx.strokeStyle='#647d994d';ctx.lineWidth=2;ctx.strokeRect(corner.x,corner.y,world.w,world.h);}
 function poly(points,fill,stroke){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.3;ctx.stroke();}}
 function ship(v,isMe,npc){
  const o=v.data,p=screen(v.x,v.y);if(p.x<-160||p.y<-160||p.x>W+160||p.y>H+160||o.deadUntil)return;
