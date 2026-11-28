@@ -16,10 +16,16 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   await pool.query(`CREATE TABLE IF NOT EXISTS gg_v13_inventory (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    instance_id uuid NOT NULL, code text NOT NULL, category text NOT NULL,
-   level integer NOT NULL DEFAULT 1 CHECK(level BETWEEN 1 AND 16),
+   level integer NOT NULL DEFAULT 1,
+   CONSTRAINT gg_v13_inventory_level_v230_check CHECK(level BETWEEN 1 AND 16 OR (level=20 AND ((category='lasers' AND code='LF-4') OR (category='shields' AND code='SG3N-B03')))),
    PRIMARY KEY(account_id,instance_id));
-   ALTER TABLE gg_v13_inventory DROP CONSTRAINT IF EXISTS gg_v13_inventory_level_check;
-   ALTER TABLE gg_v13_inventory ADD CONSTRAINT gg_v13_inventory_level_check CHECK(level BETWEEN 1 AND 16 OR (level=20 AND ((category='lasers' AND code='LF-4') OR (category='shields' AND code='SG3N-B03'))));
+   DO $inventory_level_migration$
+   BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gg_v13_inventory'::regclass AND conname='gg_v13_inventory_level_v230_check' AND convalidated) THEN
+     ALTER TABLE gg_v13_inventory DROP CONSTRAINT IF EXISTS gg_v13_inventory_level_check;
+     ALTER TABLE gg_v13_inventory ADD CONSTRAINT gg_v13_inventory_level_v230_check CHECK(level BETWEEN 1 AND 16 OR (level=20 AND ((category='lasers' AND code='LF-4') OR (category='shields' AND code='SG3N-B03'))));
+    END IF;
+   END $inventory_level_migration$;
    CREATE TABLE IF NOT EXISTS gg_v13_ammo (
    account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
    code text NOT NULL, quantity bigint NOT NULL CHECK(quantity>=0),
