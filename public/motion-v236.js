@@ -1,0 +1,30 @@
+'use strict';
+(function(root){
+ const LIMIT=8,REMOTE_DELAY=120,LOCAL_LEAD=65,MAX_DRIFT=48;
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ const angle=(a,b,f)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*f;
+ function record(history,p,serverTime,received){
+  if(![p.x,p.y,p.angle,serverTime,received].every(Number.isFinite))return history;
+  const last=history?.samples.at(-1);
+  if(last&&serverTime<=last.t)return history;
+  const sample={x:p.x,y:p.y,a:p.angle,t:serverTime};
+  if(!last||serverTime-last.t>750||Math.hypot(p.x-last.x,p.y-last.y)>1100)
+   return {samples:[sample],offset:received-serverTime,cursor:null};
+  // Follow changes in arrival jitter gradually, rather than restarting the visual clock.
+  history.offset+=clamp((received-serverTime-history.offset)*.12,-5,5);
+  history.samples.push(sample);if(history.samples.length>LIMIT)history.samples.shift();
+  return history;
+ }
+ function position(history,now,local=false){
+  if(!history?.samples.length||!Number.isFinite(now))return null;
+  const s=history.samples,last=s.at(-1),first=s[0],prev=s.at(-2);
+  let t=now-history.offset-(local?0:REMOTE_DELAY);
+  t=clamp(t,first.t,last.t+(local?LOCAL_LEAD:50));
+  t=Math.max(history.cursor??first.t,t);history.cursor=t;
+  for(let i=1;i<s.length;i++){const a=s[i-1],b=s[i];if(t<=b.t){const f=clamp((t-a.t)/(b.t-a.t),0,1);return {x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,a:angle(a.a,b.a,f)};}}
+  if(!prev||t<=last.t||last.t-prev.t>250)return {x:last.x,y:last.y,a:last.a};
+  const factor=(t-last.t)/(last.t-prev.t),dx=(last.x-prev.x)*factor,dy=(last.y-prev.y)*factor,scale=Math.min(1,MAX_DRIFT/(Math.hypot(dx,dy)||1));
+  return {x:last.x+dx*scale,y:last.y+dy*scale,a:last.a};
+ }
+ const api={record,position,angle};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
+})(typeof globalThis!=='undefined'?globalThis:this);
