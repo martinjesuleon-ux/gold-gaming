@@ -376,8 +376,16 @@
    const canvas=root.document.createElement('canvas');canvas.width=Math.min(1920,Math.ceil(w));canvas.height=Math.min(1080,Math.ceil(h));
    const a=canvas.getContext('2d'),cw=canvas.width,ch=canvas.height;
    a.fillStyle=theme==='classic'?'#010204':'#020408';a.fillRect(0,0,cw,ch);
-   for(const [x,y,r,color] of (theme==='classic'?[[.72,.28,.65,'#080f19'],[.12,.78,.42,'#060b10']]:[[.72,.28,.65,'#102037'],[.12,.78,.42,'#0b1927'],[.9,.9,.34,'#151325']])){
+   for(const [x,y,r,color] of (theme==='classic'?[[.72,.28,.65,'#080e15'],[.12,.78,.42,'#080c11'],[.38,.56,.26,'#0d1319']]:[[.72,.28,.65,'#102037'],[.12,.78,.42,'#0b1927'],[.9,.9,.34,'#151325']])){
     const g=a.createRadialGradient(cw*x,ch*y,0,cw*x,ch*y,Math.max(cw,ch)*r);g.addColorStop(0,color);g.addColorStop(1,'#02040800');a.fillStyle=g;a.fillRect(0,0,cw,ch);
+   }
+   if(theme==='classic'){
+    // Static, faint dust clouds: no per-frame texture synthesis.
+    let seed=71461;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    for(let i=0;i<36;i++){
+     const x=cw*(.10+rnd()*.82),y=ch*(.20+.48*(x/cw)+(rnd()-.5)*.27),r=Math.max(cw,ch)*(.035+rnd()*.095);
+     const g=a.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,i%3===0?'#68798809':'#3753670b');g.addColorStop(1,'#00000000');a.fillStyle=g;a.fillRect(x-r,y-r,r*2,r*2);
+    }
    }
    skyCache={w,h,canvas,theme};
   }
