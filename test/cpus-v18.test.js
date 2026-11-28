@@ -17,3 +17,5 @@ test('auxiliary CPU pricing matches wiki',()=>{
  assert.equal(quote('cpus','AJP-01',1).total,15000);
  assert.equal(quote('cpus','GEMINEX-XI',1).total,10000);
 });
+
+ test('dedicated Hellstorm slot is independent of CPU slots in either configuration',()=>{const ship={extras:1},cpu={code:'ISH-01'};for(const code of ['HST-1','HST-2']){const result=extraStats(ship,[cpu,{code}]);assert.equal(result.launcher,code);assert.equal(result.used,1);assert.equal(extraStats({extras:0},[{code}]).used,0);}assert.throws(()=>extraStats(ship,[{code:'HST-1'},{code:'HST-2'}]));assert.throws(()=>extraStats(ship,[cpu,{code:'REP-4'},{code:'HST-1'}]));});
