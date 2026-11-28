@@ -36,5 +36,13 @@
  }
  // Update only the visual direction during the existing network throttle window.
  function preview(intent,x,y,now){if(!intent||![intent.at,x,y,now].every(Number.isFinite)||now<intent.at||now-intent.at>100)return intent;return {...intent,x,y};}
- const api={record,position,angle,anticipate,preview};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
+ // Pointer direction is independent of snapshot position. Never restart visual
+ // translation when a new drag command refreshes its timestamp.
+ function steer(position,intent,previousHeading){
+  if(!position||!intent||![position.x,position.y,intent.x,intent.y].every(Number.isFinite))return position;
+  const dx=intent.x-position.x,dy=intent.y-position.y;
+  const a=Math.hypot(dx,dy)<8?(Number.isFinite(previousHeading)?previousHeading:position.a):Math.atan2(dy,dx);
+  return {...position,a};
+ }
+ const api={record,position,angle,anticipate,preview,steer};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
