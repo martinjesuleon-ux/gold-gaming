@@ -50,7 +50,7 @@
    }
   }
   else{
-   const length=Math.hypot(h.x-tail.x,h.y-tail.y),wide=s.enhanced?1.8:1;
+   const length=Math.hypot(h.x-tail.x,h.y-tail.y),wide=s.enhanced?3:1;
    ctx.translate(h.x,h.y);ctx.rotate(s.angle);
    if(s.ammo==='SAB-50'){
     ctx.lineWidth=1.8*wide;const rings=s.enhanced?2:1;for(let i=0;i<rings;i++){ctx.beginPath();ctx.ellipse(-6-i*13,0,4,11*wide,0,0,Math.PI*2);ctx.stroke();}

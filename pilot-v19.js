@@ -31,4 +31,5 @@ function createPilot(pool){
  await c.query('INSERT INTO gg_v19_pilot(account_id,points,skills,resets) VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO UPDATE SET points=EXCLUDED.points,skills=EXCLUDED.skills,resets=EXCLUDED.resets',[id,p.points,JSON.stringify(p.skills),p.resets]);const result=await view(c,id);await c.query('INSERT INTO gg_v19_pilot_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,d.requestId,JSON.stringify(result)]);return result;});}
  return {ready,read,status,action};
 }
-module.exports={SKILLS,diskCost,skillCost,resetCost,bonus,createPilot};
+function enhancedLaser(pilotBonus,targetIsPlayer=false){return Number(pilotBonus?.pvp)>=1.119999||(!targetIsPlayer&&Number(pilotBonus?.npc)>=1.119999);}
+module.exports={SKILLS,diskCost,skillCost,resetCost,bonus,createPilot,enhancedLaser};
