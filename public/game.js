@@ -82,7 +82,7 @@ $('exit').onclick=()=>{if(!joined||!socket.connected){profile=null;location.relo
 socket.on('v222:logoutCancelled',()=>{clearLogout();notice('Desconexión cancelada por movimiento o combate');});
 socket.on('v222:logoutDone',()=>{clearLogout();profile=null;location.reload();});
 socket.on('disconnect',()=>{clearLogout();const bar=document.getElementById('gg-premium-slots');if(bar)bar.hidden=true;});
-function updatePremiumHud(p){const bar=document.getElementById('gg-premium-slots');if(bar){bar.hidden=!(joined&&Number(p.premiumUntil)>Date.now());if(!bar.hidden)for(const b of bar.querySelectorAll('[data-premium-slot]')){const source=document.querySelector('.gg-slots [data-slot="'+b.dataset.premiumSlot+'"]');b.disabled=!source||source.disabled;b.title='F'+b.dataset.premiumSlot+' · '+(source?.title||source?.textContent||'');}}
+function updatePremiumHud(p){const bar=document.getElementById('gg-premium-slots');if(bar){bar.hidden=!(joined&&Number(p.premiumUntil)>Date.now());if(!bar.hidden)window.ggQuickArsenal?.refresh();}
  if(logoutUntil)$('exit').textContent='Cancelar ('+Math.max(0,Math.ceil((logoutUntil-Date.now())/1000))+' s)';}
 
 socket.on('notice',notice);

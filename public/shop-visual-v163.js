@@ -12,9 +12,9 @@ function describe(category,p){const parts=[specific[p.id]||generic[category]||'A
 function stats(p){const result=[];for(const [k,label] of Object.entries(names)){if(typeof p[k]!=='number'||!Number.isFinite(p[k]))continue;const v=p[k];result.push([label,['absorption','miss'].includes(k)?fmt(v*100)+' %':['duration','cooldown','intervalMs'].includes(k)?fmt(v/1000)+' s':k==='seconds'?fmt(v)+' s':k==='multiplier'?'×'+fmt(v):fmt(v)]);}for(const [k,v] of Object.entries(p.bonus||{}))if(typeof v==='number')result.push([bonusNames[k]||k,(v>=1?'+':'')+fmt(Math.round((v-1)*10000)/100)+' %']);return result;}
 
  // Each equipment code has a deliberately assigned silhouette and accent.
- // Keep G-KK1 on the existing renderer until the approved reference is available.
+ // G-KK1 follows the approved six-point star and orange core reference.
  const recipes={
- petGear:{'G-AL1':['magnet',0,'#69e7bd'],'G-REP1':['repair',0,'#65e6ac'],'G-AR1':['crystal',0,'#d3a1ff'],'G-RL1':['radar',0,'#54d9ef'],'G-EL1':['target',0,'#ff7268'],'CSR-02':['repair',2,'#e6d67b'],'CGM-02':['shield',4,'#63acff'],'G-TRA1':['cargo',0,'#efb96a']},
+ petGear:{'G-KK1':['kamikaze',0,'#ffc773'],'G-AL1':['magnet',0,'#69e7bd'],'G-REP1':['repair',0,'#65e6ac'],'G-AR1':['crystal',0,'#d3a1ff'],'G-RL1':['radar',0,'#54d9ef'],'G-EL1':['target',0,'#ff7268'],'CSR-02':['repair',2,'#e6d67b'],'CGM-02':['shield',4,'#63acff'],'G-TRA1':['cargo',0,'#efb96a']},
  lasers:{'LF-1':['gun',0],'MP-1':['gun',1],'LF-2':['gun',2],'LF-3':['gun',3],'LF-4':['gun',4],'Odysseus':['gun',5],'LF-P01':['gun',6]},
  shields:{'SG3N-A01':['shield',0],'SG3N-A02':['shield',1],'SG3N-A03':['shield',2],'SG3N-B02':['shield',3],'SG3N-B03':['shield',5]},
  engines:{'G3N-1010':['engine',0],'G3N-2010':['engine',1],'G3N-3210':['engine',2],'G3N-3310':['engine',3],'G3N-6900':['engine',4],'G3N-7900':['engine',5]},
@@ -43,6 +43,7 @@ function stats(p){const result=[];for(const [k,label] of Object.entries(names)){
   function radial(sides,radius,rot=0){return Array.from({length:sides},(_,i)=>{const a=rot+i*2*Math.PI/sides;return [Math.cos(a)*radius,Math.sin(a)*radius];});}
   function glow(x,y,w,h){c.save();c.shadowColor=color;c.shadowBlur=9;r(x,y,w,h,color,color);c.restore();}
   switch(kind){
+   case 'kamikaze':{c.fillStyle='#122533';c.fillRect(-39,-39,78,78);c.strokeStyle='#80a9c3';c.strokeRect(-39,-39,78,78);const star=Array.from({length:12},(_,i)=>{const a=-Math.PI/2+i*Math.PI/6,r=i%2?20:35;return [Math.cos(a)*r,Math.sin(a)*r];});c.lineWidth=2.4;p(star,'#627d8c','#c4dbe8');c.lineWidth=3;ring(0,0,15,'#ce7934','#ffc773');c.lineWidth=1.5;ring(0,0,6,'#ffe3ad','#ffe3ad');break;}
    case 'magnet':p([[-42,-25],[-20,-32],[-13,-17],[-24,-10],[-24,10],[-13,17],[-20,32],[-42,25],[-49,0]]);p([[42,-25],[20,-32],[13,-17],[24,-10],[24,10],[13,17],[20,32],[42,25],[49,0]]);ring(0,0,12);glow(-5,-5,10,10);line([[-22,0],[-10,0],[10,0],[22,0]]);break;
    case 'repair':{const w=22+(n%3)*4,h=15+Math.floor(n/3)*4;p([[-w,-h],[-w+8,-h-9],[w-8,-h-9],[w,-h],[w,h],[w-8,h+9],[-w+8,h+9],[-w,h]]);for(const s of [-1,1]){p([[s*w,-9],[s*(w+9),-21+n],[s*(w+18),-13+n],[s*(w+11),9],[s*(w+18),18-n],[s*(w+5),23-n],[s*w,9]]);ring(s*(w+9),0,4+n%3);}r(-12,-12,24,24,dark);glow(-4,-9,8,18);glow(-9,-4,18,8);break;}
    case 'crystal':{const w=16+4*n;p([[0,-35],[w,-11],[w+8,16],[0,34],[-w-5,14],[-w,-13]],color+'77',color);p([[0,-35],[5,-7],[0,34],[-w-5,14]],color+'44',color);p([[0,-35],[w,-11],[5,-7]],color,color);if(n<2){p([[-43,-13],[-30,-22],[-20,-9],[-27,20],[-42,15]]);p([[43,-13],[30,-22],[20,-9],[27,20],[42,15]]);}break;}
