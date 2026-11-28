@@ -516,6 +516,10 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    await saveGateRow(c,id,g);return {gate,wave:g.wave,lives:g.lives,complete,failed,completions:g.completions,payout};
   });
  }
- return {ready,purchase,snapshot,equip,activateConfig,combatLoadout,useCpu,consumeAmmo,petInterval,petKamikaze,petCooldowns,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
+ async function grantChampion(body){
+  const username=typeof body?.username==='string'?body.username.trim():'';const design=catalog.designs.find(d=>d.id===body?.code&&d.acquisition==='admin'&&d.ship==='goliath'&&/^Champion(?:-[a-z-]+)?$/.test(d.id));if(username.length<2||username.length>18||!design)throw fail('Piloto o diseño inválido');
+  const c=await pool.connect();try{await c.query('BEGIN');const account=(await c.query('SELECT a.id,a.username FROM accounts a JOIN player_progress p ON p.account_id=a.id WHERE lower(a.username)=lower($1) FOR UPDATE OF p',[username])).rows[0];if(!account)throw fail('Piloto no encontrado',404);const existing=(await c.query("SELECT instance_id FROM gg_v13_inventory WHERE account_id=$1 AND code=$2 AND category='ship-designs'",[account.id,design.id])).rows[0];if(!existing)await c.query("INSERT INTO gg_v13_inventory(account_id,instance_id,code,category) VALUES($1,$2,$3,'ship-designs')",[account.id,crypto.randomUUID(),design.id]);await c.query('COMMIT');return {username:account.username,code:design.id,alreadyOwned:!!existing};}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
+ }
+ return {ready,grantChampion,purchase,snapshot,equip,activateConfig,combatLoadout,useCpu,consumeAmmo,petInterval,petKamikaze,petCooldowns,location,chooseCompany,pvpReward,saveLocation,awardBox,gateStatus,gateSpin,gateBuild,gateLife,hadesEligibility,hadesStart,hadesKill,hadesAdvance,gateCheckpoint,gateKill,gateAdvance,gateRewardLog};
 }
 module.exports={createInventory};
