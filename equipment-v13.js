@@ -6,7 +6,7 @@ function quote(category,id,quantity=1){
  const allowed=['ships','lasers','ammo','shields','engines','rockets','specialRockets','launchers','launcherAmmo','mines','designs','cpus','robots','consumables'];
  requireRule(allowed.includes(category),'Categoría inválida');
  const item=lookup(catalog[category],id);
- requireRule(item&&item.price!==null&&['credits','uridium'].includes(item.currency),'Objeto no disponible');
+ requireRule(item&&item.retired!==true&&item.price!==null&&['credits','uridium'].includes(item.currency),'Objeto no disponible');
  requireRule(Number.isSafeInteger(quantity)&&quantity>0&&quantity<=(['ammo','rockets','specialRockets','launcherAmmo','mines','consumables'].includes(category)?100000:['ships','designs','cpus','robots'].includes(category)?1:100),'Cantidad inválida');
  return {id,category,quantity,currency:item.currency,total:item.price*quantity};
 }
