@@ -33,15 +33,14 @@ function stats(shipId,items,droneItems=[]){
 }
 function configurations(shipId,configs,owned){
  requireRule(Array.isArray(configs)&&configs.length===2&&owned instanceof Map,'Configuraciones inválidas');
- const used=new Set();
  return configs.map(config=>{
   const ids=Array.isArray(config)?config:config?.ship;
   requireRule(Array.isArray(ids),'Configuración inválida');
   const usedHere=new Set();
   const take=id=>{
-   const item=owned.get(id),shared=item&&['launchers','cpus','robots'].includes(item.category);
-   requireRule(typeof id==='string'&&item&&!usedHere.has(id)&&(shared||!used.has(id)),'Objeto no disponible o duplicado');
-   usedHere.add(id);if(!shared)used.add(id);return {...item,instanceId:id};
+   const item=owned.get(id);
+   requireRule(typeof id==='string'&&item&&!usedHere.has(id),'Objeto no disponible o duplicado');
+   usedHere.add(id);return {...item,instanceId:id};
   };
   const droneItems=[],mounted=new Set(),ranked=[];
   const drones=Array.isArray(config)?[]:config.drones??[];
