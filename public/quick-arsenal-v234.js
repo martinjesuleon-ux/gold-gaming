@@ -44,22 +44,37 @@
   const buttons=[],categoryButtons=[],trayButtons=new Map();
   let noticeTimer;const say=t=>{notice.textContent=t;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>notice.textContent='',3500);};
   function persist(){if(account&&!save(root.localStorage,account,slots))say('No se pudo guardar la configuración en este navegador');}
+  function combatArt(category,code){
+   if(!['ammo','rockets','specialRockets','launcherAmmo','cpus','robots','launchers','mines','consumables'].includes(category))return null;
+   const art=mk('canvas');art.width=96;art.height=64;const c=art.getContext('2d');if(!c)return null;c.translate(48,32);
+   const colors={'LCB-10':'#e6e9ef','MCB-25':'#7be4ab','MCB-50':'#7ec9ff','UCB-100':'#dceaff','SAB-50':'#47e6ed','RSB-75':'#ffb855','AROL-X':'#fa9b5c','RL-LB1':'#f8cb63','NC-RRB':'#7edb9d','AIM-02':'#9fd5ff','NC-AWB':'#b98df7'};
+   const color=colors[code]||root.ggShopVisual?.itemColor(category,{id:code})||'#9bd8ff';
+   function metal(x,y,w,h){const g=c.createLinearGradient(0,y,0,y+h);g.addColorStop(0,'#edf6ff');g.addColorStop(.35,'#a1b3c4');g.addColorStop(.65,'#344557');g.addColorStop(1,'#72869b');c.fillStyle=g;c.fillRect(x,y,w,h);c.strokeStyle='#111e2c';c.strokeRect(x+.5,y+.5,w-1,h-1);}
+   function poly(points,fill){c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=fill;c.fill();c.strokeStyle='#132131';c.stroke();}
+   if(category==='ammo'){for(let i=0;i<3;i++){const x=-25+i*19,y=-17+Math.abs(i-1)*5;metal(x,y,16,32);metal(x-2,y+24,20,6);c.fillStyle=color;c.fillRect(x+3,y+7,10,13);c.fillStyle='#fff9';c.fillRect(x+3,y+8,3,11);}const mult={'LCB-10':'1','MCB-25':'2','MCB-50':'3','UCB-100':'4','RSB-75':'6','SAB-50':'S'}[code];c.font='bold 15px Arial';c.textAlign='right';c.fillStyle='#fff';c.fillText(mult?'×'+mult:'',43,-18);}
+   else if(['rockets','specialRockets','launcherAmmo'].includes(category)){c.rotate(-.65);for(let i=0;i<(category==='launcherAmmo'?2:1);i++){const y=category==='launcherAmmo'?(i-0.5)*16:0;poly([[-32,y-7],[15,y-7],[35,y],[15,y+7],[-32,y+7]],'#d7e4ec');poly([[-26,y-7],[-39,y-15],[-35,y],[-39,y+15],[-26,y+7]],'#6d8193');c.fillStyle=color;c.fillRect(-7,y-5,19,10);c.fillStyle='#f8fbff';c.fillRect(-8,y-5,18,2);}}
+   else if(category==='cpus'){metal(-21,-21,42,42);c.fillStyle='#172d3f';c.fillRect(-15,-15,30,30);for(let i=-15;i<=15;i+=10){metal(i-2,-25,5,6);metal(i-2,19,5,6);metal(-25,i-2,6,5);metal(19,i-2,6,5);}c.strokeStyle=color;c.lineWidth=3;c.strokeRect(-10,-10,20,20);c.beginPath();if(code==='AROL-X'||code==='RL-LB1'){c.moveTo(-9,9);c.lineTo(9,-9);c.moveTo(1,-9);c.lineTo(9,-9);c.lineTo(9,-1);}else if(code==='NC-RRB'){c.moveTo(-8,0);c.lineTo(8,0);c.moveTo(0,-8);c.lineTo(0,8);}else{c.moveTo(-6,-6);c.lineTo(6,6);c.moveTo(-6,6);c.lineTo(6,-6);}c.stroke();}
+   else if(category==='launchers'){metal(-26,-16,52,32);for(let i=0;i<4;i++){c.fillStyle='#101d2a';c.beginPath();c.arc(-18+i*12,0,5,0,Math.PI*2);c.fill();c.strokeStyle=color;c.stroke();}}
+   else if(category==='robots'){metal(-18,-12,36,24);metal(-28,-8,10,16);metal(18,-8,10,16);c.fillStyle=color;c.fillRect(-9,-3,18,6);c.fillRect(-3,-9,6,18);}
+   else {c.fillStyle=color;c.beginPath();c.arc(0,0,17,0,Math.PI*2);c.fill();c.strokeStyle='#dbeaf2';c.lineWidth=3;c.stroke();c.strokeStyle='#203549';for(let i=0;i<8;i++){c.rotate(Math.PI/4);c.beginPath();c.moveTo(12,0);c.lineTo(24,0);c.stroke();}c.fillStyle='#142534';c.beginPath();c.arc(0,0,6,0,Math.PI*2);c.fill();}
+   return art;
+  }
   function icon(b,id){
    const item=items.get(id),theme=root.ggVisualTheme?.current()||'gold',stamp=id+':'+theme+':'+(id==='repair'?root.gg15Pilot?.()?.robot||'':'');
    if(b.dataset.iconStamp===stamp)return;b.dataset.iconStamp=stamp;b.replaceChildren();
    if(!item){b.append(mk('span','gg-quick-icon','+'));return;}
    const category=item[2],code=id==='repair'?(root.gg15Pilot?.()?.robot||'REP-1'):id.split(':').at(-1);let art;
    if(id.startsWith('formation:')&&root.ggGraphics161){art=mk('canvas');art.width=64;art.height=44;const c=art.getContext('2d');if(c){c.translate(32,22);c.scale(.24,.24);c.fillStyle='#67c8f3';c.fillRect(-9,-9,18,18);c.fillStyle='#f8d57a';for(const q of root.ggGraphics161.formationOffsets(10,code))c.fillRect(q.x-6,q.y-6,12,12);}}
-   else if(category&&root.ggShopVisual){art=root.ggShopVisual.art(category,{id:code});}
+   else if(category){art=combatArt(category,code)||root.ggShopVisual?.art(category,{id:code});}
    if(art){art.setAttribute('aria-hidden','true');art.removeAttribute('role');art.removeAttribute('aria-label');b.append(art);}else b.append(mk('span','gg-quick-icon',id==='fire'?'✴':id.startsWith('menu:')?'◈':'⬡'));
    b.append(mk('span','gg-quick-code',item[1]),mk('span','gg-quick-count'),mk('span','gg-quick-cool'),mk('span','gg-quick-state'));
   }
   function paint(b,id){
-   icon(b,id);const item=items.get(id),src=sourceById.get(id),pilot=root.gg15Pilot?.(),qty=src?.querySelector('.gg-ammo-count')?.textContent??(inventory[id]===undefined?'':String(inventory[id]));
+   icon(b,id);const item=items.get(id),src=sourceById.get(id),pilot=root.gg15Pilot?.(),stock=root.gg235AmmoStock?.(id)??inventory[id],qty=src?.querySelector('.gg-ammo-count')?.textContent??(stock===undefined?'':String(stock));
    const count=b.querySelector('.gg-quick-count');if(count&&count.textContent!==qty)count.textContent=qty;
    const toggle=item?.[3]==='toggle',passive=item?.[3]==='passive',equipped=equippedExtras(pilot).has(id),cpuItem=groups.find(g=>g[0]==='cpu')[3].some(x=>x[0]===id)||['ISH-01','SMB-01'].includes(id),active=!!(toggle&&pilot?.cpuStates?.[id])||(passive&&equipped)||(id?.startsWith('CLO4K-')&&equipped&&pilot?.cloaked)||(id==='ISH-01'&&equipped&&pilot?.ishUntil>Date.now())||!!src?.classList.contains('active')||(id?.startsWith('formation:')&&pilot?.formation===id.slice(10))||(id==='repair'&&!!pilot?.repairOn);
    b.classList.toggle('active',!!active);b.classList.toggle('gg-quick-unavailable',!!cpuItem&&!equipped);const status=b.querySelector('.gg-quick-state'),stateText=cpuItem?(!equipped?'NO EQUIP.':passive?'PASIVO':toggle?(active?'ON':'OFF'):id==='repair'?(active?'ON':'OFF'):''):'';if(status&&status.textContent!==stateText)status.textContent=stateText;const cd=cooldown(id,pilot,Date.now()),cdNode=b.querySelector('.gg-quick-cool');if(cdNode){const seconds=cd>0?String(Math.ceil(cd/1000)):'';if(cdNode.textContent!==seconds)cdNode.textContent=seconds;b.classList.toggle('gg-quick-recharging',cd>0);}b.classList.toggle('gg-quick-chosen',chosen===id&&!!id);
-   const label=item?(src?.title||item[1])+(stateText?' · '+stateText:'')+(cd>0?' · Recarga '+Math.ceil(cd/1000)+' s':''):'Ranura vacía';if(b.title!==label)b.title=label;b.setAttribute('aria-label',label);
+   const label=item?(id==='repair'&&pilot?.robot?pilot.robot+' · '+item[1]:src?.title||item[1])+(stateText?' · '+stateText:'')+(cd>0?' · Recarga '+Math.ceil(cd/1000)+' s':''):'Ranura vacía';if(b.title!==label)b.title=label;b.setAttribute('aria-label',label);
   }
   function refresh(){const stamp=[...equippedExtras(root.gg15Pilot?.())].sort().join('|');if(open&&groups[group][0]==='cpu'&&stamp!==extraStamp){extraStamp=stamp;buildTray();return;}for(let i=0;i<20;i++)paint(buttons[i],slots[i]);for(const [id,b] of trayButtons)paint(b,id);}
   function change(index,id,from=null){slots=assign(slots,index,id,from);chosen=null;persist();refresh();say('Ranura '+(index+1)+' configurada');}
