@@ -1,7 +1,7 @@
 'use strict';
 // Original vector artwork, cached once per palette and device pixel ratio.
 (function(root){
- const cache=new Map();
+ const cache=new Map(),formationCache=new Map();
  function path(c,points,fill,stroke,width=1){c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=width;c.stroke();}}
  function gradient(c,y,stops){const g=c.createLinearGradient(0,-y,0,y);for(const [offset,color] of stops)g.addColorStop(offset,color);return g;}
  function engine(c,x,y,color){const g=c.createRadialGradient(x,y,0,x,y,15);g.addColorStop(0,'#ffffff');g.addColorStop(.18,color);g.addColorStop(.5,color+'66');g.addColorStop(1,color+'00');c.fillStyle=g;c.fillRect(x-15,y-15,30,30);}
@@ -256,11 +256,10 @@
   wave:[[-5,-4],[5,-4],[-3,-2],[3,-2],[-4,0],[4,0],[-3,2],[3,2],[-5,4],[5,4]]
  };
  function formationOffsets(count,formation){
-  const n=Math.min(10,Math.max(0,Math.floor(Number(count)||0))),f=formation||'normal';
-  if(!n)return [];
-  const shape=formationShapes[f];
-  if(shape)return shape.slice(0,n).map(([x,y])=>({x:-y*19,y:x*19}));
-  return Array.from({length:n},(_,i)=>{const a=2*Math.PI*i/n;return {x:Math.cos(a)*68,y:Math.sin(a)*53};});
+  const n=Math.min(10,Math.max(0,Math.floor(Number(count)||0))),f=Object.hasOwn(formationShapes,formation)?formation:'normal';
+  const key=f+':'+n;if(formationCache.has(key))return formationCache.get(key);
+  const shape=formationShapes[f];const offsets=!n?[]:shape?shape.slice(0,n).map(([x,y])=>({x:-y*19,y:x*19})):Array.from({length:n},(_,i)=>{const a=2*Math.PI*i/n;return {x:Math.cos(a)*68,y:Math.sin(a)*53};});
+  const frozen=Object.freeze(offsets.map(Object.freeze));formationCache.set(key,frozen);return frozen;
  }
  function labelLayout(o,visual,npc,scale=1,angle=0,offsets=[]){
   const kind=visual.kind,base=kind==='crystal-elite'?44:/^classic-(sibelon|lordakium|deadly-battleray|annihilator)/.test(kind)?46:kind.startsWith('classic-kristallon')?47:kind.startsWith('classic-kristallin')?40:kind.startsWith('classic-devolarium')?45:kind.startsWith('classic-mordon')?40:kind.startsWith('classic-cubikon')?47:kind==='cube'?35:(kind.startsWith('ship-')||kind.startsWith('classic-ship-'))?46:36;
