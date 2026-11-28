@@ -337,11 +337,12 @@
  };
  const designModules={Diminisher:'claws',Sentinel:'shield',Solace:'medic',Spectrum:'prism',Venom:'spines',Lightning:'thrust',Bastion:'shield',Enforcer:'cannons',Centaur:'armor',Exalted:'crest',Veteran:'stripes',Goal:'crest',Referee:'stripes',Kick:'thrust',Revenge:'cannons',Avenger:'spines',Saturn:'ring','aegis-veteran':'stripes','aegis-elite':'medic','citadel-veteran':'armor','citadel-elite':'cannons','spearhead-veteran':'stripes','spearhead-elite':'spines'};
  function mirrored(outline){return outline.concat(outline.slice(1,-1).reverse().map(([x,y])=>[x,-y]));}
- function pilot(c,kind,color){
+ function pilot(c,kind,color,baseHull){
   const [ship,design]=kind.slice('classic-ship-'.length).split(':'),profile=pilotOutlines[ship]||pilotOutlines.phoenix,module=designModules[design];
   const steel=linear(c,-33,-32,36,32,[[0,'#ccd4d5'],[.14,'#7f9195'],[.34,'#3b494d'],[.53,'#111b23'],[.67,'#58696c'],[.85,'#263239'],[1,'#0a1018']]);
   const tinted=linear(c,-25,-30,30,30,[[0,color],[.22,'#89998c'],[.4,'#263735'],[.61,'#0d1b21'],[.79,color],[1,'#18292a']]);
-  if(ship==='goliath')goliath(c,color);
+  if(typeof baseHull==='function')baseHull(c,ship,color);
+  else if(ship==='goliath')goliath(c,color);
   else{
    polygon(c,mirrored(profile),steel,'#879ba0',.8);
    const nose=profile[0][0],rear=Math.min(...profile.map(p=>p[0])),span=Math.max(...profile.map(p=>p[1]));
