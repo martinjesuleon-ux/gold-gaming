@@ -268,6 +268,7 @@
   if(!npc)for(const {x,y} of offsets){const v=(x*sin+y*cos)*scale;above=Math.max(above,-v+15*scale);below=Math.max(below,v+19*scale);}
   return {top:Math.ceil(above+14),name:Math.ceil(below+15),width:o.type==='boss'?90:58,ring:Math.ceil(base*scale+4)};
  }
+ function nameWidth(ctx,cache,name){const font=ctx.font;if(cache.name!==name||cache.font!==font||!Number.isFinite(cache.width)){cache.name=name;cache.font=font;cache.width=ctx.measureText(name).width;}return cache.width;}
  function safeRatio(value,max){return Number.isFinite(value)&&Number.isFinite(max)&&max>0?Math.max(0,Math.min(1,value/max)):0;}
- root.ggGraphics161={draw,portal,droneColor,droneKind,npcStyle,playerStyle,formationOffsets,labelLayout,safeRatio,sky};
+ root.ggGraphics161={draw,portal,droneColor,droneKind,npcStyle,playerStyle,formationOffsets,labelLayout,nameWidth,safeRatio,sky};
 })(window);
