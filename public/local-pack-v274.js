@@ -1,0 +1,31 @@
+'use strict';
+(function(root){
+ const pack=root.ggClassicPack;if(!pack)return;
+ const active=()=>root.ggVisualTheme?.current()==='classic',original={draw:pack.draw,shop:pack.shop,cover:pack.cover};let entries=new Map(),images=new Map(),generation=0;
+ const MAX=64*1024*1024;
+ function validate(data){
+  if(!data||data.version!==1||!Array.isArray(data.assets)||!data.assets.length||data.assets.length>500)throw Error('MOD inválido.');
+  const result=new Map();let total=0;
+  for(const e of data.assets){
+   if(!e||typeof e.key!=='string'||!/^(shop|sprite|npc|map|portal|projectile|impact|mine|loot|base|ui):[a-zA-Z0-9_.:-]{1,110}$/.test(e.key)||result.has(e.key)||typeof e.source!=='string'||!e.source.trim()||typeof e.data!=='string'||!/^data:image\/(png|webp|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(e.data))throw Error('Recurso inválido.');
+   total+=e.data.length;if(total>MAX||e.data.length>12*1024*1024)throw Error('MOD demasiado grande.');
+   const {frames=1,columns=1,mode='static',heading=0,width=100,height=100,fps=12}=e;
+   if(!Number.isInteger(frames)||frames<1||frames>120||!Number.isInteger(columns)||columns<1||columns>frames||!['static','directional','animated'].includes(mode)||(mode==='static'&&frames!==1)||![width,height].every(n=>Number.isFinite(n)&&n>=1&&n<=2048)||!Number.isFinite(heading)||Math.abs(heading)>360||!Number.isFinite(fps)||fps<1||fps>60)throw Error('Metadatos inválidos.');
+   result.set(e.key,{data:e.data,frames,columns,mode,heading,width,height,fps});
+  }return result;
+ }
+ async function load(file){if(!active())throw Error('Selecciona modo Clásico.');if(!file||file.size<1||file.size>MAX)throw Error('Selecciona un MOD de hasta 64 MB.');const token=++generation;const next=validate(JSON.parse(await file.text()));if(token!==generation)return false;entries=next;images.clear();return true;}
+ function clear(){generation++;entries.clear();images.clear();}
+ function get(key,callback){
+  if(!active())return null;const e=entries.get(key);if(!e)return null;
+  let i=images.get(key);if(!i){if(images.size>=48){const stale=[...images].find(([,v])=>v.state!=='loading');if(!stale)return null;images.delete(stale[0]);}
+   const img=new root.Image();i={img,state:'loading',callbacks:[]};images.set(key,i);const rows=Math.ceil(e.frames/e.columns);img.onload=()=>{i.state=img.naturalWidth<=8192&&img.naturalHeight<=8192&&img.naturalWidth*img.naturalHeight<=16000000&&img.naturalWidth%e.columns===0&&img.naturalHeight%rows===0?'ready':'failed';for(const cb of i.callbacks.splice(0))if(i.state==='ready')cb();};img.onerror=()=>{i.state='failed';i.callbacks.length=0;};img.src=e.data;}
+  if(i.state==='loading'&&callback&&i.callbacks.length<64)i.callbacks.push(callback);return i.state==='ready'?{e,img:i.img}:null;
+ }
+ function draw(c,key,o={}){const item=get(key,o.callback);if(!item)return false;const {e,img}=item,a=Number.isFinite(o.angle)?o.angle:0,t=Number.isFinite(o.time)?o.time:0,wrap=n=>((n%e.frames)+e.frames)%e.frames,frame=e.mode==='directional'?wrap(Math.round((a+e.heading*Math.PI/180)*e.frames/(2*Math.PI))):e.mode==='animated'?wrap(Math.floor(t*e.fps/1000)):0,sw=img.naturalWidth/e.columns,sh=img.naturalHeight/Math.ceil(e.frames/e.columns),w=o.width??e.width,h=o.height??e.height;c.save();if(o.rotated&&e.mode==='directional')c.rotate(-a);c.drawImage(img,frame%e.columns*sw,Math.floor(frame/e.columns)*sh,sw,sh,-w/2,-h/2,w,h);c.restore();return true;}
+ pack.draw=function(c,key,o={}){return draw(c,key,o)||original.draw.call(pack,c,key,o);};
+ pack.shop=function(c,category,id,w,h){const key='shop:'+category+':'+id;const paint=()=>{const i=get(key,paint);if(!i)return false;const cw=c.canvas?.width||w,ch=c.canvas?.height||h,scale=Math.min(cw/i.img.naturalWidth,ch/i.img.naturalHeight);c.save();c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,cw,ch);c.translate(cw/2,ch/2);draw(c,key,{width:i.img.naturalWidth*scale,height:i.img.naturalHeight*scale});c.restore();return true;};return paint()||original.shop.call(pack,c,category,id,w,h);};
+ pack.cover=function(c,key,w,h){const i=get(key);if(!i||i.e.mode!=='static')return original.cover.call(pack,c,key,w,h);const scale=Math.max(w/i.img.naturalWidth,h/i.img.naturalHeight),dw=i.img.naturalWidth*scale,dh=i.img.naturalHeight*scale;c.drawImage(i.img,(w-dw)/2,(h-dh)/2,dw,dh);return true;};
+ function controls(doc){const wrap=doc.createElement('section'),title=doc.createElement('strong'),hint=doc.createElement('small'),input=doc.createElement('input'),status=doc.createElement('small'),reset=doc.createElement('button');title.textContent='MOD ampliado · equipamiento y naves';hint.textContent='Importa el archivo .ggmod autorizado. Complementa el atlas VANT RC72. Solo gráficos locales, no se envía al servidor. Vuelve a abrir el hangar y la tienda después de cargar.';input.type='file';input.accept='.ggmod,application/json';input.setAttribute('aria-label','MOD ampliado local');status.setAttribute('role','status');reset.type='button';reset.textContent='Quitar MOD ampliado';const sync=()=>{wrap.hidden=!active();status.textContent=entries.size?entries.size+' recursos locales activos':'Sin MOD ampliado.';};input.onchange=async()=>{try{status.textContent='Leyendo MOD…';await load(input.files?.[0]);sync();}catch(e){status.textContent=e.message;}finally{input.value='';}};reset.onclick=()=>{clear();sync();};wrap.append(title,hint,input,status,reset);root.addEventListener?.('gg:visualTheme',sync);sync();return wrap;}
+ root.ggLocalPack={validate,load,clear,controls,count:()=>entries.size};
+})(window);

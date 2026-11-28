@@ -50,7 +50,7 @@
   input.type='file';input.accept='image/png,image/webp';input.setAttribute('aria-label','Atlas local Goliath e Iris');status.setAttribute('role','status');reset.type='button';reset.textContent='Restaurar gráficos del servidor';
   const sync=()=>{wrap.hidden=!active();status.textContent=atlas?'Atlas activo · Goliath '+format.frames+' perspectivas'+(hasIris?' + Iris rangos 1–6':'')+(hasRanks?' + 21 emblemas clásicos':'')+(hasDrones?' + Flax, Apis, Zeus, Havoc y Hércules':'')+'. Cierra y vuelve a abrir la tienda si estaba abierta.':'Sin atlas local.';};
   input.onchange=async()=>{const file=input.files?.[0];if(!file)return;try{status.textContent='Cargando atlas…';if(await load(file))sync();}catch(e){status.textContent=e.message;}finally{input.value='';}};
-  reset.onclick=()=>{clear();sync();};wrap.append(title,hint,input,status,reset);root.addEventListener?.('gg:visualTheme',sync);sync();return wrap;
+  reset.onclick=()=>{clear();sync();};wrap.append(title,hint,input,status,reset);root.addEventListener?.('gg:visualTheme',sync);sync();if(root.ggLocalPack)wrap.append(root.ggLocalPack.controls(doc));return wrap;
  }
  root.ggLocalGoliath={frame,rect,draw,iris,drone,rank,revision:()=>revision,load,clear,controls,loaded:()=>!!atlas};
 })(window);
