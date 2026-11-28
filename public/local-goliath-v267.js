@@ -15,11 +15,13 @@
  async function load(file){
   if(!active())throw Error('Selecciona el modo Clásico.');
   if(!file||!['image/png','image/webp'].includes(file.type)||file.size<1||file.size>8*1024*1024)throw Error('Selecciona un atlas PNG o WebP de hasta 8 MB.');
-  const token=++generation,url=root.URL.createObjectURL(file);
-  try{const img=new root.Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('No se pudo abrir el atlas.'));img.src=url;});
+  const token=++generation;
+  const url=await new Promise((resolve,reject)=>{const reader=new root.FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('No se pudo leer el archivo local.'));reader.onabort=()=>reject(Error('Lectura cancelada.'));reader.readAsDataURL(file);});
+  if(typeof url!=='string'||!/^data:image\/(png|webp);base64,/i.test(url))throw Error('Formato de imagen local inválido.');
+  if(token!==generation)return false;
+  const img=new root.Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('No se pudo decodificar el atlas PNG o WebP.'));img.src=url;});
    const combined=img.naturalWidth===1664&&img.naturalHeight===1152;const selected=combined?formats[0]:formats.find(f=>img.naturalWidth===f.cols*f.w&&img.naturalHeight===f.rows*f.h);if(!selected)throw Error('Atlas inválido: utiliza el paquete Goliath + Iris (1664 × 1152) o un atlas Goliath compatible.');
    if(token!==generation)return false;format=selected;hasIris=combined;atlas=img;return true;
-  }finally{root.URL.revokeObjectURL(url);}
  }
  function clear(){generation++;atlas=null;hasIris=false;}
  function iris(c,rank,angle=0,rotated=false,width=100*60/208){if(!atlas||!hasIris||!active()||!c)return false;const r=Math.max(0,Math.min(5,Math.floor(Number(rank)||1)-1)),a=Number.isFinite(angle)?angle:0,n=((Math.round(-a*32/(Math.PI*2))%32)+32)%32;const x=(r%3)*480+(n%8)*60,y=672+Math.floor(r/3)*240+Math.floor(n/8)*60;c.save();if(rotated)c.rotate(-a);c.drawImage(atlas,x,y,60,60,-width/2,-width/2,width,width);c.restore();return true;}
