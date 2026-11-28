@@ -1,6 +1,6 @@
 {
   "name": "gold-gaming",
-  "version": "2.0.0-rc.28",
+  "version": "2.0.0-rc.29",
   "private": true,
   "description": "Multijugador espacial 2D",
   "main": "server.js",
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
-    "test": "node --test test/*.test.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
     "check": "node --check server.js && node --check accounts.js && node --check public/auth.js && node --check public/game.js && node --check public/admin.js && node --check inventory-v13.js && node --check equipment-v13.js && node --check gates-v14.js && node --check maps-v14.js && node --check hades-lobby-v14.js && node --check loot-v14.js && node --check public/gold-v13.js && node --check public/gold-hud.js && node --check groups-v15.js && node --check clans-v15.js && node --check pvp-v15.js && node --check daily-v16.js && node --check missions-v16.js && node --check minerals-v17.js && node --check upgrades-v18.js && node --check mines-v18.js && node --check abilities-v18.js && node --check cpus-v18.js && node --check assembly-v19.js && node --check equipment-upgrade-v19.js && node --check formations-v19.js && node --check drones-v19.js && node --check pilot-v19.js && node --check loot-v14.js && node --check boosters-v112.js && node --check stations-v113.js && node --check auction-v114.js && node --check rankings-v123.js && node --check achievements-v125.js && node --check uba-v126.js && node --check uba-arena-v128.js && node --check invasion-v134.js && node --check invasion-combat-v136.js && node --check invasion-results-v137.js && node --check spaceball-v138.js && node --check spaceball-rewards-v140.js && node --check hitac-v141.js && node --check hitac-lottery-v143.js && node --check hitac-rewards-v145.js && node --check ice-v146.js && node --check ice-rewards-v148.js && node --check event-queue-v149.js && node --check uridium-event-v157.js && node --check event-calendar-v158.js && node --check public/event-calendar-v158.js && node --check event-feed-v159.js && node --check stability-v160.js && node --check public/graphics-v161.js && node --check admin-map-jump.js && node --check public/visual-theme-v166.js && node --check public/classic-art-v166.js && node --check public/classic-hud-v166.js && node --check public/rank-visual-v164.js && node --check public/shop-visual-v163.js && node --check pet-combat-rules-v173.js && node --check pet-progression-v173.js && node --check pet-equipment-rules-v173.js && node --check pet-test-kit-v175.js && node --check pet-gear-levels-v177.js && node --check pet-support-gears-v178.js && node --check pet-combos-v180.js && node --check pet-trader-v181.js && node --check pet-navigation-v187.js && node --check pet-target-index-v188.js && node --check gate-reward-category-v191.js && node --check gate-wave-v194.js && node --check gate-progress-v195.js && node --check gate-npc-v196.js && node --check join-reservations-v203.js && node --check bank-v222.js && node --check respawn-v222.js && node --check logout-v222.js && node --check premium-admin-v222.js && node --check referrals-v222.js && node --check referral-milestones-v222.js && node --check public/arsenal-keys-v164.js && node --check premium-pilot-v224.js && node --check referral-proxy-probe-v226.js"
   },
   "dependencies": {
