@@ -71,3 +71,5 @@ test('live drag uses direction-only preview and never draws a destination marker
 });
 
 test('combat heading follows enemy independently of movement and uses shortest turn',()=>{const {combatHeading}=require('../public/motion-v236');const ship={x:50,y:50,a:0};assert.equal(combatHeading(ship,{x:50,y:100},true,1),Math.PI/2);assert.equal(combatHeading(ship,{x:50,y:100},false,1),0);assert.equal(combatHeading(ship,null,true,1),0);assert.equal(combatHeading(ship,{x:50,y:50},true,1),0);assert.equal(combatHeading(ship,{x:0,y:50},true,.5),Math.PI/2);assert.deepEqual(ship,{x:50,y:50,a:0});const src=fs.readFileSync(require.resolve('../server.js'),'utf8');assert.match(src,/if\(p.attack&&p.target\)\{const aim=/);});
+
+ test('local interpolation bridges a 90 ms packet gap without increasing maximum drift',()=>{let h=record(null,p(0),1000,0);h=record(h,p(40),1100,100);assert.equal(position(h,190,true).x,76);assert.equal(position(h,500,true).x,78);});

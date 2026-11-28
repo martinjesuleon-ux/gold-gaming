@@ -11,7 +11,7 @@ const CPUS=[
 const ROBOTS=[{id:'REP-S',perMinute:1000,price:30000,currency:'credits'},{id:'REP-1',seconds:165,price:10000,currency:'credits'},{id:'REP-2',seconds:120,price:64000,currency:'credits'},{id:'REP-3',seconds:105,price:5000,currency:'uridium'},{id:'REP-4',seconds:90,price:20000,currency:'uridium'}];
 function repairRate(code,maxHp){const r=ROBOTS.find(x=>x.id===code);return !r?0:r.perMinute?r.perMinute/60:maxHp/r.seconds;}
 function extraStats(ship,items){const cpus=[],seen=new Set();let robot=null,slots=0,used=0,launcher=null;
- for(const i of items){const c=CPUS.find(x=>x.id===i.code),r=ROBOTS.find(x=>x.id===i.code);if(c){if(seen.has(c.id)||c.slots&&slots)throw Error('CPU duplicado o abridor de slots repetido');seen.add(c.id);cpus.push(c.id);slots+=c.slots||0;used++;}else if(r){if(robot)throw Error('Solo un robot por configuración');robot=r.id;used++;}else if(['HST-1','HST-2'].includes(i.code)){if(launcher)throw Error('Solo un lanzador por configuración');launcher=i.code;used++;}}
+ for(const i of items){const c=CPUS.find(x=>x.id===i.code),r=ROBOTS.find(x=>x.id===i.code);if(c){if(seen.has(c.id)||c.slots&&slots)throw Error('CPU duplicado o abridor de slots repetido');seen.add(c.id);cpus.push(c.id);slots+=c.slots||0;used++;}else if(r){if(robot)throw Error('Solo un robot por configuración');robot=r.id;used++;}else if(['HST-1','HST-2'].includes(i.code)){if(launcher)throw Error('Solo un lanzador por configuración');launcher=i.code;}}
  if(used>ship.extras+slots)throw Error('Espacios de extras excedidos');
  return {cpus,robot,slots,used,launcher};
 }

@@ -151,22 +151,25 @@
  }
  // Original player hull profiles, independent of equipment and combat parameters.
  const shipProfiles=Object.freeze({
- phoenix:[30,13,18,9,0],yamato:[31,19,20,12,1],defcom:[29,20,23,10,2],
- liberator:[32,23,18,13,1],piranha:[34,18,25,8,2],nostromo:[29,24,21,15,3],
- bigboy:[28,30,24,19,3],leonov:[33,20,17,10,4],vengeance:[37,23,28,8,2],
- goliath:[33,30,25,15,4],spearhead:[40,17,24,7,0],aegis:[29,27,25,17,1],citadel:[30,32,28,22,3]
+ phoenix:[27,11,18,7,0],yamato:[33,22,19,10,5],defcom:[28,25,23,10,2],
+ liberator:[33,25,18,13,1],piranha:[36,17,27,7,6],nostromo:[29,24,21,15,3],
+ bigboy:[25,32,26,20,7],leonov:[34,21,17,10,4],vengeance:[38,24,29,8,8],
+ goliath:[34,31,25,15,4],spearhead:[44,14,25,6,9],aegis:[27,29,25,17,10],citadel:[30,35,30,23,11]
  });
+ const shipColors=Object.freeze({phoenix:'#e0a563',yamato:'#5999e6',defcom:'#e56b52',liberator:'#66bfae',piranha:'#d6d94d',nostromo:'#b49bdc',bigboy:'#cc8f62',leonov:'#76cf77',vengeance:'#e54e83',goliath:'#e4bb52',spearhead:'#a1d9fa',aegis:'#47d6d8',citadel:'#b8c3d5'});
  const designColors=Object.freeze({Diminisher:'#e36c45',Sentinel:'#5a93e7',Solace:'#69d8c1',Spectrum:'#aa83ee',Venom:'#87e363',Lightning:'#f5c349',Bastion:'#4798ec',Enforcer:'#f05b51',Centaur:'#eab671',Exalted:'#e2d5b2',Veteran:'#7ab9c4',Goal:'#73d58c',Referee:'#e5e7ec',Kick:'#e4954f',Revenge:'#ef7056',Avenger:'#71c0ff',Saturn:'#d6b2ee','aegis-veteran':'#72b4c9','aegis-elite':'#e9bd67','citadel-veteran':'#72b4c9','citadel-elite':'#e9bd67','spearhead-veteran':'#72b4c9','spearhead-elite':'#e9bd67'});
- function playerStyle(ship,design,isMe){const id=String(ship||'').toLowerCase();const known=Object.hasOwn(shipProfiles,id),equipped=Object.hasOwn(designColors,design),classic=root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.pilot;return {kind:known?(classic?'classic-ship-'+id+(equipped?':'+design:''):'ship-'+id):id==='tank'?'tank':'scout',color:equipped?designColors[design]:isMe?'#76f5bd':'#77c6ff'};}
+ function playerStyle(ship,design,isMe){const id=String(ship||'').toLowerCase();const known=Object.hasOwn(shipProfiles,id),equipped=Object.hasOwn(designColors,design),classic=root.ggVisualTheme?.current()==='classic'&&root.ggClassicArt?.pilot;return {kind:known?(classic?'classic-ship-'+id+(equipped?':'+design:''):'ship-'+id):id==='tank'?'tank':'scout',color:equipped?designColors[design]:known?shipColors[id]:isMe?'#76f5bd':'#77c6ff'};}
  function playerHull(c,id,color){
   const [nose,wing,back,body,style]=shipProfiles[id],armor=gradient(c,wing,[[0,'#bdc9d4'],[.16,'#657587'],[.38,'#243442'],[.5,'#101a24'],[.68,'#53687b'],[1,'#15222e']]),accent=gradient(c,wing,[[0,color],[.4,'#15343b'],[.6,'#101d28'],[1,color]]);
   for(const side of [-1,1]){
-   const tip=style===0?-back:style===1?-back*.45:style===2?-back*.85:style===3?body*.45:nose*.25;
-   const shoulder=style===3?nose*.65:nose*.32;
+   const tip=style===0?-back:style===1?-back*.45:style===2?-back*.85:style===3?body*.45:style===5?0:style===6?-back*.95:style===7?-back*.35:style===8?-back:style===9?-back*.65:style===10?nose*.1:style===11?body*.4:nose*.25;
+   const shoulder=style===3||style===7||style===11?nose*.65:style===6||style===8||style===9?nose*.13:nose*.32;
    path(c,[[shoulder,body*.55*side],[tip,wing*side],[-back,wing*.82*side],[-back+5,body*.6*side],[-body,body*.35*side]],armor,'#9baab8',.85);
    path(c,[[shoulder-3,body*.65*side],[tip,wing*.86*side],[-back+5,wing*.72*side],[-body,body*.55*side]],accent,color,.8);
    path(c,[[-back+2,wing*.64*side],[-back+2,wing*.82*side],[-back+7,wing*.77*side],[-back+7,wing*.58*side]],'#c1d0dd',color,.5);
    engine(c,-back+2,wing*.48*side,color);
+   if(style===5||style===6||style===8||style===9){const start=style===5?nose*.54:style===9?nose*.12:nose*.32;path(c,[[start,wing*.29*side],[tip,wing*side],[-back,wing*.93*side],[-back*.55,wing*.48*side]],color,'#a6c3d0',.85);}
+   if(style===7||style===10||style===11){const y=wing*.66*side;path(c,[[nose*.44,y-body*.2*side],[-back*.62,y-body*.27*side],[-back*.86,y],[-back*.62,y+body*.22*side],[nose*.32,y+body*.2*side]],armor,color,1);path(c,[[nose*.22,y],[-back*.5,y-body*.09*side],[-back*.5,y+body*.09*side]],color);}
    if(style===3||style===4){path(c,[[nose*.48,body*.62*side],[nose*.25,wing*.58*side],[-back*.5,wing*.55*side],[-back*.65,body*.58*side]],armor,color,.75);}
   }
   path(c,[[nose,0],[nose*.5,-body*.65],[-body,-body],[-back,-body*.5],[-back,body*.5],[-body,body],[nose*.5,body*.65]],armor,'#abbcc8',1);
