@@ -972,6 +972,8 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  }
  if(!p.gate)for(const b of boxes.inZone(zoneOf(p)))if(distance(p,b)<52)collectBox(p,b);
  collectSpaceball(p,now);collectIce(p,now);
+ // Movement controls translation; active combat controls heading every tick.
+ if(p.attack&&p.target){const aim=iceTarget(p.target)?iceUnit(p.target):hitacTarget(p.target)?hitacUnit(p.target):p.target===ballTarget?spaceballGame?.ball:npcs.get(p.target)||players.get(p.target);if(aim&&validPoint(aim)&&distance(p,aim)>.01&&(iceTarget(p.target)||hitacTarget(p.target)||p.target===ballTarget||sameZone(p,aim)))p.angle=Math.atan2(aim.y-p.y,aim.x-p.x);}
  if(iceTarget(p.target)){if(!icePilot(p)||!iceUnit(p.target)){p.target=null;p.attack=false;}else shootIce(p,now);continue;}
  if(hitacTarget(p.target)){if(!hitacPilot(p)||!hitacUnit(p.target)){p.target=null;p.attack=false;}else shootHitac(p,now);continue;}
  if(p.target===ballTarget){if(!spaceballGame||p.zone!=='4-4'){p.target=null;p.attack=false;}else shootBall(p,now);continue;}

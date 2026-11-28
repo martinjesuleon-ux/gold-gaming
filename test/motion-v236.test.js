@@ -29,7 +29,7 @@ test('history stays bounded and render clock does not reverse on jitter',()=>{
 test('render integration leaves server data untouched and loads helper first',()=>{
  const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8'),html=fs.readFileSync(require.resolve('../public/index.html'),'utf8');
  assert.ok(game.includes('ggMotion236?.record'));assert.ok(game.includes('ggMotion236?.position'));
- assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2536'));assert.ok(game.includes('old.data=o'));
+ assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2539'));assert.ok(game.includes('old.data=o'));
 });
 
 test('mouse anticipation begins immediately and never exceeds 24 world units',()=>{
@@ -69,3 +69,5 @@ test('live drag uses direction-only preview and never draws a destination marker
  assert.ok(game.includes('!dragging&&distance(me.data,dest)<8'));
  assert.ok(game.includes('local?alpha:motionAlpha'));
 });
+
+test('combat heading follows enemy independently of movement and uses shortest turn',()=>{const {combatHeading}=require('../public/motion-v236');const ship={x:50,y:50,a:0};assert.equal(combatHeading(ship,{x:50,y:100},true,1),Math.PI/2);assert.equal(combatHeading(ship,{x:50,y:100},false,1),0);assert.equal(combatHeading(ship,null,true,1),0);assert.equal(combatHeading(ship,{x:50,y:50},true,1),0);assert.equal(combatHeading(ship,{x:0,y:50},true,.5),Math.PI/2);assert.deepEqual(ship,{x:50,y:50,a:0});const src=fs.readFileSync(require.resolve('../server.js'),'utf8');assert.match(src,/if\(p.attack&&p.target\)\{const aim=/);});
