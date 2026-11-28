@@ -21,5 +21,9 @@ test('local Goliath matches atlas headings, never changes GOLD, and restores fal
  calls.length=0;assert.equal(window.ggClassicPack.draw(c,'sprite:classic-ship-goliath',{angle:Math.PI/2,rotated:true}),true);
  assert.deepEqual(calls[1].slice(1,5),[0,504,208,168]);
  dimensions=[1024,1024];await assert.rejects(a.load({type:'image/png',size:10}),/Atlas inválido/);assert.equal(a.loaded(),true);
+ dimensions=[1664,1152];await a.load({type:'image/png',size:1500000});
+ calls.length=0;assert.equal(a.iris(c,6,Math.PI/2,true),true);assert.equal(calls[0],-Math.PI/2);assert.deepEqual(calls[1].slice(1,5),[960,1092,60,60]);
+ for(let rank=1;rank<=6;rank++){calls.length=0;assert.equal(a.iris(c,rank,0,false),true);assert.deepEqual(calls[0].slice(1,5),[((rank-1)%3)*480,672+Math.floor((rank-1)/3)*240,60,60]);}
+ theme='gold';assert.equal(a.iris(c,6,0),false);theme='classic';a.clear();assert.equal(a.iris(c,6,0),false);
 
 });
