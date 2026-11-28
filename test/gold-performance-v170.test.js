@@ -29,9 +29,9 @@ test('GOLD star field creates at most three reusable tiles even across camera mo
  for(let i=0;i<120;i++){camera.x-=170;camera.y+=57;run();}
  assert.equal(allocations,3);assert.equal(arcs,initial);assert.ok(draws>120);
 });
-test('GOLD auto quality is optional, persisted and separate from classic artwork',()=>{
+test('Auto quality is optional, persisted and works in both visual themes',()=>{
  assert.match(read('gold-hud.js'),/\['auto','low','medium','high'\]/);
- assert.match(game,/qualityPreference!=='auto'/);assert.match(game,/current\(\)\|\|'gold'\)!=='gold'/);
+ assert.match(game,/qualityPreference!=='auto'/);assert.match(game,/adaptiveQuality\.theme!==theme/);assert.doesNotMatch(game,/current\(\)\|\|'gold'\)!=='gold'/);
  assert.match(game,/v\.petVisual=smoothPetPosition\(v\.petVisual,q\?\{x:q\.x,y:q\.y,angle:q\.a\}:p\.pet,alpha\)/);
  assert.match(game,/ggMotion236\?\.position\(v\.petMotion,t,false\)/);
  assert.match(read('graphics-v161.js'),/if\(theme==='gold'\)goldShipFinish/);
