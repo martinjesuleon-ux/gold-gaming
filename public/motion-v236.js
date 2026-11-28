@@ -34,5 +34,7 @@
   const step=Math.min(len,24,speed*age/1000);
   return {x:authoritative.x+dx/len*step,y:authoritative.y+dy/len*step,a:Math.atan2(dy,dx)};
  }
- const api={record,position,angle,anticipate};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
+ // Update only the visual direction during the existing network throttle window.
+ function preview(intent,x,y,now){if(!intent||![intent.at,x,y,now].every(Number.isFinite)||now<intent.at||now-intent.at>100)return intent;return {...intent,x,y};}
+ const api={record,position,angle,anticipate,preview};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
