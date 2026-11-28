@@ -26,3 +26,13 @@ test('missing images retain fallback; empty packs are valid',async()=>{
  const s=setup();s.set('classic');await turn();assert.equal(s.api.draw({},item.key),false);s.pending[0].onerror();assert.equal(s.api.draw({},item.key),false);
  const e=setup([]);e.set('classic');await turn();assert.equal(e.api.status().count,0);assert.equal(e.api.draw({},item.key),false);
 });
+
+test('UI icons repaint asynchronously only in classic and preserve fallback for invalid images',async()=>{
+ const itemUI={key:'ui:skill:bounty',file:'skill.png',source:'synthetic',permission:'test fixture'};
+ const s=setup([itemUI]),calls=[],c={canvas:{width:96,height:96},save(){},restore(){},setTransform(){},clearRect(){calls.push('clear');},translate(){},drawImage(){calls.push('draw');}};
+ s.set('classic');await turn();assert.equal(s.api.icon(c,itemUI.key,96,96),false);assert.equal(calls.length,0);
+ s.set('gold');s.pending[0].onload();assert.deepEqual(calls,[]);
+ s.set('classic');assert.equal(s.api.icon(c,itemUI.key,96,96),true);assert.deepEqual(calls,['clear','draw']);
+ assert.equal(s.api.icon(null,itemUI.key,96,96),false);
+ const invalid=setup([itemUI]);invalid.set('classic');await turn();assert.equal(invalid.api.icon(c,itemUI.key,96,96),false);invalid.pending[0].naturalWidth=0;invalid.pending[0].onload();assert.deepEqual(calls,['clear','draw']);
+});

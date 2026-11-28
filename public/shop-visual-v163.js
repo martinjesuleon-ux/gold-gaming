@@ -98,7 +98,7 @@ const boosterStyles={DMG:['burst','#ff5044'],EP:['sun','#ffab36'],HON:['medal','
 function boosterStyle(code){const prefix=String(code).split('-')[0];const [shape,color]=boosterStyles[prefix]||['multi','#94afd2'];return {shape,color,shared:/-B02$/.test(code)};}
 function boosterArt(item){
  const canvas=document.createElement('canvas');canvas.width=144;canvas.height=64;canvas.className='gg-booster-icon';canvas.style.width='100%';canvas.style.objectFit='contain';canvas.setAttribute('role','img');canvas.setAttribute('aria-label',item.name||item.code);
- const c=canvas.getContext('2d');if(!c)return canvas;const {shape,color,shared}=boosterStyle(item.code);
+ const c=canvas.getContext('2d');if(!c)return canvas;if(window.ggClassicPack?.icon(c,'ui:booster:'+item.code,144,64))return canvas;const {shape,color,shared}=boosterStyle(item.code);
  const bg=c.createRadialGradient(72,32,2,72,32,65);bg.addColorStop(0,color+'35');bg.addColorStop(1,'#0b1520');c.fillStyle=bg;c.fillRect(0,0,144,64);c.translate(72,32);
  const poly=(pts,fill=color,stroke='#1a2430')=>{c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=fill;c.fill();c.strokeStyle=stroke;c.lineWidth=1.2;c.stroke();};
  const circle=(x,y,r,fill)=>{c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fillStyle=fill;c.fill();};

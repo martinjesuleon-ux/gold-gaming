@@ -367,6 +367,7 @@ async function pilotMenu(){
  const symbols={hull1:'⬡',hull2:'⬡',shield:'◈',absorption:'◉',repair:'✚',evade1:'➤',evade2:'➤',bounty1:'⌖',bounty2:'⌖',alien:'✥',optics:'◎',rocket:'➶',heat:'♨',mine1:'✹',mine2:'✹',explosives:'✸',tactics:'★',greed:'₵',cruel1:'⚑',cruel2:'⚑',luck1:'✦',luck2:'✦',tractor1:'↯',tractor2:'↯',logistics:'▦'};
  function skillArt(k,large=false){
  const canvas=el('canvas',null,large?'gg-pilot-large-icon':'gg-pilot-skill-icon');canvas.width=96;canvas.height=96;canvas.style.width=large?'96px':'100%';canvas.style.height='auto';canvas.setAttribute('aria-hidden','true');const c=canvas.getContext('2d');if(!c)return canvas;
+ if(window.ggClassicPack?.icon(c,'ui:skill:'+k.id,96,96))return canvas;
  const colors={Defensa:'#39b5e4',Ataque:'#ef6640',Ganancias:'#ba64e8'},color=colors[k.branch]||'#9bb9d0',id=k.id.replace(/[12]$/,'');
  const g=c.createRadialGradient(42,33,2,48,48,65);g.addColorStop(0,color);g.addColorStop(.55,'#243446');g.addColorStop(1,'#080e17');c.fillStyle=g;c.fillRect(0,0,96,96);
  c.strokeStyle='#c2d0dd';c.lineWidth=2;c.strokeRect(5,5,86,86);c.strokeStyle=color;c.strokeRect(9,9,78,78);c.translate(48,48);

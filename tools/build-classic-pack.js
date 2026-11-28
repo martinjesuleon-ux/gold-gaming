@@ -2,7 +2,7 @@
 // Offline packaging only. No network requests, no executable SWF, no game data.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const keyPattern=/^[a-zA-Z0-9_.:-]{1,120}$/,filePattern=/^(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(png|webp|jpg|jpeg)$/i;
-const allowed=/^(sprite:|npc:|drone:|shop:|map:|portal:)/;
+const allowed=/^(sprite:|npc:|drone:|shop:|map:|portal:|projectile:|impact:|mine:|loot:|base:|ui:)/;
 function checked(root,name){
  if(typeof name!=='string'||!filePattern.test(name))throw Error('Unsafe raster path: '+name);
  const full=path.resolve(root,name),rel=path.relative(root,full);
