@@ -204,3 +204,5 @@ test('name, rank and gate marks retain one screen-space anchor during a full tur
  assert.ok(game.includes('layout=graphics.labelLayout(o,visual,npc,size,0,targetOffsets)'));
  assert.ok(game.includes('nameY=p.y+layout.name+(marks?.offset||0)'));
 });
+
+ test('all thirteen hulls have distinct stock palettes independent of the viewer',()=>{const window={};vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161,ships=require('../data/catalog-v13.json').ships;assert.equal(new Set(ships.map(s=>g.playerStyle(s.id,null,true).color)).size,ships.length);for(const ship of ships)assert.equal(g.playerStyle(ship.id,null,true).color,g.playerStyle(ship.id,null,false).color);});
