@@ -147,7 +147,7 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
   if(!catalog.ships.some(s=>s.id===ship)||![0,1].includes(active))throw fail('Nave o configuración inválida');
   return transaction(id,async c=>{
    await settleEquipment(c,id);
-   const rows=(await c.query("SELECT i.instance_id AS \"instanceId\",i.code,i.category,i.level,i.drone_points AS points,d.code AS design FROM gg_v13_inventory i LEFT JOIN gg_v13_inventory d ON d.account_id=i.account_id AND d.instance_id=i.drone_design AND d.category='drone-designs' WHERE i.account_id=$1",[id])).rows;
+   const rows=(await c.query("SELECT i.instance_id AS \"instanceId\",i.code,i.category,i.level,i.drone_points AS points,d.code AS design,d2.code AS \"design2\" FROM gg_v13_inventory i LEFT JOIN gg_v13_inventory d ON d.account_id=i.account_id AND d.instance_id=i.drone_design AND d.category='drone-designs' LEFT JOIN gg_v13_inventory d2 ON d2.account_id=i.account_id AND d2.instance_id=i.drone_design_config2 AND d2.category='drone-designs' WHERE i.account_id=$1",[id])).rows;
    if(ship!=='phoenix'&&!rows.some(x=>x.category==='ships'&&x.code===ship))throw fail('Nave no adquirida');
    if(design!==null&&(!catalog.designs.some(d=>d.id===design&&d.ship===ship)||!rows.some(x=>x.category==='ship-designs'&&x.code===design)))throw fail('Diseño no adquirido o incompatible');
    const owned=new Map(rows.filter(x=>['lasers','engines','shields','drones','launchers','cpus','robots'].includes(x.category)).map(x=>[x.instanceId,x]));
@@ -171,10 +171,10 @@ function createInventory(pool,{uridiumFactor=async()=>1,gateSpecialFactor=async(
    const upgrades=await settleEquipment(c,id);
    const h=(await c.query('SELECT ship,configs,active,design FROM gg_v13_hangar WHERE account_id=$1',[id])).rows[0];
    if(!h)return null;
-   const items=(await c.query("SELECT i.instance_id AS \"instanceId\",i.code,i.category,i.level,i.drone_points AS points,d.code AS design FROM gg_v13_inventory i LEFT JOIN gg_v13_inventory d ON d.account_id=i.account_id AND d.instance_id=i.drone_design AND d.category='drone-designs' WHERE i.account_id=$1",[id])).rows;
+   const items=(await c.query("SELECT i.instance_id AS \"instanceId\",i.code,i.category,i.level,i.drone_points AS points,d.code AS design,d2.code AS \"design2\" FROM gg_v13_inventory i LEFT JOIN gg_v13_inventory d ON d.account_id=i.account_id AND d.instance_id=i.drone_design AND d.category='drone-designs' LEFT JOIN gg_v13_inventory d2 ON d2.account_id=i.account_id AND d2.instance_id=i.drone_design_config2 AND d2.category='drone-designs' WHERE i.account_id=$1",[id])).rows;
    const stats=configurations(h.ship,h.configs,new Map(items.map(i=>[i.instanceId,i])));
    const d=catalog.designs.find(d=>d.id===h.design&&d.ship===h.ship&&items.some(i=>i.category==='ship-designs'&&i.code===d.id));
-   const f=await formations.read(c,id),dr=await drones.read(c,id),mounted=new Set((h.configs[h.active]?.drones||[]).map(d=>d.id));return {ship:h.ship,pilotBonus:pilotBonus((await pilot.read(c,id)).skills),droneVisuals:dr.drones.filter(d=>mounted.has(d.instanceId)).map(d=>({code:d.code,design:d.design,rank:d.rank})),formation:f.active,formationReadyAt:f.readyAt,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
+   const f=await formations.read(c,id),dr=await drones.read(c,id,h.active),mounted=new Set((h.configs[h.active]?.drones||[]).map(d=>d.id));return {ship:h.ship,pilotBonus:pilotBonus((await pilot.read(c,id)).skills),droneVisuals:dr.drones.filter(d=>mounted.has(d.instanceId)).map(d=>({code:d.code,design:d.design,rank:d.rank})),formation:f.active,formationReadyAt:f.readyAt,nextUpgradeAt:upgrades.nextDue,design:d?.id||null,designBonus:d?.bonus||{},active:h.active,...stats[h.active]};
   });
  }
  async function useCpu(id,code,destination=null){
