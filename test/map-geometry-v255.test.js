@@ -1,0 +1,5 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {MAPS,homeBase,portals}=require('../maps-v14'),{createMapGeometry}=require('../map-geometry-v255');
+test('cached geometry equals catalog projections and is reused for every tick',()=>{let calls=0;const lookup=createMapGeometry({maps:MAPS,homeBase,portals:(...args)=>{calls++;return portals(...args);},w:12000,h:8000});assert.equal(calls,Object.keys(MAPS).length);for(const map of Object.keys(MAPS)){const a=lookup(map);assert.deepEqual(a,{base:homeBase(map,12000,8000),portals:portals(map,12000,8000)});assert.equal(a,lookup(map));assert.ok(Object.isFrozen(a)&&Object.isFrozen(a.portals));for(const p of a.portals)assert.ok(Object.isFrozen(p));}assert.equal(calls,Object.keys(MAPS).length);});
+test('private instance zones have empty static geometry and do not grow cache',()=>{const lookup=createMapGeometry({maps:MAPS,homeBase,portals,w:12000,h:8000});assert.deepEqual(lookup('gate:1'),{base:null,portals:[]});assert.equal(lookup('gate:1'),lookup('gate:2'));assert.equal(lookup('__proto__'),lookup('unknown'));});
