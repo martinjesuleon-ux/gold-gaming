@@ -1,6 +1,6 @@
 'use strict';
 (function(root){
- const LIMIT=8,REMOTE_DELAY=120,LOCAL_LEAD=65,MAX_DRIFT=48;
+ const LIMIT=8,REMOTE_DELAY=120,LOCAL_LEAD=95,MAX_DRIFT=48;
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const angle=(a,b,f)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*f;
  function record(history,p,serverTime,received){
