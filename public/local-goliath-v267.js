@@ -19,7 +19,11 @@
   if(!file||!['image/png','image/webp'].includes(file.type)||file.size<1||file.size>8*1024*1024)throw Error('Selecciona un atlas PNG o WebP de hasta 8 MB.');
   const token=++generation;
   const url=await new Promise((resolve,reject)=>{const reader=new root.FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('No se pudo leer el archivo local.'));reader.onabort=()=>reject(Error('Lectura cancelada.'));reader.readAsDataURL(file);});
-  if(typeof url!=='string'||!/^data:image\/(png|webp);base64,/i.test(url))throw Error('Formato de imagen local inválido.');
+  return loadData(url,token);
+ }
+ async function loadData(url,token=++generation){
+  if(!active())throw Error('Selecciona el modo Clásico.');
+  if(typeof url!=='string'||url.length>12*1024*1024||!/^data:image\/(png|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(url))throw Error('Formato de imagen local inválido.');
   if(token!==generation)return false;
   const img=new root.Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('No se pudo decodificar el atlas PNG o WebP.'));img.src=url;});
    const expanded=img.naturalWidth===1664&&img.naturalHeight===6464,ranked=expanded||(img.naturalWidth===1664&&img.naturalHeight===1184),combined=ranked||(img.naturalWidth===1664&&img.naturalHeight===1152);const selected=combined?formats[0]:formats.find(f=>img.naturalWidth===f.cols*f.w&&img.naturalHeight===f.rows*f.h);if(!selected)throw Error('Atlas inválido: utiliza el paquete Goliath + Iris (1664 × 1152) o un atlas Goliath compatible.');
@@ -45,6 +49,7 @@
   }if(hasIris&&active()&&category==='drones'&&(String(id).toLowerCase()==='iris'||(hasDrones&&models.includes(String(id).toLowerCase())))){const cw=c.canvas?.width||w,ch=c.canvas?.height||h;c.save();c.setTransform(1,0,0,1,0,0);c.fillStyle='#101a24';c.fillRect(0,0,cw,ch);c.translate(cw/2,ch/2);drone(c,id,6,null,0,false,Math.min(cw,ch));c.restore();return true;}return originalShop.call(pack,c,category,id,w,h);};
  }
  function controls(doc){
+  if(root.ggLocalPack)return root.ggLocalPack.controls(doc);
   const wrap=doc.createElement('section'),title=doc.createElement('strong'),hint=doc.createElement('small'),input=doc.createElement('input'),status=doc.createElement('small'),reset=doc.createElement('button');
   title.textContent='MOD local · Goliath, VANT y rangos';hint.textContent='Carga el atlas autorizado VANT RC72 (1664 × 6464) o Goliath + Iris + rangos (1664 × 1184), Goliath + Iris (1664 × 1152) o uno de Goliath (1664 × 672 / 3024 × 2000). Solo se usa en este navegador hasta recargar; no se envía al servidor.';
   input.type='file';input.accept='image/png,image/webp';input.setAttribute('aria-label','Atlas local Goliath e Iris');status.setAttribute('role','status');reset.type='button';reset.textContent='Restaurar gráficos del servidor';
@@ -52,5 +57,5 @@
   input.onchange=async()=>{const file=input.files?.[0];if(!file)return;try{status.textContent='Cargando atlas…';if(await load(file))sync();}catch(e){status.textContent=e.message;}finally{input.value='';}};
   reset.onclick=()=>{clear();sync();};wrap.append(title,hint,input,status,reset);root.addEventListener?.('gg:visualTheme',sync);sync();if(root.ggLocalPack)wrap.append(root.ggLocalPack.controls(doc));return wrap;
  }
- root.ggLocalGoliath={frame,rect,draw,iris,drone,rank,revision:()=>revision,load,clear,controls,loaded:()=>!!atlas};
+ root.ggLocalGoliath={frame,rect,draw,iris,drone,rank,revision:()=>revision,load,loadData,clear,controls,loaded:()=>!!atlas};
 })(window);
