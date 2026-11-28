@@ -3,7 +3,7 @@
  const KEY='sprite:classic-ship-goliath',COLS=12,ROWS=10,CELL_W=252,CELL_H=200,FRAMES=120;
  let atlas=null,generation=0;
  const active=()=>root.ggVisualTheme?.current()==='classic';
- function frame(angle){const a=Number.isFinite(angle)?angle:0;return ((Math.round(a*FRAMES/(Math.PI*2))%FRAMES)+FRAMES)%FRAMES;}
+ function frame(angle){const a=Number.isFinite(angle)?angle:0;return (((Math.round(a*FRAMES/(Math.PI*2))+60)%FRAMES)+FRAMES)%FRAMES;}
  function rect(angle){const n=frame(angle);return {x:n%COLS*CELL_W,y:Math.floor(n/COLS)*CELL_H,w:CELL_W,h:CELL_H};}
  function draw(c,angle=0,rotated=false,width=100){
   if(!atlas||!active())return false;
