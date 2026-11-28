@@ -2,7 +2,7 @@
 (function(root){
  function formation(previous,target,dt){
   if(!Array.isArray(target))return [];
-  const count=Math.min(target.length,10);if(previous?.length===count&&target.slice(0,count).every((p,i)=>previous[i]?.x===p.x&&previous[i]?.y===p.y))return previous;
+  const count=Math.min(target.length,10);if(previous?.length===count){let settled=true;for(let i=0;i<count;i++){if(previous[i]?.x!==target[i].x||previous[i]?.y!==target[i].y){settled=false;break;}}if(settled)return previous;}
   const alpha=1-Math.exp(-Math.max(0,Math.min(.1,Number(dt)||0))*12);
   return target.slice(0,10).map((p,i)=>{
    const a=previous?.[i];if(!a||![a.x,a.y,p.x,p.y].every(Number.isFinite))return {x:p.x,y:p.y};
