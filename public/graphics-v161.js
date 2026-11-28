@@ -354,14 +354,15 @@
  function formationOffsets(count,formation){
   const n=Math.min(10,Math.max(0,Math.floor(Number(count)||0))),f=Object.hasOwn(formationShapes,formation)?formation:'normal';
   const key=f+':'+n;if(formationCache.has(key))return formationCache.get(key);
-  const shape=formationShapes[f];const offsets=!n?[]:shape?shape.slice(0,n).map(([x,y])=>({x:-y*19,y:x*19})):Array.from({length:n},(_,i)=>{const a=2*Math.PI*i/n;return {x:Math.cos(a)*68,y:Math.sin(a)*53};});
+  const shape=formationShapes[f];const offsets=!n?[]:f==='ring'&&n!==10?Array.from({length:n},(_,i)=>{const a=2*Math.PI*i/n;return {x:Math.cos(a)*114,y:Math.sin(a)*114};}):shape?shape.slice(0,n).map(([x,y])=>({x:-y*19,y:x*19})):Array.from({length:n},(_,i)=>{const a=2*Math.PI*i/n;return {x:Math.cos(a)*68,y:Math.sin(a)*53};});
   const frozen=Object.freeze(offsets.map(Object.freeze));formationCache.set(key,frozen);return frozen;
  }
- function labelLayout(o,visual,npc,scale=1,angle=0,offsets=[]){
+ function labelLayout(o,visual,npc,scale=1,angle=0,offsets=[],movingOffsets=offsets){
   const kind=visual.kind,base=kind==='crystal-elite'?44:/^classic-(sibelon|lordakium|deadly-battleray|annihilator)/.test(kind)?46:kind.startsWith('classic-kristallon')?47:kind.startsWith('classic-kristallin')?40:kind.startsWith('classic-devolarium')?45:kind.startsWith('classic-mordon')?40:kind.startsWith('classic-cubikon')?47:kind==='cube'?35:(kind.startsWith('ship-')||kind.startsWith('classic-ship-'))?46:36;
   let above=base*scale,below=above;
   // Use the full rotational envelope, not the current angle, for stable labels.
   if(!npc)for(const {x,y} of offsets){const r=Math.hypot(x,y)*scale;above=Math.max(above,r+15*scale);below=Math.max(below,r+19*scale);}
+  if(!npc&&movingOffsets!==offsets)for(const {x,y} of movingOffsets){const r=Math.hypot(x,y)*scale;above=Math.max(above,r+15*scale);below=Math.max(below,r+19*scale);}
   return {top:Math.ceil(above+14),name:Math.ceil(below+15),width:o.type==='boss'?90:58,ring:Math.ceil(base*scale+4)};
  }
  function nameWidth(ctx,cache,name){const font=ctx.font;if(cache.name!==name||cache.font!==font||!Number.isFinite(cache.width)){cache.name=name;cache.font=font;cache.width=ctx.measureText(name).width;}return cache.width;}
