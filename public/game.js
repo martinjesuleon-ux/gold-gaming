@@ -398,8 +398,19 @@ function classicStarTile(layer,size,cell,cx,cy){
  while(classicStarBytes+bytes>CLASSIC_STAR_BUDGET&&classicStarTiles.size){const first=classicStarTiles.keys().next().value,old=classicStarTiles.get(first);classicStarBytes-=old.width*old.height*4;classicStarTiles.delete(first);}
  classicStarTiles.set(key,tile);classicStarBytes+=bytes;return tile;
 }
+function classicStarViewportBytes(layers,camera,w,h){
+ let bytes=0;
+ for(const [,par,,cell] of layers){const span=cell*4,ox=camera.x*par-w/2,oy=camera.y*par-h/2;bytes+=(Math.ceil((ox+w)/span)-Math.floor(ox/span))*(Math.ceil((oy+h)/span)-Math.floor(oy/span))*span*span*4;}
+ return bytes;
+}
+function drawClassicStarsDirect(layers){
+ for(const [layer,par,size,cell] of layers){const ox=camera.x*par-W/2,oy=camera.y*par-H/2;for(let ix=Math.floor(ox/cell);ix<=Math.ceil((ox+W)/cell);ix++)for(let iy=Math.floor(oy/cell);iy<=Math.ceil((oy+H)/cell);iy++){const x=ix*cell+hash(ix,iy,layer)*cell-ox,y=iy*cell+hash(ix,iy,layer+4)*cell-oy;ctx.globalAlpha=.18+hash(ix,iy,layer+9)*.55;ctx.fillStyle=layer===3?'#a4d6ff':'#d1dcf3';ctx.beginPath();ctx.arc(x,y,size*(.35+hash(ix,iy,layer+15)*.65),0,Math.PI*2);ctx.fill();}}
+ ctx.globalAlpha=1;
+}
 function drawClassicStars(){
- for(let i=0;i<qualityProfiles[quality].stars;i++){
+ const layers=goldStarLayers.slice(0,qualityProfiles[quality].stars);
+ if(classicStarViewportBytes(layers,camera,W,H)>CLASSIC_STAR_BUDGET){drawClassicStarsDirect(layers);return;}
+ for(let i=0;i<layers.length;i++){
   const [layer,par,size,cell]=goldStarLayers[i],span=cell*4,ox=camera.x*par-W/2,oy=camera.y*par-H/2;
   for(let x=Math.floor(ox/span);x<Math.ceil((ox+W)/span);x++)for(let y=Math.floor(oy/span);y<Math.ceil((oy+H)/span);y++)ctx.drawImage(classicStarTile(layer,size,cell,x,y),x*span-ox,y*span-oy);
  }
