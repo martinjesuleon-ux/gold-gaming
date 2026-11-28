@@ -174,7 +174,7 @@ test('conservative laser culling retains crossing segments and viewport-edge eff
  assert.equal(c.visible({x:-80,y:10},{x:-21,y:500},1000,600),false);
  assert.equal(c.visible({x:1020,y:10},{x:1200,y:500},1000,600),true);
  assert.equal(c.visible({x:0,y:621},{x:900,y:700},1000,600),false);
- assert.match(game,/intersectsViewport\(q,e.radius\*Math.sqrt\(f\)\+32\)/);
+ assert.match(game,/intersectsViewport\(q,radius\+80\)/);
  assert.match(game,/v.x===v.tx&&v.y===v.ty&&v.a===v.ta/);
  assert.match(game,/radarIntervals=\{low:200,medium:150,high:100\}/);
  assert.match(game,/radarMap===state.map/);
