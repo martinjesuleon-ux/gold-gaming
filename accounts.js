@@ -53,7 +53,7 @@ function createAccounts(url){if(!url)throw new Error('Falta DATABASE_URL');const
  app.get('/api/v13/pilot',routeV13(req=>pilot.status(req.pilotV13.id)));
  app.post('/api/v13/pilot',routeV13(req=>pilot.action(req.pilotV13.id,req.body||{})));
  app.get('/api/v13/drones',routeV13(req=>drones.read(pool,req.pilotV13.id)));
- app.post('/api/v13/drones/design',routeV13(async req=>{const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[req.pilotV13.id]);const r=await drones.equipDesign(c,req.pilotV13.id,req.body?.droneId,req.body?.designId);await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}));
+ app.post('/api/v13/drones/design',routeV13(async req=>{const c=await pool.connect();try{await c.query('BEGIN');await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[req.pilotV13.id]);const r=await drones.equipDesign(c,req.pilotV13.id,req.body?.droneId,req.body?.designId,req.body?.config);await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}));
  app.get('/api/v13/formations',routeV13(req=>formations.status(req.pilotV13.id)));
  app.post('/api/v13/formations/buy',routeV13(req=>formations.buy(req.pilotV13.id,req.body?.code)));
  app.get('/api/v13/assembly',routeV13(req=>assembly.status(req.pilotV13.id)));
