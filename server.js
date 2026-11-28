@@ -227,12 +227,12 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    p.petAngle=Math.atan2(n.y-p.petY,n.x-p.petX);
    laser({x:p.petX,y:p.petY,zone:p.zone,type:'player'},n,shot.code);
    const result=salvo({damage:shot.damage*(pvp?damageFactor(p.honor)*incoming(n,Date.now())*(abilityActive(n,'prism',Date.now())?.1:1):1),lasers:shot.count,accuracyFactor:pvp?(1-(formationBonus(n.formation).evasion||0))*(1-(n.pilotBonus?.evasion||0)):1},n,shot.code,shot.stock+shot.count,Math.random());
-   p.petGuardStatus=n.name;io.to(p.id).emit('v14:petGuard',{target:n.name,damage:result.damage,lasers:shot.count});
-   if(result.damage<=0)return;
+   p.petGuardStatus=n.name;const report=damage=>io.to(p.id).emit('v14:petGuard',{target:n.name,damage,lasers:shot.count});
+   if(result.damage<=0){report(0);return;}
    const before={hp:n.hp,shield:n.shield};
-   if(pvp){const amount=protectDamage(n,result.damage),resolved=hit(n,amount,formationAbsorption(p,n)),shieldLoss=n.shield-resolved.shield;resolved.shield=Math.max(0,n.shield-shieldLoss*(n.weakenUntil>Date.now()?1.5:1)*(abilityActive(n,'fortress',Date.now())?.7:1));Object.assign(n,resolved);laserDamage(p,n,actualLaserDamage(before,n));finishCombat(p,n,true,true);return;}
+   if(pvp){const amount=protectDamage(n,result.damage),resolved=hit(n,amount,formationAbsorption(p,n)),shieldLoss=n.shield-resolved.shield;resolved.shield=Math.max(0,n.shield-shieldLoss*(n.weakenUntil>Date.now()?1.5:1)*(abilityActive(n,'fortress',Date.now())?.7:1));Object.assign(n,resolved);const actual=actualLaserDamage(before,n);report(actual);laserDamage(p,n,actual);finishCombat(p,n,true,true);return;}
    Object.assign(n,result.target);n.lastHit=Date.now();p.petLastHitNpc=n.id;p.petLastAttackAt=n.lastHit;
-   laserDamage(p,n,actualLaserDamage(before,n),n.type==='boss'?100:64);
+   const actual=actualLaserDamage(before,n);report(actual);laserDamage(p,n,actual,n.type==='boss'?100:64);
    finishNPC(p,n,false,true);
   }).catch(()=>{p.petNextShot=Date.now()+5000;if(valid())io.to(p.id).emit('v14:petGuard',{target:n.name,blocked:'No se pudo confirmar el disparo'});}).finally(()=>{p.petShotPending=false;pending.delete(job);});
   p.writes=job;pending.add(job);
