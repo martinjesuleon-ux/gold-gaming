@@ -33,7 +33,7 @@ function stats(shipId,items,droneItems=[]){
 }
 function configurations(shipId,configs,owned){
  requireRule(Array.isArray(configs)&&configs.length===2&&owned instanceof Map,'Configuraciones inválidas');
- return configs.map(config=>{
+ return configs.map((config,configIndex)=>{
   const ids=Array.isArray(config)?config:config?.ship;
   requireRule(Array.isArray(ids),'Configuración inválida');
   const usedHere=new Set();
@@ -45,7 +45,7 @@ function configurations(shipId,configs,owned){
   const droneItems=[],mounted=new Set(),ranked=[];
   const drones=Array.isArray(config)?[]:config.drones??[];
   requireRule(Array.isArray(drones)&&drones.length<=10,'VANT inválidos');
-  for(const d of drones){requireRule(d&&typeof d==='object'&&!Array.isArray(d)&&typeof d.id==='string'&&d.id.length>0,'VANT inválido');const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);ranked.push(drone);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1,droneDesign:drone.design||null});}
+  for(const d of drones){requireRule(d&&typeof d==='object'&&!Array.isArray(d)&&typeof d.id==='string'&&d.id.length>0,'VANT inválido');const drone=owned.get(d.id);requireRule(drone&&drone.category==='drones'&&['flax','iris','apis','zeus'].includes(drone.code)&&!mounted.has(d.id),'VANT no disponible');mounted.add(d.id);ranked.push(drone);requireRule(Array.isArray(d.items)&&d.items.length<=catalog.drones[drone.code].slots,'Espacios VANT excedidos');for(const id of d.items)droneItems.push({...take(id),droneLevel:drone.level??1,droneDesign:(configIndex===1&&Object.hasOwn(drone,'design2')?drone.design2:drone.design)||null});}
   const shipItems=ids.map(take);requireRule(shipItems.every(i=>['lasers','engines','shields','launchers','cpus','robots'].includes(i.category)),'Equipo de nave incompatible');requireRule(droneItems.every(i=>['lasers','shields'].includes(i.category)),'Equipo VANT incompatible');const base=stats(shipId,shipItems,droneItems),rank=rankBonus(ranked);return {...base,damage:Math.round(base.damage*rank.damage),shield:Math.round(base.shield*rank.shield),droneRank:rank.mean,droneCount:drones.length};
  });
 }
