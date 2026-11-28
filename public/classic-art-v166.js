@@ -301,9 +301,9 @@
  function vant(c,kind,color){
   const id=kind.slice(6),red=color==='#ff3838',blue=color==='#398dff',spartan=color==='#ff8a24';
   const special=red||blue||spartan,wing=red?'#a32228':blue?'#2055a4':spartan?'#315f91':'#a98d42';
-  const light=blue?'#dbeaff':'#ffe478',span=id==='flax'?5:id==='apis'?10:id==='zeus'?11:8;
+  const light=blue?'#b8e3f3':red?'#fac3aa':spartan?'#d5bf8d':'#c2d1d7',span=id==='flax'?5:id==='apis'?10:id==='zeus'?11:8;
   const steel=linear(c,-12,-8,12,8,[[0,'#e0e8ee'],[.23,'#758b9b'],[.48,'#202d3a'],[.72,'#536575'],[1,'#101820']]);
-  const paint=linear(c,-8,-span,8,span,[[0,'#d1dbe0'],[.16,wing],[.54,'#151f30'],[.82,wing],[1,'#080d16']]);
+  const paint=linear(c,-8,-span,8,span,[[0,'#a4afb5'],[.14,wing],[.38,'#2b343c'],[.60,'#111923'],[.82,wing],[1,'#080d16']]);
   for(const side of [-1,1]){
    const y=side*span;
    const hull=spartan?[[12,2*side],[8,y],[-9,y],[-13,5*side],[-6,2*side]]:[[8,2*side],[3,y],[-3,y*1.12],[-11,y*.75],[-8,3*side],[-2,2*side]];
@@ -315,8 +315,8 @@
   }
   polygon(c,[[12,0],[7,-4],[-5,-5],[-11,-3],[-11,3],[-5,5],[7,4]],steel,'#a3b4c2',.75);
   polygon(c,[[9,-2],[3,-4],[-4,-3],[-7,0],[-4,3],[3,4],[9,2]],'#172330','#9cacb9',.5);
-  c.fillStyle=radial(c,5,0,5,[[0,'#ffffff'],[.26,light],[.68,special?wing:'#b98e36'],[1,'#121923']]);
-  c.beginPath();c.arc(5,0,4.5,0,Math.PI*2);c.fill();c.strokeStyle='#b5c4ce';c.lineWidth=.6;c.stroke();
+  polygon(c,[[9,0],[5,-3.6],[1,-2.6],[-1,0],[1,2.6],[5,3.6]],steel,'#0a1118',.6);
+  polygon(c,[[7.4,0],[4.6,-1.8],[1.5,-1.2],[1.5,1.2],[4.6,1.8]],linear(c,1,-2,8,2,[[0,'#101922'],[.45,light],[.64,special?wing:'#7f929f'],[1,'#111923']]),'#17222a',.4);
   for(const side of [-1,1]){c.fillStyle='#c4d3db';c.fillRect(-7,side*3,2,.65);}
  }
  // Hand-authored half-hull outlines, reflected around the centerline. Nose faces +X.
