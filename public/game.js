@@ -94,7 +94,8 @@ window.gg14GateEnter=(gate='alpha')=>new Promise((resolve,reject)=>{
 window.gg14GateNext=()=>{if(joined)socket.emit('v14:gateNext');};
 window.gg14GateLeave=()=>{if(joined)socket.emit('v14:gateLeave');};
 window.gg14GateState=()=>gateState;
-window.gg15Pilot=()=>state.players.find(p=>p.id===meId)||null;
+window.gg15Pilot=()=>{const p=state.players.find(p=>p.id===meId);return p?{...p,...state.extras}:null;};
+window.gg235CpuToggle=(code,enabled)=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v235:cpuToggle',{code,enabled},(err,r)=>{if(err||!r?.ok)return reject(Error(r?.error||'No se pudo confirmar el CPU'));if(state.extras)state.extras.cpuStates=r.cpuStates;window.ggQuickArsenal?.refresh();resolve(r);});});
 window.gg19Formation=code=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v19:formation',code,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Formación no disponible'));else resolve(r);});});
 window.gg19Tech=code=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v19:technology',code,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Tecnología no disponible'));else resolve(r);});});
 window.gg18Jump=destination=>new Promise((resolve,reject)=>{if(!joined||!socket.connected)return reject(Error('Conéctate primero'));socket.timeout(8000).emit('v18:advancedJump',destination,(err,r)=>{if(err||!r?.ok)reject(Error(r?.error||'Salto no disponible'));else resolve(r);});});
