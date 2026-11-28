@@ -26,5 +26,13 @@
   const factor=(t-last.t)/(last.t-prev.t),dx=(last.x-prev.x)*factor,dy=(last.y-prev.y)*factor,scale=Math.min(1,MAX_DRIFT/(Math.hypot(dx,dy)||1));
   return {x:last.x+dx*scale,y:last.y+dy*scale,a:last.a};
  }
- const api={record,position,angle};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
+ // Input anticipation is strictly visual, anchored to the latest server position.
+ function anticipate(authoritative,intent,now,speed){
+  if(!intent||![authoritative?.x,authoritative?.y,authoritative?.angle,intent.x,intent.y,intent.at,now,speed].every(Number.isFinite)||speed<0)return null;
+  const age=now-intent.at;if(age<0||age>100)return null;
+  const dx=intent.x-authoritative.x,dy=intent.y-authoritative.y,len=Math.hypot(dx,dy);if(len<1)return null;
+  const step=Math.min(len,24,speed*age/1000);
+  return {x:authoritative.x+dx/len*step,y:authoritative.y+dy/len*step,a:Math.atan2(dy,dx)};
+ }
+ const api={record,position,angle,anticipate};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggMotion236=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
