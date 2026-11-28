@@ -24,3 +24,26 @@
 #hud .gg-premium-slots{display:grid!important;grid-template-columns:repeat(10,minmax(0,1fr))!important}
 #hud .gg-premium-slots[hidden]{display:none!important}
 @media(max-width:800px){#hud .arsenal[data-quick-arsenal=true]{width:calc(100vw - 76px)!important}#hud .gg-quick-wrap{--slot:clamp(26px,7vw,44px)}}
+
+/* RC35: compact battle bar, real cooldown and status indicators. */
+#hud .arsenal[data-quick-arsenal=true]{width:min(550px,55vw)!important;gap:1px}
+#hud .gg-quick-wrap{--slot:clamp(30px,3.4vw,46px);gap:2px}
+#hud .gg-quick-expanded,#hud .gg-quick-tray,#hud .gg-quick-categories,#hud .gg-quick-bar{gap:2px}
+#hud .gg-quick-tray{padding-bottom:0;min-height:var(--slot)}
+#hud .gg-quick-wrap :is(.gg-quick-slot,.gg-quick-item){justify-content:center;border-radius:2px;background:linear-gradient(#2c4154,#142534 65%,#0a1723)}
+#hud .gg-quick-wrap :is(.gg-quick-slot,.gg-quick-item) canvas{width:94%;height:76%;margin-top:-5px}
+#hud .gg-quick-code{display:none}
+#hud .gg-quick-count{position:absolute;left:2px;bottom:1px;font:700 9px/10px monospace;letter-spacing:-.25px;max-width:calc(100% - 11px)}
+#hud .gg-quick-state{position:absolute;bottom:1px;left:2px;font:700 8px/10px Arial;color:#f3dba5;pointer-events:none}
+#hud .gg-quick-state:empty,#hud .gg-quick-cool:empty{display:none}
+#hud .gg-quick-cool{position:absolute;top:2px;left:3px;right:3px;border:1px solid #597f9a;background:#071522d9;color:#d8ecff;font:700 9px/11px monospace;text-align:center;pointer-events:none}
+#hud .gg-quick-recharging canvas{opacity:.5}
+#hud .gg-quick-unavailable canvas{opacity:.38}
+#hud .gg-quick-unavailable .gg-quick-state{color:#ffad96}
+#hud .gg-quick-toggle{right:-30px;bottom:15px;width:26px;height:26px;border:1px solid #71c1df;border-radius:6px;background:linear-gradient(#304b60,#0d1c2b);color:#c5e8f8;font-size:17px!important}
+#hud .gg-quick-hint{position:absolute;top:-16px;right:0;min-height:0;line-height:1;opacity:.65}
+#hud .gg-quick-hint .gg-quick-reset{padding:0 3px!important;font:9px/12px Arial}
+#hud .gg-quick-status{position:absolute;bottom:100%;left:0;max-width:100%;background:#081725d9;pointer-events:none;min-height:0;font-size:11px}
+#hud .gg-quick-status:empty{display:none}
+#hud .gg-quick-wrap .gg-quick-slot[data-shortcut]::after{font:700 8px/10px monospace;right:1px;bottom:1px}
+@media(max-width:800px){#hud .arsenal[data-quick-arsenal=true]{width:calc(100vw - 72px)!important}#hud .gg-quick-wrap{--slot:clamp(26px,6.4vw,42px)}}

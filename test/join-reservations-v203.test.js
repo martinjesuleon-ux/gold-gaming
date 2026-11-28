@@ -17,3 +17,12 @@ test('join reservations block duplicate loads and respect active accounts and ca
  assert.equal(d.ok,true);assert.equal(r.release(c.lease),false);
  assert.equal(r.size(),1);assert.equal(r.release(d.lease),true);assert.equal(r.size(),0);
 });
+test('disconnected saving accounts retain their account lock but release their live slot',()=>{
+ const r=createJoinReservations({capacity:2}),active=new Map([['connected',{}],['saving',{}]]);
+ assert.equal(r.acquire('saving','retry',active,1).code,'ACCOUNT_BUSY');
+ const replacement=r.acquire('replacement','new',active,1);assert.equal(replacement.ok,true);
+ assert.equal(r.acquire('overflow','other',active,1).code,'SERVER_FULL');
+ active.set('replacement',{});assert.equal(r.release(replacement.lease),true);
+ assert.equal(r.acquire('overflow','other',active,2).code,'SERVER_FULL');
+ active.delete('saving');assert.equal(r.acquire('saving','retry',active,2).code,'SERVER_FULL');
+});
