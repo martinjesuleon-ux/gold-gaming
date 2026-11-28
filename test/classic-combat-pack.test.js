@@ -1,0 +1,7 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const p=require('../public/projectiles-v238');
+const screen=(x,y)=>({x,y});
+function mock(available){const calls=[],transforms=[];let depth=0;const c={save(){depth++},restore(){depth--},translate(x,y){transforms.push([x,y])},rotate(){}},pack={draw(ctx,key,opt){calls.push({key,opt});return available.includes(key)}};return {c,pack,calls,transforms,depth:()=>depth};}
+test('classic textures follow sampled trajectory and preserve enhanced laser width',()=>{const shot={x:0,y:0,tx:100,ty:0,born:0,kind:'player',ammo:'LCB-10',enhanced:true},s=p.sample(shot,30),m=mock(['projectile:laser:LCB-10:wide']);assert.equal(p.drawPack(m.c,s,screen,m.pack,30),true);assert.equal(m.calls[0].opt.height,18);assert.deepEqual(m.transforms[0],[(s.head.x+s.tail.x)/2,0]);assert.equal(m.depth(),0);const fallback=mock([]);assert.equal(p.drawPack(fallback.c,s,screen,fallback.pack),false);assert.equal(fallback.depth(),0);});
+test('rocket textures keep all salvo positions and impact art is independent',()=>{const shot={x:0,y:0,tx:300,ty:0,born:0,kind:'rocket',ammo:'ECO-10',count:5},s=p.sample(shot,50),m=mock(['projectile:rocket:ECO-10']);assert.equal(p.drawPack(m.c,s,screen,m.pack),true);assert.equal(m.transforms.length,5);assert.equal(new Set(m.transforms.map(v=>v[1])).size,5);assert.equal(m.depth(),0);const hit=p.sample(shot,110),e=mock(['impact:rocket']);assert.equal(p.drawPack(e.c,hit,screen,e.pack),true);assert.deepEqual(e.transforms[0],[300,0]);assert.equal(e.depth(),0);});
