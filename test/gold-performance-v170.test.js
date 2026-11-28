@@ -34,7 +34,28 @@ test('Auto quality is optional, persisted and works in both visual themes',()=>{
  assert.match(game,/qualityPreference!=='auto'/);assert.match(game,/adaptiveQuality\.theme!==theme/);assert.doesNotMatch(game,/current\(\)\|\|'gold'\)!=='gold'/);
  assert.match(game,/v\.petVisual=smoothPetPosition\(v\.petVisual,q\?\{x:q\.x,y:q\.y,angle:q\.a\}:p\.pet,alpha\)/);
  assert.match(game,/ggMotion236\?\.position\(v\.petMotion,t,false\)/);
- assert.match(read('graphics-v161.js'),/if\(theme==='gold'\)goldShipFinish/);
+ assert.match(read('graphics-v161.js'),/industrialHull\(c,id,color\)/);
+ assert.match(read('graphics-v161.js'),/ggClassicArt\.pilot\(c,kind,color,industrialHull\)/);
+});
+test('Redesigned fleet renders and caches each ship in both themes',()=>{
+ let theme='gold',allocations=0,draws=0;
+ const gradient=()=>({addColorStop(){}});
+ const ctx=new Proxy({createLinearGradient:gradient,createRadialGradient:gradient,drawImage(){draws++;}},{
+  get(o,k){return k in o?o[k]:()=>{};}
+ });
+ const window={devicePixelRatio:1,document:{createElement(){allocations++;return {getContext(){return ctx;}};}},ggVisualTheme:{current:()=>theme}};
+ vm.runInNewContext(read('classic-art-v166.js'),{window,document:window.document});
+ vm.runInNewContext(read('graphics-v161.js'),{window,document:window.document});
+ const g=window.ggGraphics161;
+ for(const t of ['gold','classic']){
+  theme=t;
+  for(const id of ['phoenix','nostromo','leonov','vengeance','goliath','spearhead','aegis','citadel']){
+   const s=g.playerStyle(id,null,true);
+   const before=allocations;g.draw(ctx,s.kind,s.color);assert.equal(allocations,before+1);
+   g.draw(ctx,s.kind,s.color);assert.equal(allocations,before+1);
+  }
+ }
+ assert.equal(draws,32);
 });
 
 test('PET escort keeps independent spacing and heading in both themes',()=>{
