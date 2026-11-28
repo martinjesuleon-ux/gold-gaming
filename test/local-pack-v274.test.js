@@ -25,3 +25,11 @@ test('unified MOD loads the embedded VANT atlas and preserves older packages',as
  await m.load(file({version:1,assets:[asset]}));assert.equal(installed,atlas);
  m.clear();assert.equal(m.count(),0);assert.equal(installed,null);assert.equal(clears,1);
 });
+
+test('local pack publishes revision after import and clear for existing arsenal slots',async()=>{
+ const events=[];const window={ggVisualTheme:{current:()=> 'classic'},ggClassicPack:{draw(){return false},shop(){return false},cover(){return false}},Event:class{constructor(type){this.type=type}},dispatchEvent(e){events.push(e.type)}};
+ vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../public/local-pack-v274.js'),'utf8'),{window});const m=window.ggLocalPack;
+ const asset={key:'shop:ammo:LCB-10',source:'icon.png',data:'data:image/webp;base64,AAAA'},file={size:100,text:async()=>JSON.stringify({version:1,assets:[asset]})};
+ assert.equal(m.revision(),0);await m.load(file);assert.equal(m.revision(),1);assert.equal(m.has(asset.key),true);
+ await m.load(file);assert.equal(m.revision(),2);m.clear();assert.equal(m.revision(),3);assert.equal(m.has(asset.key),false);assert.deepEqual(events,['gg:localPack','gg:localPack','gg:localPack']);
+});

@@ -60,7 +60,7 @@
    return art;
   }
   function icon(b,id){
-   const item=items.get(id),theme=root.ggVisualTheme?.current()||'gold',stamp=id+':'+theme+':'+(id==='repair'?root.gg15Pilot?.()?.robot||'':'');
+   const item=items.get(id),theme=root.ggVisualTheme?.current()||'gold',stamp=id+':'+theme+':'+(theme==='classic'?root.ggLocalPack?.revision?.()||0:0)+':'+(id==='repair'?root.gg15Pilot?.()?.robot||'':'');
    if(b.dataset.iconStamp===stamp)return;b.dataset.iconStamp=stamp;b.replaceChildren();
    if(!item){b.append(mk('span','gg-quick-icon','+'));return;}
    const category=item[2],code=id==='repair'?(root.gg15Pilot?.()?.robot||'REP-1'):id.split(':').at(-1);let art;
@@ -88,7 +88,7 @@
   toggle.onclick=()=>{open=!open;expanded.hidden=!open;toggle.textContent=open?'▾':'▴';toggle.setAttribute('aria-expanded',String(open));if(!open){chosen=null;end();refresh();}else buildTray();};
   root.ggQuickArsenal={refresh,nameAt:i=>items.get(slots[i])?.[1]||'Ranura vacía',useSlot};
   root.addEventListener('gg13:inventory',e=>{const id=e.detail?.accountId;if(id!==account){account=id||null;slots=load(root.localStorage,account);chosen=null;end();}inventory=Object.fromEntries((e.detail?.ammo||[]).map(a=>[a.code,a.quantity]));refresh();});
-  root.addEventListener('gg:visualTheme',refresh);root.addEventListener('gg18:abilityState',refresh);
+  root.addEventListener('gg:visualTheme',refresh);root.addEventListener('gg:localPack',refresh);root.addEventListener('gg18:abilityState',refresh);
   refresh();root.ggArsenalKeys?.decorate();
  }
  if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',init);else init();
