@@ -102,19 +102,25 @@
  // Original organic radial hulls, based on the shape language of the reference set.
  function radialAlien(c,large,elite,color){
   const radius=large?39:27,arms=large?9:8,rand=seeded(large?1743:3985);
-  const light=large?'#fff0b9':'#a5e2ed',mid=large?'#c6a35c':'#447e8d',dark=large?'#60542f':'#153b47';
+  const light=large?'#c6bb8c':'#8eafb4',mid=large?'#766744':'#335662',dark=large?'#2a271b':'#112930';
   const shell=radial(c,-8,-10,radius,[[0,light],[.25,mid],[.6,dark],[.83,mid],[1,dark]]);
   for(let i=0;i<arms;i++){
    const a=i*Math.PI*2/arms+(rand()-.5)*.28,r=radius*(.86+rand()*.18);
-   c.save();c.rotate(a);c.beginPath();c.moveTo(radius*.42,-radius*.18);
-   c.bezierCurveTo(radius*.65,-radius*.18,r*.84,-radius*.07,r,0);
-   c.bezierCurveTo(r*1.08,radius*.15,r*.79,radius*.15,radius*.56,radius*.22);
-   c.closePath();c.fillStyle=shell;c.fill();c.strokeStyle=light;c.lineWidth=1;c.stroke();c.restore();
+   c.save();c.rotate(a);
+   const root=radius*.38,w=radius*.14;
+   polygon(c,[[root,-w],[r*.70,-w*.75],[r*.91,-w*.40],[r,0],[r*.78,w*.58],[root,w*1.24]],shell,'#18252a',1.05);
+   polygon(c,[[root,-w*.78],[r*.71,-w*.56],[r*.91,-w*.29],[r*.57,-w*.12]],mid,light,.48);
+   polygon(c,[[root,w*.70],[r*.67,w*.36],[r*.89,0],[r*.63,w*.66]],dark,'#111a1d',.45);
+   for(let k=0;k<3;k++){const x=root+(r-root)*(.20+k*.19);c.strokeStyle='#10191c';c.lineWidth=1;c.beginPath();c.moveTo(x,-w*.72);c.quadraticCurveTo(x+w*.54,0,x-w*.18,w*.70);c.stroke();c.strokeStyle=light;c.lineWidth=.45;c.beginPath();c.moveTo(x+1,-w*.64);c.quadraticCurveTo(x+w*.46,0,x+.6,w*.60);c.stroke();}
+   c.restore();
   }
-  const body=radius*.64;c.beginPath();c.arc(0,0,body,0,Math.PI*2);c.fillStyle=shell;c.fill();c.strokeStyle=light;c.lineWidth=1.1;c.stroke();
-  for(let i=0;i<arms;i++){const a=i*Math.PI*2/arms;c.save();c.rotate(a);c.strokeStyle=light;c.lineWidth=.7;c.beginPath();c.ellipse(body*.54,0,body*.29,body*.11,0,0,Math.PI*2);c.stroke();c.restore();}
-  for(let i=0;i<18;i++){const a=rand()*Math.PI*2,r=rand()*body*.82;c.fillStyle=i%3?mid:light;c.fillRect(Math.cos(a)*r,Math.sin(a)*r,1.3,1);}
-  c.fillStyle=radial(c,-2,-2,body*.45,[[0,light],[.3,elite?color:mid],[1,dark+'00']]);c.fillRect(-body/2,-body/2,body,body);
+  const body=radius*.63,outline=Array.from({length:arms*2},(_,i)=>{const a=i*Math.PI/arms,r=body*(i%2?.91:1);return [Math.cos(a)*r,Math.sin(a)*r];});
+  polygon(c,outline,shell,'#152026',1.3);
+  for(let i=0;i<arms;i++){c.save();c.rotate(i*Math.PI*2/arms);
+   polygon(c,[[body*.12,-body*.21],[body*.56,-body*.28],[body*.90,0],[body*.56,body*.28],[body*.12,body*.21]],linear(c,0,-body*.25,body,body*.2,[[0,light],[.35,mid],[.72,dark],[1,mid]]),'#101a1c',.65);
+   c.fillStyle=dark;c.fillRect(body*.48,-1.7,body*.26,3.4);c.fillStyle=elite?color:light;c.fillRect(body*.51,-.55,body*.18,1.1);c.restore();
+  }
+  const core=body*.27;polygon(c,Array.from({length:6},(_,i)=>[Math.cos(i*Math.PI/3)*core,Math.sin(i*Math.PI/3)*core]),radial(c,-2,-2,core,[[0,light],[.4,elite?color:mid],[1,dark]]),'#17252c',1);
  }
  function alien(c,kind,color){
   if(kind.includes('lordakia')){radialAlien(c,false,kind!=='classic-lordakia',color);return;}
@@ -160,7 +166,7 @@
    // not winged craft. Independently drawn facets and deterministic silhouettes.
    const big=species==='kristallon',reach=big?46:38;
    const rand=seeded(big?19741:8429), count=big?15:10;
-   const pale=elite?'#cceeff':'#e4faff', deep=elite?'#5086b3':'#739db4';
+   const pale=elite?'#9dd2ef':'#c2dce5', deep=elite?'#244b73':'#42697f';
    const facets=[];
    for(let i=0;i<count;i++){
     const angle=i*Math.PI*2/count+(rand()-.5)*.38;
@@ -171,18 +177,18 @@
     const heel=[-dx*reach*.22,-dy*reach*.22],ridge=[dx*r*.53+px*w*.14,dy*r*.53+py*w*.14];
     facets.push({tip,l,right,heel,ridge});
    }
-   const aura=radial(c,0,0,reach*1.12,[[0,'#d9f4ff66'],[.66,'#a2cde321'],[1,'#a2cde300']]);
+   const aura=radial(c,0,0,reach*1.12,[[0,'#7fa7c43a'],[.66,'#7fa7c411'],[1,'#7fa7c400']]);
    c.fillStyle=aura;c.fillRect(-reach*1.12,-reach*1.12,reach*2.24,reach*2.24);
    for(const {tip,l,right,heel,ridge} of facets){
-    polygon(c,[tip,l,heel,right],linear(c,...tip,...heel,[[0,'#f5fdff'],[.42,pale],[1,deep]]),'#e0f7ff91',.7);
-    polygon(c,[tip,l,ridge],'#f7fdffe0');
-    polygon(c,[tip,ridge,right],'#85b6d2c0');
-    polygon(c,[l,heel,ridge],'#bce7f4a8');
-    polygon(c,[right,ridge,heel],'#3f668d90');
-    c.strokeStyle='#f7fdffb0';c.lineWidth=.5;c.beginPath();c.moveTo(...tip);c.lineTo(...ridge);c.lineTo(...heel);c.stroke();
+    polygon(c,[tip,l,heel,right],linear(c,...tip,...heel,[[0,'#d2e8ef'],[.38,pale],[1,deep]]),'#182d42',.85);
+    polygon(c,[tip,l,ridge],'#c6e6ed');
+    polygon(c,[tip,ridge,right],'#527b9d');
+    polygon(c,[l,heel,ridge],'#91b7c8');
+    polygon(c,[right,ridge,heel],'#28465e');
+    c.strokeStyle='#bddde8aa';c.lineWidth=.5;c.beginPath();c.moveTo(...tip);c.lineTo(...ridge);c.lineTo(...heel);c.stroke();
    }
    const core=Array.from({length:big?11:8},(_,i)=>{const a=i*Math.PI*2/(big?11:8),r=reach*(.27+rand()*.17);return [Math.cos(a)*r,Math.sin(a)*r];});
-   polygon(c,core,radial(c,-4,-6,reach*.45,[[0,'#ffffff'],[.4,'#e5faff'],[1,'#7eb1cc']]),'#eafaff',.65);
+   polygon(c,core,radial(c,-4,-6,reach*.45,[[0,'#c3e0ea'],[.4,pale],[1,deep]]),'#20394f',.85);
    for(let i=0;i<core.length;i++){const p=core[i],q=core[(i+1)%core.length];polygon(c,[p,q,[(rand()-.5)*10,(rand()-.5)*10]],i%3===0?'#ffffffb0':i%3===1?'#a8d9eac0':'#d4f2f9a0','#e7fbff70',.4);}
    for(let i=0;i<(big?22:12);i++){const a=rand()*Math.PI*2,r=reach*(.70+rand()*.31);c.fillStyle=i%3?'#c1e4f380':'#f1fcff';c.fillRect(Math.cos(a)*r,Math.sin(a)*r,.8+rand()*1.1,.8+rand()*1.1);}
   }else if(species==='mordon'||species==='devolarium'||species==='sibelon'){
