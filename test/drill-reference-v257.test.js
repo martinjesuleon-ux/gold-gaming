@@ -28,3 +28,9 @@ test('all formation layouts contain ten distinct finite positions and unique sil
  const codes=['normal','turtle','arrow','lance','star','pincer','double-arrow','diamond','chevron','moth','crab','heart','barrage','bat','ring','drill','veteran','dome','wheel','wave'];
  const signatures=new Set();for(const code of codes){const pts=g.formationOffsets(10,code);assert.equal(pts.length,10);assert.equal(new Set(pts.map(p=>p.x+','+p.y)).size,10);assert.ok(pts.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));signatures.add(pts.map(p=>p.x+','+p.y).sort().join(';'));}assert.equal(signatures.size,codes.length);
 });
+
+test('incomplete Rings remain evenly spaced and labels clear moving drone positions',()=>{
+ const window={};vm.runInNewContext(read('graphics-v161.js'),{window});const g=window.ggGraphics161;
+ for(let n=1;n<=10;n++){const points=g.formationOffsets(n,'ring');assert.equal(points.length,n);for(const p of points)assert.ok(Math.abs(Math.hypot(p.x,p.y)-114)<1e-8);if(n>1){const angles=Array.from(points,p=>Math.atan2(p.y,p.x)).sort((a,b)=>a-b);for(let i=1;i<n;i++)assert.ok(Math.abs(angles[i]-angles[i-1]-2*Math.PI/n)<1e-8);}}
+ const ship=g.playerStyle('goliath',null,true),layout=g.labelLayout({},ship,false,1,0,[{x:50,y:0}],[{x:200,y:0}]);assert.ok(layout.top>=215);assert.ok(layout.name>=219);
+});

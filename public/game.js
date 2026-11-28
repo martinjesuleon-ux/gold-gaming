@@ -428,10 +428,10 @@ function drawClassicStars(){
 function stars(){window.ggGraphics161.sky(ctx,W,H);if((window.ggVisualTheme?.current()||'gold')==='gold')drawGoldStars();else drawClassicStars();ctx.globalAlpha=1;const corner=screen(0,0);ctx.strokeStyle='#647d994d';ctx.lineWidth=2;ctx.strokeRect(corner.x,corner.y,world.w,world.h);}
 function poly(points,fill,stroke){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.3;ctx.stroke();}}
 function ship(v,isMe,npc,dt=0){
- const o=v.data,p=screen(v.x,v.y),padding=!npc&&o.formation==='drill'?240:160;if(p.x<-padding||p.y<-padding||p.x>W+padding||p.y>H+padding||o.deadUntil)return;
+ const o=v.data,p=screen(v.x,v.y),padding=!npc&&(o.droneCount>0||v.droneOffsets?.length)?260:160;if(p.x<-padding||p.y<-padding||p.x>W+padding||p.y>H+padding||o.deadUntil)return;
  const boss=o.type==='boss',tank=o.ship==='tank',size=boss?1.7:tank?1.2:1,graphics=window.ggGraphics161;
  const visual=npc?graphics.npcStyle(o.name,o.type):graphics.playerStyle(o.ship,o.design,isMe);
- const targetOffsets=npc?[]:graphics.formationOffsets(o.droneCount,o.formation),offsets=npc?[]:(v.droneOffsets=window.ggCompanions237?.formation(v.droneOffsets,targetOffsets,dt)||targetOffsets),layout=graphics.labelLayout(o,visual,npc,size,0,targetOffsets);
+ const targetOffsets=npc?[]:graphics.formationOffsets(o.droneCount,o.formation),offsets=npc?[]:(v.droneOffsets=window.ggCompanions237?.formation(v.droneOffsets,targetOffsets,dt)||targetOffsets),layout=graphics.labelLayout(o,visual,npc,size,0,targetOffsets,offsets);
  ctx.save();ctx.translate(p.x,p.y);ctx.scale(size,size);ctx.rotate(v.a);graphics.draw(ctx,visual.kind,visual.color);
  if(!npc)drawFormation(o,offsets);ctx.restore();
  if(!isMe&&selected===o.id){ctx.strokeStyle='#ff725e';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.beginPath();ctx.arc(p.x,p.y,layout.ring,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
