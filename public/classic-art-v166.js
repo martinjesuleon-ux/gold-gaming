@@ -75,29 +75,56 @@
   for(const [x,y] of [[-27,4],[-11,9],[-3,14],[5,-12],[14,12]]){c.fillStyle='#e0b9a5';c.fillRect(x,y,1.7,1.4);}
  }
  // Heavy segmented fighter: original geometry inspired by the supplied green craft.
+ // Classic Goliath: open crescent, black curved arms, pale outer
+ // stabilizers and narrow silver central spine. Nose faces +X.
  function goliath(c,color){
-  const steel=linear(c,-30,-26,28,30,[[0,'#697b76'],[.18,'#263935'],[.4,'#101a1c'],[.62,'#3c4946'],[.82,'#182321'],[1,'#090e13']]);
-  const trim=linear(c,-20,-20,22,20,[[0,color],[.3,'#31493d'],[.6,'#101b19'],[1,color]]);
-  for(const sign of [-1,1]){
-   polygon(c,[[-32,sign*6],[-25,sign*18],[-12,sign*26],[4,sign*32],[16,sign*22],[22,sign*13],[34,sign*11],[29,sign*5],[8,sign*6],[-10,sign*8]],steel,'#667969',.75);
-   polygon(c,[[-17,sign*11],[-10,sign*27],[5,sign*28],[16,sign*18],[5,sign*12]],'#182424','#52675d',.65);
-   polygon(c,[[8,sign*6],[17,sign*8],[26,sign*7],[33,sign*11],[29,sign*15],[19,sign*17],[15,sign*13]],trim,'#7b9382',.65);
-   polygon(c,[[-30,sign*7],[-20,sign*10],[-12,sign*8],[-13,sign*5],[-29,sign*4]],color,'#294a39',.45);
-   for(let i=0;i<4;i++){const x=-8+i*4;polygon(c,[[x,sign*19],[x+2,sign*20],[x+6,sign*17],[x+4,sign*16]],'#82908a','#17241f',.35);}
-   c.fillStyle=radial(c,5,sign*10,7,[[0,'#ffffcf'],[.3,color],[1,color+'00']]);c.fillRect(-2,sign*10-7,14,14);
-  }
-  polygon(c,[[-34,0],[-25,-6],[-11,-10],[6,-8],[15,-5],[30,-6],[36,0],[30,6],[15,5],[6,8],[-11,10],[-25,6]],steel,'#82968a',.8);
-  polygon(c,[[-26,0],[-16,-4],[-4,-3],[3,0],[-4,3],[-16,4]],trim,color,.6);
-  polygon(c,[[4,-5],[19,-4],[24,0],[19,4],[4,5],[10,0]],color,'#bdd3b9',.5);
-  polygon(c,[[28,-3],[33,0],[28,3],[23,0]],'#a9b6a9','#293e31',.45);
-  for(const y of [-6,6]){c.fillStyle='#a6b9a5';c.fillRect(-19,y-.5,7,1);}
-  const armor=linear(c,-24,-24,20,24,[[0,'#aabbb6'],[.23,'#536b63'],[.5,'#1d302c'],[.78,'#758980'],[1,'#263a32']]);
+  const neutral=color==='#aab4bd',accent=neutral?'#b6c5ca':color;
+  const chrome=linear(c,-30,-32,32,32,[[0,'#eef0e9'],[.18,'#9a9fa0'],[.38,'#4e5559'],[.52,'#d8dedc'],[.67,'#8f999c'],[.84,'#333c43'],[1,'#b1b7b7']]);
+  const black=linear(c,-21,-32,31,32,[[0,'#757b7b'],[.19,'#292e31'],[.38,'#111619'],[.52,'#52585a'],[.64,'#1c2226'],[.84,'#0b1115'],[1,'#41484b']]);
+  const pale=linear(c,-20,-30,12,30,[[0,'#f1f1e9'],[.35,'#b1b7b6'],[.62,'#626b71'],[.84,'#e1e4de'],[1,'#858d90']]);
+  const seam=(points,stroke,width=.6)=>{c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.strokeStyle=stroke;c.lineWidth=width;c.stroke();};
+  c.save();
   for(const s of [-1,1]){
-   polygon(c,[[-17,13*s],[-8,25*s],[4,28*s],[10,22*s],[-5,17*s]],armor,'#8da198',.55);
-   polygon(c,[[17,9*s],[29,9*s],[31,11*s],[23,13*s]],'#243a32','#98aca0',.5);
-   for(let i=0;i<3;i++){c.fillStyle='#101b1b';c.fillRect(-9+i*4,21*s-1,2,2);c.fillStyle=color;c.fillRect(-9+i*4,21*s-1,2,.65);}
+   // Pale rear wing and separate outer stabilizer plate.
+   polygon(c,[[-7,7*s],[-23,12*s],[-34,27*s],[-24,28*s],[-13,19*s],[-2,12*s]],pale,'#666f73',.7);
+   polygon(c,[[-22,14*s],[-30,24*s],[-25,24*s],[-12,15*s]],chrome,'#c0c8ca',.45);
+   polygon(c,[[0,24*s],[5,33*s],[18,38*s],[17,30*s],[11,23*s]],pale,'#8b9497',.65);
+   seam([[5,28*s],[14,34*s],[16,34*s]],'#6c787f',.65);
+   // Continuous swept scythe rather than straight polygon wings.
+   c.beginPath();c.moveTo(-9,5*s);c.bezierCurveTo(-5,17*s,-8,27*s,4,31*s);c.bezierCurveTo(17,37*s,32,28*s,39,13*s);c.bezierCurveTo(29,22*s,17,25*s,9,20*s);c.bezierCurveTo(2,15*s,4,9*s,5,5*s);c.closePath();c.fillStyle=black;c.fill();c.strokeStyle='#10171c';c.lineWidth=1.2;c.stroke();
+   c.beginPath();c.moveTo(-6,8*s);c.bezierCurveTo(-1,19*s,-3,25*s,6,28*s);c.bezierCurveTo(19,33*s,30,24*s,36,17*s);c.strokeStyle='#a7adae';c.lineWidth=1.6;c.stroke();
+   c.beginPath();c.moveTo(-3,10*s);c.bezierCurveTo(1,17*s,3,23*s,9,25*s);c.bezierCurveTo(20,28*s,29,22*s,34,18*s);c.strokeStyle='#4f585e';c.lineWidth=2.2;c.stroke();
+   for(let i=0;i<4;i++){const x=7+i*5,y=(28-i*i*.45)*s;seam([[x,y-1.6*s],[x+1.1,y+1.3*s]],'#141b20',.8);seam([[x+.9,y-1.4*s],[x+1.8,y+.7*s]],'#838c90',.42);}
+   // Narrow machined accents and recessed wing roots.
+   polygon(c,[[-7,6*s],[-2,15*s],[3,14*s],[6,7*s],[0,4*s]],chrome,'#161e23',.65);
+   polygon(c,[[-3,8*s],[0,12*s],[3,11*s],[3,7*s]],accent,'#39444b',.5);
   }
-  polygon(c,[[19,0],[14,-2.8],[8,-2.8],[5,0],[8,2.8],[14,2.8]],linear(c,5,-3,19,3,[[0,'#0e252e'],[.45,'#76b5c2'],[1,'#203e47']]),'#b2c5c0',.5);
+  polygon(c,[[-37,0],[-25,-3],[-17,-8],[-7,-8],[3,-5],[12,-3],[23,0],[12,3],[3,5],[-7,8],[-17,8],[-25,3]],chrome,'#293137',.8);
+  polygon(c,[[-32,0],[-19,-2],[-10,-4],[1,-2],[6,0],[1,2],[-10,4],[-19,2]],black,'#7a8589',.5);
+  polygon(c,[[-12,-4],[-5,-6],[6,-3],[10,0],[6,3],[-5,6],[-12,4]],chrome,'#303a40',.55);
+  polygon(c,[[-3,-2.5],[4,-2.1],[9,0],[4,2.1],[-3,2.5]],linear(c,-3,-3,9,3,[[0,'#0b171d'],[.38,'#869fa7'],[.63,'#2e444c'],[1,'#142026']]),'#b3c1c3',.45);
+  polygon(c,[[9,-1.4],[19,-1.5],[27,0],[19,1.5],[9,1.4]],pale,'#6b777d',.5);
+  c.restore();
+ }
+ // Shop presentation uses the same hull in an oblique view in a lit hangar.
+ // The product title, price and purchase data remain supplied by the catalog.
+ function goliathPortrait(c,w,h){
+  c.save();c.scale(w/288,h/192);
+  c.fillStyle=radial(c,144,90,146,[[0,'#759db4'],[.42,'#324f64'],[.75,'#13232f'],[1,'#070e17']]);c.fillRect(0,0,288,192);
+  const frame=linear(c,0,0,0,192,[[0,'#aab4b8'],[.16,'#424f57'],[.45,'#1b2834'],[.85,'#3c4e59'],[1,'#9ba8ad']]);
+  for(const s of [-1,1]){
+   c.save();c.translate(144,0);c.scale(s,1);
+   polygon(c,[[110,12],[140,12],[140,172],[106,172],[112,147],[117,60]],frame,'#182732',1.4);
+   polygon(c,[[111,42],[131,49],[131,131],[112,147],[119,110],[119,65]],'#263b49','#6f899a',1);
+   for(let i=0;i<4;i++)polygon(c,[[122,65+i*16],[132,60+i*16],[132,68+i*16],[122,74+i*16]],'#101d27','#546b79',.6);
+   c.restore();
+  }
+  polygon(c,[[8,8],[280,8],[269,22],[19,22]],frame,'#b1bdc2',1);
+  polygon(c,[[8,184],[19,170],[269,170],[280,184]],frame,'#a4b0b7',1);
+  c.fillStyle=linear(c,0,44,0,52,[[0,'#8cb8cf00'],[.5,'#c9edff'],[1,'#8cb8cf00']]);c.fillRect(48,43,192,10);
+  c.beginPath();c.ellipse(144,164,84,15,0,0,Math.PI*2);c.fillStyle='#0b151f';c.fill();c.strokeStyle='#6c8694';c.lineWidth=2;c.stroke();
+  c.beginPath();c.ellipse(144,164,66,10,0,0,Math.PI*2);c.strokeStyle='#354e60';c.lineWidth=1;c.stroke();
+  c.translate(144,106);c.rotate(2.12);c.scale(1.68,1.39);goliath(c,'#aab4bd');c.restore();
  }
  // Original organic radial hulls, based on the shape language of the reference set.
  function radialAlien(c,large,elite,color){
@@ -367,8 +394,8 @@
   const [ship,design]=kind.slice('classic-ship-'.length).split(':'),profile=pilotOutlines[ship]||pilotOutlines.phoenix,module=designModules[design];
   const steel=linear(c,-33,-32,36,32,[[0,'#ccd4d5'],[.14,'#7f9195'],[.34,'#3b494d'],[.53,'#111b23'],[.67,'#58696c'],[.85,'#263239'],[1,'#0a1018']]);
   const tinted=linear(c,-25,-30,30,30,[[0,color],[.22,'#89998c'],[.4,'#263735'],[.61,'#0d1b21'],[.79,color],[1,'#18292a']]);
-  if(typeof baseHull==='function')baseHull(c,ship,color);
-  else if(ship==='goliath')goliath(c,color);
+  if(ship==='goliath')goliath(c,color);
+  else if(typeof baseHull==='function')baseHull(c,ship,color);
   else{
    polygon(c,mirrored(profile),steel,'#879ba0',.8);
    const nose=profile[0][0],rear=Math.min(...profile.map(p=>p[0])),span=Math.max(...profile.map(p=>p[1]));
@@ -443,5 +470,5 @@
   else{polygon(c,[[-43,-16],[-23,-24],[23,-24],[38,-13],[38,13],[23,24],[-23,24],[-43,16]],metal,'#9dafb6',1);for(let i=0;i<6;i++){c.fillStyle='#0f1b24';c.fillRect(-26+i*9,-15,6,30);c.fillStyle=color;c.fillRect(-25+i*9,-10,4,20);}}
   c.fillStyle='#e1edf4';c.font='9px Arial';c.textAlign='center';c.fillText(id,0,42);return true;
  }
- root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,alien,mine,station,largeAlien,raider,vant,pilot,pet,portal,base,beam,beamColor,equipment};
+ root.ggClassicArt={finish,loot,ice,impact,streuner,goliath,goliathPortrait,alien,mine,station,largeAlien,raider,vant,pilot,pet,portal,base,beam,beamColor,equipment};
 })(window);
