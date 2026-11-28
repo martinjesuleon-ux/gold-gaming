@@ -99,7 +99,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
   }else p.boost=next;
  }
  function applyFormation(p,formation){p.formation=p.droneCount>=6&&formationDef(formation)?formation:'normal';const b=p.unformedStats;if(!b)return;const q=formationStats(b,p.formation);p.maxHp=Math.round(q.hp*(p.boost?.hp||1));p.baseShield=q.shield*(p.boost?.shield||1);p.baseSpeed=q.speed;p.damage=q.damage;p.absorption=q.absorption;p.hp=Math.min(p.maxHp,Math.max(0,p.hp));applyMineralStats(p,p.mineralUpgrades);}
- function applyLoadout(p,l){if(!l)return;if(p.ship!==l.ship||p.design!==l.design)for(const a of Object.values(p.abilities||{}))a.until=0;const ratio=Number.isFinite(p.hp)&&p.maxHp>0?p.hp/p.maxHp:1;p.nextUpgradeAt=l.nextUpgradeAt||0;p.ship=l.ship;p.design=l.design||null;p.designBonus=l.designBonus||{};p.pilotBonus=l.pilotBonus||{};p.droneCount=l.droneCount||0;p.droneRank=l.droneRank||1;p.droneVisuals=l.droneVisuals||[];p.formationReadyAt=l.formationReadyAt||0;p.unformedStats={hp:(l.hp+(p.pilotBonus.hp||0))*(p.designBonus.hp||1),shield:l.shield*(p.designBonus.shield||1)*(p.pilotBonus.shield||1),speed:l.speed,damage:l.damage*(p.designBonus.damage||1),absorption:l.absorption+(p.pilotBonus.absorption||0)};p.lasers=l.lasers;p.launcher=l.launcher||null;p.cpus=l.cpus||[];p.robot=l.robot||null;applyFormation(p,l.formation);p.hp=Math.min(p.maxHp,Math.max(0,Math.round(p.maxHp*ratio)));p.activeConfig=l.active;p.v13=true;p.ammo=p.ammo||'LCB-10';}
+ function applyLoadout(p,l){if(!l)return;if(p.ship!==l.ship||p.design!==l.design)for(const a of Object.values(p.abilities||{}))a.until=0;const ratio=Number.isFinite(p.hp)&&p.maxHp>0?p.hp/p.maxHp:1;p.nextUpgradeAt=l.nextUpgradeAt||0;p.ship=l.ship;p.design=l.design||null;p.designBonus=l.designBonus||{};p.pilotBonus=l.pilotBonus||{};p.droneCount=l.droneCount||0;p.droneRank=l.droneRank||1;p.droneVisuals=l.droneVisuals||[];p.formationReadyAt=l.formationReadyAt||0;p.unformedStats={hp:(l.hp+(p.pilotBonus.hp||0))*(p.designBonus.hp||1),shield:l.shield*(p.designBonus.shield||1)*(p.pilotBonus.shield||1),speed:l.speed,damage:l.damage*(p.designBonus.damage||1),absorption:l.absorption+(p.pilotBonus.absorption||0)};p.lasers=l.lasers;p.allLF3=l.allLF3===true;p.launcher=l.launcher||null;p.cpus=l.cpus||[];p.robot=l.robot||null;applyFormation(p,l.formation);p.hp=Math.min(p.maxHp,Math.max(0,Math.round(p.maxHp*ratio)));p.activeConfig=l.active;p.v13=true;p.ammo=p.ammo||'LCB-10';}
  function rememberDeath(p){if(!accounts.respawnMarkDeath||p.gate||p.gatePending||p.ubaReturn||p.invasionReturn||!Object.hasOwn(MAPS,p.zone)||p.deathPersistence)return;const deathId=p.deathRequestId||crypto.randomUUID();p.deathRequestId=deathId;const death={deathId,destination:{zone:p.zone,x:p.x,y:p.y},readyAt:p.deadUntil||Date.now()+4000};p.deathPersistence=death;unpersistedDeaths.set(p.accountId,death);const job=p.writes.catch(()=>{}).then(()=>flushDeath(p.accountId));p.writes=job;pending.add(job);job.then(()=>pending.delete(job),()=>{pending.delete(job);io.to(p.id).emit('notice','No se pudo guardar destrucción; se reintentará');});}
  async function flushDeath(accountId){const d=unpersistedDeaths.get(accountId);if(!d)return;await accounts.respawnMarkDeath(accountId,d.deathId,d.destination,d.readyAt);if(unpersistedDeaths.get(accountId)===d)unpersistedDeaths.delete(accountId);}
  function respawnDestination(p,mode){if(mode==='base')return {zone:p.company+'-1',x:WORLD.w/2,y:WORLD.h/2};const pos=mode==='position'?{x:p.x,y:p.y}:require('./respawn-v222').nearestRepairPortal(portals(p.zone,WORLD.w,WORLD.h),p.x,p.y);return pos?{zone:p.zone,x:pos.x,y:pos.y}:null;}
@@ -126,7 +126,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  function adminTestDamage(p,n,pvp){if(pvp||!p.godAllowed||!p.oneShot||n.gateShielded||immune(n)||n.hp<=0)return 0;const amount=Math.max(0,n.hp)+Math.max(0,n.shield);n.hp=0;n.shield=0;return amount;}
  function laserDamage(p,n,amount,offset=64){if(!Number.isFinite(amount)||amount<=0)return;io.to(p.id).emit('gg:laserDamage',{targetId:n.id,x:n.x,y:n.y,amount:Math.max(1,Math.round(amount)),offset,map:MAPS[zoneOf(p)]?zoneOf(p):null});}
  function actualLaserDamage(before,n){return Math.max(0,before.hp-n.hp)+Math.max(0,before.shield-n.shield);}
- function laser(a,b,ammo){io.to(zoneOf(a)).emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player',...(ammo?{ammo}: {})});}
+ function laser(a,b,ammo){io.to(zoneOf(a)).emit('laser',{x:a.x,y:a.y,tx:b.x,ty:b.y,kind:a.type||'player',...(ammo?{ammo}: {}),...(!a.type?{allLF3:a.allLF3===true,enhanced:(b?.accountId?a.pilotBonus?.pvp:a.pilotBonus?.npc)>=1.119999}: {})});}
  const initializedMaps=new Set();
  function spawnMapNPC(name,zone){
   const a=alienStats[name];if(!a)return;
@@ -490,7 +490,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    p.ordnanceUntil[key]=Date.now()+cooldown;breakCloak(p);
    io.to(p.id).emit('v13:ammoStock',{code,quantity:stock});
    if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?players.get(n.id)!==n||!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock,cooldown,count,key});
-   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
+   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket',ammo:code,count});
    let amount=0;
    if(!immune(n)){
     if(special){const field={accuracy:'accuracyUntil',slow:'slowUntil',freeze:'freezeUntil'}[special.effect];n[field]=Math.max(n[field]||0,Date.now()+special.duration);if(!pvp)n.target=p.id;}
@@ -514,7 +514,7 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
    io.to(p.id).emit('v13:ammoStock',{code,quantity:shot.stock});
    if(players.get(p.id)!==p||p.deadUntil||p.gatePending||p.zone!==zone||!sameZone(p,n)||distance(p,n)>600||n.gateShielded||(pvp?!canPvp(p,n):npcs.get(n.id)!==n))return ack({ok:true,damage:0,stock:shot.stock,cooldown:cd});
    const amount=Math.random()<1-(1-rocket.miss)*(p.accuracyUntil>Date.now()?.6:1)*(1-(formationBonus(n.formation).evasion||0))*(1-(n.pilotBonus?.evasion||0))*(1+(p.pilotBonus?.rocketAccuracy||0))?0:Math.round(rocket.damage*(p.boost?.damage||1)*shot.factor*(p.pilotBonus?.rocket||1)*(formationBonus(p.formation).rocket||1)*combatFactor(p,pvp)*markFactor(p,n,Date.now())*(pvp?damageFactor(p.honor):1));
-   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket'});
+   io.to(zone).emit('laser',{x:p.x,y:p.y,tx:n.x,ty:n.y,kind:'rocket',ammo:code,count:1});
    if(amount&&!immune(n)){const before={hp:n.hp,shield:n.shield};damage(n,amount);technologyLeech(p,n,before);finishCombat(p,n,pvp);}
    ack({ok:true,damage:immune(n)?0:amount,stock:shot.stock,cooldown:cd});
   }).catch(()=>ack({ok:false,error:'No se pudo confirmar el disparo'})).finally(()=>{p.upgradePending=false;pending.delete(job);});

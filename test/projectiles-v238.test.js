@@ -5,7 +5,7 @@ const shot={x:10,y:20,tx:710,ty:20,kind:'player',ammo:'MCB-50',born:1000};
 test('laser advances continuously from fixed origin to fixed destination',()=>{
  const a=sample(shot,1000),b=sample(shot,1050),c=sample(shot,1100);
  assert.equal(a.head.x,10);assert.equal(b.head.x,360);assert.equal(c.head.x,710);
- assert.equal(c.impact,0);assert.equal(b.color,'#579dff');assert.ok(b.tail.x<b.head.x);
+ assert.equal(c.impact,0);assert.equal(b.color,'#83e83f');assert.ok(b.tail.x<b.head.x);
  assert.equal(sample(shot,1200),null);
 });
 test('rockets have slower travel and a bounded impact phase',()=>{
@@ -58,4 +58,23 @@ test('alien pulses use filled geometry rather than player beam strokes in both t
   assert.equal(calls.filter(c=>c[0]==='fill').length,2);
   assert.equal(calls.filter(c=>c[0]==='stroke').length,0);
  }
+});
+
+test('normal and enhanced laser profiles distinguish reference ammunition',()=>{
+ const {playerColor}=require('../public/projectiles-v238');
+ assert.equal(playerColor({ammo:'LCB-10'}),'#ef4643');assert.equal(playerColor({ammo:'MCB-25',allLF3:true}),'#579dff');
+ assert.equal(prepare({...shot,enhanced:true}).enhanced,true);assert.equal(prepare(shot).enhanced,false);
+ assert.equal(prepare({...shot,ammo:'SAB-50'}).color,'#73e8ee');
+});
+test('Hellstorm salvo carries actual count and converges on original destination',()=>{
+ const {salvoOffsets,draw}=require('../public/projectiles-v238');
+ for(const count of [1,3,5]){
+  const r={...shot,kind:'rocket',ammo:'ECO-10',count};const mid=sample(r,1100);
+  assert.equal(mid.count,count);assert.equal(new Set(salvoOffsets(count,.5)).size,count);
+  assert.ok(salvoOffsets(count,1).every(x=>Math.abs(x)<1e-10));
+  const calls=[],ctx=new Proxy({},{get:(o,k)=>o[k]||((...a)=>calls.push([k,...a])),set:(o,k,v)=>(o[k]=v,true)});
+  draw(ctx,mid,(x,y)=>({x,y}));assert.equal(calls.filter(c=>c[0]==='fill').length,count);
+ }
+ const server=require('node:fs').readFileSync(require.resolve('../server.js'),'utf8');
+ assert.ok(server.includes("kind:'rocket',ammo:code,count}"));assert.ok(server.includes("kind:'rocket',ammo:code,count:1}"));
 });
