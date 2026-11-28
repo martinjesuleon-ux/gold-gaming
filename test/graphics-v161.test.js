@@ -77,7 +77,7 @@ test('four VANT hulls render independently of equipped design colors',()=>{
  assert.equal(new Set(codes.map(g.droneKind)).size,4);
  assert.equal(g.droneKind('unknown'),'drone');
  for(const code of codes)for(const design of designs){g.draw(c,g.droneKind(code),g.droneColor(design));g.draw(c,g.droneKind(code),g.droneColor(design));}
- assert.equal(canvases,16);assert.match(read('game.js'),/droneKind\(drone\?\.code\)/);
+ assert.equal(canvases,16);assert.match(read('game.js'),/droneKind\(drone\?\.code,drone\?\.rank\)/);
 });
 
 test('detailed NPC hulls render for every NPC in the catalog without invalid geometry',()=>{
