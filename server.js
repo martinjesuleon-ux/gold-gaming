@@ -666,9 +666,10 @@ function createGame({password=process.env.ADMIN_PASSWORD||'',npcCount=42,boxCoun
  });
  socket.on('v112:booster',(data,ack)=>{
   if(typeof ack!=='function'||!allowed())return;const p=players.get(socket.id);
-  if(!p||p.deadUntil||p.gatePending||p.boosterBusy)return ack({ok:false,error:'Booster no disponible'});
-  p.boosterBusy=true;const job=p.writes.catch(()=>{}).then(()=>accounts.boosterAction(p.accountId,data));p.writes=job;pending.add(job);
-  job.then(r=>{p.rawBoosters=r.active;updateBoosters(p);ack({ok:true,...r});}).catch(e=>ack({ok:false,error:e.status?e.message:'No se pudo guardar booster'})).finally(()=>{p.boosterBusy=false;pending.delete(job);});
+  if(!p||p.deadUntil||p.gatePending||p.boosterBusy)return ack({ok:false,retryable:true,error:'Booster no disponible; reintenta la misma solicitud'});
+  if(data?.expectedAccountId!==p.accountId)return ack({ok:false,status:409,error:'La solicitud corresponde a otra cuenta o versión anterior. Actualiza el juego.'});
+  p.boosterBusy=true;const job=p.writes.catch(()=>{}).then(()=>accounts.boosterAction(p.accountId,data)).then(()=>accounts.boosterStatus(p.accountId));p.writes=job;pending.add(job);
+  job.then(r=>{if(players.get(p.id)===p){p.rawBoosters=r.active;updateBoosters(p);}ack({ok:true,...r});}).catch(e=>ack({ok:false,status:e.status||503,retryable:!e.status||e.status>=500,error:e.status?e.message:'No se pudo confirmar booster; reintenta la misma solicitud'})).finally(()=>{p.boosterBusy=false;pending.delete(job);});
  });
  socket.on('v110:emp',ack=>{
   if(typeof ack!=='function'||!allowed())return;
