@@ -29,9 +29,9 @@ test('GOLD star field creates at most three reusable tiles even across camera mo
  for(let i=0;i<120;i++){camera.x-=170;camera.y+=57;run();}
  assert.equal(allocations,3);assert.equal(arcs,initial);assert.ok(draws>120);
 });
-test('GOLD auto quality is optional, persisted and separate from classic artwork',()=>{
+test('Auto quality is optional, persisted and works in both visual themes',()=>{
  assert.match(read('gold-hud.js'),/\['auto','low','medium','high'\]/);
- assert.match(game,/qualityPreference!=='auto'/);assert.match(game,/current\(\)\|\|'gold'\)!=='gold'/);
+ assert.match(game,/qualityPreference!=='auto'/);assert.match(game,/adaptiveQuality\.theme!==theme/);assert.doesNotMatch(game,/current\(\)\|\|'gold'\)!=='gold'/);
  assert.match(game,/v\.petVisual=smoothPetPosition\(v\.petVisual,q\?\{x:q\.x,y:q\.y,angle:q\.a\}:p\.pet,alpha\)/);
  assert.match(game,/ggMotion236\?\.position\(v\.petMotion,t,false\)/);
  assert.match(read('graphics-v161.js'),/if\(theme==='gold'\)goldShipFinish/);
@@ -48,4 +48,15 @@ test('PET escort keeps independent spacing and heading in both themes',()=>{
  const turn=smooth({x:0,y:0,angle:Math.PI-.1},{x:10,y:20,angle:-Math.PI+.1},.5);
  assert.ok(Math.abs(turn.angle-Math.PI)<.001);
  assert.match(server,/nearestEligible\(p,boxes.inZone\(zoneOf\(p\)\),p\.petLootRange\|\|700/);
+});
+
+test('adaptive quality responds to sustained slow frames in classic and GOLD while manual stays fixed',()=>{
+ let theme='classic',changes=[];
+ const ctx={window:{ggVisualTheme:{current:()=>theme}},document:{hidden:false},joined:true,qualityPreference:'auto',quality:'high',adaptiveQuality:{start:0,frames:0,slow:0,fast:0,changedAt:0,theme:null}};
+ ctx.setEffectiveQuality=v=>{ctx.quality=v;changes.push(v);};
+ const run=vm.runInNewContext(extract('function resetAdaptiveQuality(','window.ggSetQuality=')+extract('function nextAdaptiveQuality(','function resize(')+';adaptQuality',ctx);
+ for(let t=25;t<=9000;t+=25)run(t);
+ assert.ok(changes.includes('medium'));assert.equal(ctx.adaptiveQuality.theme,'classic');
+ theme='gold';run(9025);assert.equal(ctx.adaptiveQuality.theme,'gold');assert.equal(ctx.adaptiveQuality.slow,0);
+ ctx.qualityPreference='high';const before=changes.length;for(let t=9050;t<=19000;t+=25)run(t);assert.equal(changes.length,before);
 });
