@@ -7,15 +7,15 @@
   if(!shot||![shot.x,shot.y,shot.tx,shot.ty,shot.born].every(Number.isFinite))return null;
   const prev=geometry.get(shot);
   if(prev&&prev.x===shot.x&&prev.y===shot.y&&prev.tx===shot.tx&&prev.ty===shot.ty&&prev.kind===shot.kind&&prev.ammo===shot.ammo)return prev;
-  const dx=shot.tx-shot.x,dy=shot.ty-shot.y,len=Math.hypot(dx,dy),rocket=shot.kind==='rocket',angle=Math.atan2(dy,dx);
-  const g=Object.freeze({x:shot.x,y:shot.y,tx:shot.tx,ty:shot.ty,kind:shot.kind,ammo:shot.ammo,len,rocket,angle,ux:len?dx/len:0,uy:len?dy/len:0,sideX:-Math.sin(angle),sideY:Math.cos(angle),travel:clamp(len/(rocket?3.8:7),rocket?100:45,rocket?330:200),impact:rocket?150:100,trail:rocket?30:Math.min(85,len*.65),color:rocket?'#ffcf68':shot.kind==='boss'?'#79aaff':shot.kind==='player'?(Object.hasOwn(colors,shot.ammo)?colors[shot.ammo]:'#83ffb5'):'#ff7766'});
+  const dx=shot.tx-shot.x,dy=shot.ty-shot.y,len=Math.hypot(dx,dy),rocket=shot.kind==='rocket',alien=!rocket&&shot.kind!=='player',angle=Math.atan2(dy,dx);
+  const g=Object.freeze({x:shot.x,y:shot.y,tx:shot.tx,ty:shot.ty,kind:shot.kind,ammo:shot.ammo,len,rocket,alien,angle,ux:len?dx/len:0,uy:len?dy/len:0,sideX:-Math.sin(angle),sideY:Math.cos(angle),travel:clamp(len/(rocket?3.8:7),rocket?100:45,rocket?330:200),impact:rocket?150:100,trail:rocket?30:alien?Math.min(shot.kind==='boss'?30:22,len*.65):Math.min(85,len*.65),color:rocket?'#ffcf68':shot.kind==='boss'?'#79aaff':shot.kind==='player'?(Object.hasOwn(colors,shot.ammo)?colors[shot.ammo]:'#83ffb5'):'#ff7766'});
   geometry.set(shot,g);return g;
  }
  function sample(shot,now){
   if(!Number.isFinite(now))return null;const g=prepare(shot);if(!g)return null;
   const age=now-shot.born;if(age<0||age>=g.travel+g.impact)return null;
   const progress=clamp(age/g.travel,0,1),head=g.len*progress,tail=Math.max(0,head-g.trail);
-  return {rocket:g.rocket,angle:g.angle,sideX:g.sideX,sideY:g.sideY,head:{x:g.x+g.ux*head,y:g.y+g.uy*head},tail:{x:g.x+g.ux*tail,y:g.y+g.uy*tail},impact:age>=g.travel?clamp((age-g.travel)/g.impact,0,1):null,color:g.color};
+  return {rocket:g.rocket,alien:g.alien,kind:g.kind,angle:g.angle,sideX:g.sideX,sideY:g.sideY,head:{x:g.x+g.ux*head,y:g.y+g.uy*head},tail:{x:g.x+g.ux*tail,y:g.y+g.uy*tail},impact:age>=g.travel?clamp((age-g.travel)/g.impact,0,1):null,color:g.color};
  }
  // Cull the currently rendered trail, not the entire original shot path.
  function visible(s,camera,w,h,padding=45){
@@ -28,6 +28,15 @@
   if(!s)return;const h=screen(s.head.x,s.head.y),tail=screen(s.tail.x,s.tail.y);
   ctx.save();ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=9*glow;ctx.lineCap='round';
   if(s.impact!==null){const f=s.impact;ctx.globalAlpha=(1-f)*.85;ctx.lineWidth=2;ctx.beginPath();ctx.arc(h.x,h.y,2+f*(s.rocket?24:13),0,Math.PI*2);ctx.stroke();}
+  else if(s.alien){
+   // A compact, single faceted energy pulse, visually distinct from player beams.
+   const length=Math.hypot(h.x-tail.x,h.y-tail.y),width=s.kind==='boss'?5:3.5;
+   if(length>.1){
+    ctx.translate(h.x,h.y);ctx.rotate(s.angle);
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-length*.30,-width);ctx.lineTo(-length*.72,-width*.72);ctx.lineTo(-length,0);ctx.lineTo(-length*.72,width*.72);ctx.lineTo(-length*.30,width);ctx.closePath();ctx.fill();
+    ctx.shadowBlur=0;ctx.fillStyle=s.kind==='boss'?'#d7eeff':'#ffd2b0';ctx.beginPath();ctx.moveTo(-length*.12,0);ctx.lineTo(-length*.39,-width*.43);ctx.lineTo(-length*.67,0);ctx.lineTo(-length*.39,width*.43);ctx.closePath();ctx.fill();
+   }
+  }
   else{
    const offsets=classic&&!s.rocket?double:single,ux=s.sideX??-Math.sin(s.angle),uy=s.sideY??Math.cos(s.angle);
    for(const side of offsets){ctx.lineWidth=s.rocket?4:2.7;ctx.strokeStyle=s.color;ctx.beginPath();ctx.moveTo(tail.x+ux*side,tail.y+uy*side);ctx.lineTo(h.x+ux*side,h.y+uy*side);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();}

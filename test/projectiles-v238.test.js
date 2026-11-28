@@ -39,3 +39,23 @@ test('geometry is reused between frames and invalidated on visual input change',
  s.ammo='RSB-75';assert.notEqual(prepare(s),first);assert.equal(sample(s,1050).color,'#ffc04f');
  s.tx=1410;assert.notEqual(prepare(s).len,first.len);s.x=NaN;assert.equal(prepare(s),null);
 });
+
+test('NPC projectiles use short distinct pulses without modifying travel time',()=>{
+ const npc={...shot,kind:'normal'},boss={...shot,kind:'boss'};
+ const p=prepare(shot),n=prepare(npc),b=prepare(boss);
+ assert.equal(p.alien,false);assert.equal(n.alien,true);assert.equal(b.alien,true);
+ assert.equal(n.travel,p.travel);assert.equal(b.travel,p.travel);
+ assert.equal(n.trail,22);assert.equal(b.trail,30);assert.equal(p.trail,85);
+ assert.equal(sample(npc,1050).head.x,sample(shot,1050).head.x);
+ assert.equal(sample(npc,1050).head.x-sample(npc,1050).tail.x,22);
+ assert.equal(prepare({...shot,kind:'rocket'}).alien,false);
+});
+test('alien pulses use filled geometry rather than player beam strokes in both themes',()=>{
+ const {draw}=require('../public/projectiles-v238');
+ for(const classic of [false,true]){
+  const calls=[],ctx=new Proxy({},{get:(o,k)=>o[k]||((...a)=>calls.push([k,...a])),set:(o,k,v)=>(o[k]=v,true)});
+  draw(ctx,sample({...shot,kind:'normal'},1050),(x,y)=>({x,y}),1,classic);
+  assert.equal(calls.filter(c=>c[0]==='fill').length,2);
+  assert.equal(calls.filter(c=>c[0]==='stroke').length,0);
+ }
+});
