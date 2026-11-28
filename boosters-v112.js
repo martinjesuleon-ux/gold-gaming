@@ -56,7 +56,7 @@ function createBoosters(pool,{allowPremium=premiumAllowed}={}){
   if(!uuid(requestId)||!Object.hasOwn(CATALOG,code)||!['buy','activate'].includes(action))throw fail('Solicitud inválida');
   const def=CATALOG[code];if(def.premium&&(action!=='activate'||!allowPremium(id)))throw fail('Activación Premium no habilitada para esta cuenta',409);const c=await pool.connect();
   try{await c.query('BEGIN');await c.query('SELECT account_id FROM player_progress WHERE account_id=$1 FOR UPDATE',[id]);
-   const old=(await c.query('SELECT response FROM gg_booster_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){await c.query('COMMIT');return old.response;}
+   const old=(await c.query('SELECT response FROM gg_booster_requests WHERE account_id=$1 AND request_id=$2',[id,requestId])).rows[0];if(old){const receipt=old.response;if(receipt?.action!==action||receipt?.code!==code||!receipt?.result)throw fail('La solicitud ya corresponde a otra operación o a un recibo anterior. Actualiza el saldo.',409);await c.query('COMMIT');return receipt.result;}
    if(action==='buy'){
     if(!def.price)throw fail('Booster no disponible en tienda');
     const paid=await c.query('UPDATE player_progress SET uridium=uridium-$2 WHERE account_id=$1 AND uridium>=$2',[id,def.price]);if(!paid.rowCount)throw fail('Uridium insuficiente');
@@ -69,7 +69,7 @@ function createBoosters(pool,{allowPremium=premiumAllowed}={}){
     if(!Number.isSafeInteger(total)||total>Math.floor(Number.MAX_SAFE_INTEGER/1000)-Math.ceil(Date.now()/1000))throw fail('Tiempo fuera de rango');if(!total)throw fail('Sin tiempo disponible');
     await extend(c,id,code,total);
    }
-   const result=await view(c,id);await c.query('INSERT INTO gg_booster_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify(result)]);await c.query('COMMIT');return result;
+   const result=await view(c,id);await c.query('INSERT INTO gg_booster_requests(account_id,request_id,response) VALUES($1,$2,$3)',[id,requestId,JSON.stringify({action,code,result})]);await c.query('COMMIT');return result;
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
  return {ready:()=>ready(pool),read:id=>read(pool,id),status:id=>view(pool,id),action};
