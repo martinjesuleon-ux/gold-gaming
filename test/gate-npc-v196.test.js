@@ -15,3 +15,24 @@ test('NPCs respect combat phases, cloaking and instance membership',()=>{
  assert.equal(npcPilotEligible({zone:'1-2'},{zone:'1-2',hp:100},ctx),true);
  assert.equal(npcPilotEligible(n,null,ctx),false);
 });
+test('normal map limits pursuit per pilot, releases slots and does not cap gate waves',()=>{
+ const {createNpcPursuitSlots,NORMAL_PURSUIT_LIMIT}=require('../gate-npc-v196');
+ assert.equal(NORMAL_PURSUIT_LIMIT,4);
+ const a={id:'a',x:0,zone:'1-2',hp:100},b={id:'b',x:10,zone:'1-2',hp:100},g={id:'g',x:0,zone:'gate:g',hp:100,gate:{wave:0,launchedWave:0}};
+ const players=new Map([[a.id,a],[b.id,b],[g.id,g]]);
+ const ctx={now:100,sameZone:(n,p)=>n.zone===p.zone,safeZone:()=>false,cloaked:()=>false};
+ const distance=(n,p)=>Math.abs(n.x-p.x),normal=n=>n.zone==='1-2';
+ const aliens=Array.from({length:7},(_,i)=>({id:'n'+i,x:i+1,zone:'1-2',hp:100,target:'a'}));
+ const gates=Array.from({length:12},(_,i)=>({id:'g'+i,x:i,zone:'gate:g',hp:100,gateNPC:true,target:'g'}));
+ let slots=createNpcPursuitSlots([...aliens,...gates],players,ctx,distance,normal);
+ assert.equal(aliens.filter(n=>n.target==='a').length,4);
+ assert.equal(slots.available(aliens[6],a),false);
+ assert.equal(slots.available(aliens[6],b),true);
+ for(const n of gates){assert.equal(slots.available(n,g),true);slots.claim(n,g);}
+ assert.equal(gates.filter(n=>n.target==='g').length,12);
+ aliens[0].hp=0;
+ slots=createNpcPursuitSlots([...aliens,...gates],players,ctx,distance,normal);
+ assert.equal(slots.available(aliens[6],a),true);
+ slots.claim(aliens[6],a);
+ assert.equal(slots.available(aliens[5],a),false);
+});
