@@ -26,3 +26,15 @@ test('reference VANT ranks resolve independent classic sprites and GOLD keeps it
  assert.equal(g.droneKind('iris',999),'drone-iris:6');assert.equal(g.droneKind('iris',0),'drone-iris:1');
  theme='gold';for(const model of ['flax','iris','apis','zeus'])for(let rank=1;rank<=6;rank++)assert.equal(g.droneKind(model,rank),'drone-'+model);
 });
+
+test('classic Goliath shares its curved hull with the shop portrait while GOLD retains original color',()=>{
+ let theme='classic',beziers=0,canvases=0;const finite=(...a)=>assert.ok(a.every(Number.isFinite)),grad={addColorStop(p,c){assert.ok(Number.isFinite(p));assert.match(c,/^#[a-f0-9]{6}([a-f0-9]{2})?$/i);}};
+ const context=()=>new Proxy({createLinearGradient(...a){finite(...a);return grad;},createRadialGradient(...a){finite(...a);return grad;},bezierCurveTo(...a){finite(...a);beziers++;},moveTo:finite,lineTo:finite,ellipse:finite,scale:finite,translate:finite},{get:(t,k)=>k in t?t[k]:()=>{}});
+ const document={createElement(){canvases++;return {getContext:context,setAttribute(){}};}},window={document,ggVisualTheme:{current:()=>theme}};
+ for(const p of ['classic-art-v166.js','graphics-v161.js','shop-visual-v163.js'])vm.runInNewContext(read(p),{window,document});
+ const g=window.ggGraphics161,c=context(),classic=g.playerStyle('goliath',null,true);
+ assert.equal(classic.kind,'classic-ship-goliath');assert.equal(classic.color,'#aab4bd');
+ g.draw(c,classic.kind,classic.color);assert.ok(beziers>=6);const before=beziers;g.draw(c,classic.kind,classic.color);assert.equal(beziers,before);
+ const portrait=window.ggShopVisual.art('ships',{id:'goliath'});assert.equal(portrait.width,288);assert.equal(portrait.height,192);assert.ok(beziers>before);
+ theme='gold';const gold=g.playerStyle('goliath',null,true);assert.equal(gold.kind,'ship-goliath');assert.equal(gold.color,'#79c985');assert.equal(window.ggShopVisual.art('ships',{id:'goliath'}).width,144);
+});
