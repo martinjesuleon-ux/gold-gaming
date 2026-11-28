@@ -10,6 +10,13 @@
   const progress=clamp(age/travel,0,1),head=len*progress,tail=Math.max(0,head-(rocket?30:Math.min(85,len*.65))),ux=len?dx/len:0,uy=len?dy/len:0;
   return {rocket,angle:Math.atan2(dy,dx),head:{x:shot.x+ux*head,y:shot.y+uy*head},tail:{x:shot.x+ux*tail,y:shot.y+uy*tail},impact:age>=travel?clamp((age-travel)/impact,0,1):null,color:rocket?'#ffcf68':shot.kind==='boss'?'#79aaff':shot.kind==='player'?(Object.hasOwn(colors,shot.ammo)?colors[shot.ammo]:'#83ffb5'):'#ff7766'};
  }
+ // Cull the currently rendered trail, not the entire original shot path.
+ function visible(s,camera,w,h,padding=45){
+  if(!s||![camera?.x,camera?.y,w,h,padding].every(Number.isFinite))return false;
+  const left=camera.x-w/2-padding,right=camera.x+w/2+padding,top=camera.y-h/2-padding,bottom=camera.y+h/2+padding;
+  const a=s.head,b=s.impact!==null?a:s.tail;
+  return Math.max(a.x,b.x)>=left&&Math.min(a.x,b.x)<=right&&Math.max(a.y,b.y)>=top&&Math.min(a.y,b.y)<=bottom;
+ }
  function draw(ctx,s,screen,glow=1,classic=false){
   if(!s)return;const h=screen(s.head.x,s.head.y),tail=screen(s.tail.x,s.tail.y);
   ctx.save();ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=9*glow;ctx.lineCap='round';
@@ -20,5 +27,5 @@
    if(s.rocket){ctx.translate(h.x,h.y);ctx.rotate(s.angle);ctx.fillStyle='#fff3d1';ctx.beginPath();ctx.moveTo(5,0);ctx.lineTo(-5,-2.8);ctx.lineTo(-5,2.8);ctx.closePath();ctx.fill();}
   }ctx.restore();
  }
- const api={LIFE,sample,draw};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggProjectiles238=api;
+ const api={LIFE,sample,visible,draw};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ggProjectiles238=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
