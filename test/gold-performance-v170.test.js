@@ -35,7 +35,7 @@ test('Auto quality is optional, persisted and works in both visual themes',()=>{
  assert.match(game,/v\.petVisual=smoothPetPosition\(v\.petVisual,q\?\{x:q\.x,y:q\.y,angle:q\.a\}:p\.pet,alpha\)/);
  assert.match(game,/ggMotion236\?\.position\(v\.petMotion,t,false\)/);
  assert.match(read('graphics-v161.js'),/industrialHull\(c,id,color\)/);
- assert.match(read('graphics-v161.js'),/ggClassicArt\.pilot\(c,kind,color,industrialHull\)/);
+ assert.match(read('graphics-v161.js'),/ggClassicArt\.pilot\(c,kind,color,industrialRemaster\)/);
 });
 test('Redesigned fleet renders and caches each ship in both themes',()=>{
  let theme='gold',allocations=0,draws=0;
