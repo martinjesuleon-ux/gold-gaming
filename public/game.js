@@ -510,7 +510,7 @@ function drawCBS(t){
  refreshCBS(t);if(cbsMarkerMap!==state.map||gateState.inside)return;
  for(const a of cbsMarkers){const p=screen(a.x,a.y);if(p.x<-120||p.x>W+120||p.y<-120||p.y>H+120)continue;
  ctx.save();ctx.translate(p.x,p.y);const color=a.station?.state==='protected'?'#8dc5ff':a.station?'#e7bb67':'#aaa5a0';
- if(a.station&&window.ggCBSVisual?.drawStation){window.ggCBSVisual.drawStation(ctx,a.station.modules||[],color);}else{ctx.fillStyle='#2c2930';ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();for(let i=0;i<10;i++){const ang=i*Math.PI/5,r=38+(i%2)*10;const x=Math.cos(ang)*r,y=Math.sin(ang)*r;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();ctx.stroke();}
+ if(a.station&&window.ggCBSVisual?.drawStation){window.ggCBSVisual.drawStation(ctx,a.station.modules||[],color);}else if(a.station&&window.ggVisualTheme?.current()==='classic'&&window.ggClassicArt?.station){window.ggClassicArt.station(ctx,color);}else{ctx.fillStyle='#2c2930';ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();for(let i=0;i<10;i++){const ang=i*Math.PI/5,r=38+(i%2)*10;const x=Math.cos(ang)*r,y=Math.sin(ang)*r;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();ctx.stroke();}
  if(a.station?.state==='protected'){ctx.strokeStyle='#70baff90';ctx.beginPath();ctx.arc(0,0,82,0,Math.PI*2);ctx.stroke();}
  ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillStyle=color;ctx.fillText(a.station?'CBS ['+a.station.clan_tag+']':'Asteroide libre',0,99);ctx.restore();}
 }
