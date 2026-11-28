@@ -417,7 +417,10 @@ function drawClassicStars(){
   for(let x=Math.floor(ox/span);x<Math.ceil((ox+W)/span);x++)for(let y=Math.floor(oy/span);y<Math.ceil((oy+H)/span);y++)ctx.drawImage(classicStarTile(layer,size,cell,x,y),x*span-ox,y*span-oy);
  }
 }
-function stars(){window.ggGraphics161.sky(ctx,W,H);if((window.ggVisualTheme?.current()||'gold')==='gold')drawGoldStars();else drawClassicStars();ctx.globalAlpha=1;const corner=screen(0,0);ctx.strokeStyle='#647d994d';ctx.lineWidth=2;ctx.strokeRect(corner.x,corner.y,world.w,world.h);}
+function stars(){window.ggGraphics161.sky(ctx,W,H);if((window.ggVisualTheme?.current()||'gold')==='gold'){if(!drawExperimentalStars())drawGoldStars();}else drawClassicStars();ctx.globalAlpha=1;const corner=screen(0,0);ctx.strokeStyle='#647d994d';ctx.lineWidth=2;ctx.strokeRect(corner.x,corner.y,world.w,world.h);}
+let webglStarsEnabled=false,webglStarsRenderer=null,webglStarsAttempted=false;
+window.ggSetWebGLStars=value=>{const next=value===true;if(next===webglStarsEnabled)return;webglStarsEnabled=next;if(!next){webglStarsRenderer?.dispose();webglStarsRenderer=null;webglStarsAttempted=false;}};
+function drawExperimentalStars(){if(!webglStarsEnabled)return false;if(!webglStarsAttempted){webglStarsAttempted=true;webglStarsRenderer=window.ggWebGLStars245?.create(document)||null;}return webglStarsRenderer?.render(ctx,camera,W,H,goldStarLayers.slice(0,qualityProfiles[quality].stars),goldStarTile)===true;}
 function poly(points,fill,stroke){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.3;ctx.stroke();}}
 function ship(v,isMe,npc,dt=0){
  const o=v.data,p=screen(v.x,v.y);if(p.x<-160||p.y<-160||p.x>W+160||p.y>H+160||o.deadUntil)return;
