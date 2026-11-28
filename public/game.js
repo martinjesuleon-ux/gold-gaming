@@ -433,7 +433,7 @@ function ship(v,isMe,npc,dt=0){
  const visual=npc?graphics.npcStyle(o.name,o.type):graphics.playerStyle(o.ship,o.design,isMe);
  const targetOffsets=npc?[]:graphics.formationOffsets(o.droneCount,o.formation),offsets=npc?[]:(v.droneOffsets=window.ggCompanions237?.formation(v.droneOffsets,targetOffsets,dt)||targetOffsets),layout=graphics.labelLayout(o,visual,npc,size,0,targetOffsets);
  ctx.save();ctx.translate(p.x,p.y);ctx.scale(size,size);ctx.rotate(v.a);if(window.ggVisualTheme?.current()==='classic'&&window.ggClassicPack){const key=npc?'npc:'+String(o.name||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-'):undefined;graphics.draw(ctx,visual.kind,visual.color,v.a,key);}else if(visual.kind==='classic-ship-goliath')graphics.draw(ctx,visual.kind,visual.color,v.a);else graphics.draw(ctx,visual.kind,visual.color);
- if(!npc)drawFormation(o,offsets);ctx.restore();
+ if(!npc)drawFormation(o,offsets,v.a);ctx.restore();
  if(!isMe&&selected===o.id){ctx.strokeStyle='#ff725e';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.beginPath();ctx.arc(p.x,p.y,layout.ring,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
  if(isMe){ctx.strokeStyle='#71ecc04d';ctx.beginPath();ctx.arc(p.x,p.y,layout.ring,0,Math.PI*2);ctx.stroke();}
  const top=p.y-layout.top,bw=layout.width,classic=window.ggVisualTheme?.current()==='classic';ctx.save();if(classic&&window.ggClassicHud){window.ggClassicHud.vitals(ctx,p.x,top,bw,graphics.safeRatio(o.hp,o.maxHp),graphics.safeRatio(o.shield,o.maxShield));}else{ctx.fillStyle='#101a28';ctx.fillRect(p.x-bw/2,top,bw,4);ctx.fillRect(p.x-bw/2,top+6,bw,4);
@@ -443,8 +443,8 @@ function ship(v,isMe,npc,dt=0){
  const name=(o.clanTag?'['+o.clanTag+'] ':'')+o.name,marks=npc?null:window.ggRankVisual.gateMarks(o.gateRings),nameY=p.y+layout.name+(marks?.offset||0);ctx.strokeText(name,p.x,nameY);ctx.fillText(name,p.x,nameY);if(!npc){const badge=window.ggRankVisual.badge(o.rank);if(badge){const badgeX=p.x-graphics.nameWidth(ctx,v.nameMetrics||(v.nameMetrics={}),name)/2-20;ctx.drawImage(badge,badgeX,nameY-13,17,17);window.ggRankVisual.drawGateMarks(ctx,marks,badgeX+8.5,nameY);}if(o.title){ctx.fillStyle=classic?'#ff7167':'#e9c980';ctx.font='bold 10px system-ui';ctx.strokeText(o.title,p.x,top-7);ctx.fillText(o.title,p.x,top-7);}}
  ctx.restore();
 }
-function drawFormation(o,offsets){
- const graphics=window.ggGraphics161;offsets.forEach(({x,y},i)=>{ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=graphics.droneColor(drone?.design);graphics.draw(ctx,graphics.droneKind(drone?.code,drone?.rank),color,0,drone?.design?'drone:'+drone.code+':'+drone.rank+':'+drone.design:undefined);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();});
+function drawFormation(o,offsets,heading=0){
+ const graphics=window.ggGraphics161;offsets.forEach(({x,y},i)=>{ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=graphics.droneColor(drone?.design);if(!(drone?.code==='iris'&&!drone?.design&&window.ggLocalGoliath?.iris(ctx,drone.rank,heading,true)))graphics.draw(ctx,graphics.droneKind(drone?.code,drone?.rank),color,0,drone?.design?'drone:'+drone.code+':'+drone.rank+':'+drone.design:undefined);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();});
 }
 // Visual-only interpolation: server positions remain authoritative for combat and rewards.
 function smoothPetPosition(previous,pet,alpha){
