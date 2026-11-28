@@ -5,7 +5,7 @@
  let format=formats[1];
  let atlas=null,generation=0,hasIris=false,hasRanks=false,revision=0;
  const active=()=>root.ggVisualTheme?.current()==='classic';
- // Original SWF sheets: frame 0 faces +X, and frames increase clockwise.
+ // Original Goliath faces +X in frame 0; Iris faces the opposite way. Both sheets advance clockwise.
  function headingFrame(angle,n,offset=0){const a=Number.isFinite(angle)?angle:0;return ((Math.round(a*n/(Math.PI*2))+offset)%n+n)%n;}
  function frame(angle){return headingFrame(angle,format.frames,format.offset);}
  function rect(angle){const n=frame(angle);return {x:n%format.cols*format.w,y:Math.floor(n/format.cols)*format.h,w:format.w,h:format.h};}
@@ -27,7 +27,7 @@
  }
  function clear(){generation++;atlas=null;hasIris=false;hasRanks=false;revision++;}
  function rank(c,n,width=48){n=Number(n);if(!active()||!atlas||!hasRanks||!Number.isInteger(n)||n<1||n>21)return false;c.save();c.imageSmoothingEnabled=false;c.drawImage(atlas,n*16,1152,16,16,-width/2,-width/2,width,width);c.restore();return true;}
- function iris(c,rank,angle=0,rotated=false,width=100*60/208){if(!atlas||!hasIris||!active()||!c)return false;const r=Math.max(0,Math.min(5,Math.floor(Number(rank)||1)-1)),a=Number.isFinite(angle)?angle:0,n=headingFrame(a,32);const x=(r%3)*480+(n%8)*60,y=672+Math.floor(r/3)*240+Math.floor(n/8)*60;c.save();if(rotated)c.rotate(-a);c.drawImage(atlas,x,y,60,60,-width/2,-width/2,width,width);c.restore();return true;}
+ function iris(c,rank,angle=0,rotated=false,width=100*60/208){if(!atlas||!hasIris||!active()||!c)return false;const r=Math.max(0,Math.min(5,Math.floor(Number(rank)||1)-1)),a=Number.isFinite(angle)?angle:0,n=headingFrame(a,32,16);const x=(r%3)*480+(n%8)*60,y=672+Math.floor(r/3)*240+Math.floor(n/8)*60;c.save();if(rotated)c.rotate(-a);c.drawImage(atlas,x,y,60,60,-width/2,-width/2,width,width);c.restore();return true;}
  const pack=root.ggClassicPack;
  if(pack){const originalDraw=pack.draw,originalShop=pack.shop;
   pack.draw=function(c,key,options={}){return (key===KEY&&draw(c,options.angle,options.rotated))||originalDraw.call(pack,c,key,options);};
