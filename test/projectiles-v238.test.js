@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {LIFE,sample}=require('../public/projectiles-v238');
+const {LIFE,sample,visible}=require('../public/projectiles-v238');
 const shot={x:10,y:20,tx:710,ty:20,kind:'player',ammo:'MCB-50',born:1000};
 test('laser advances continuously from fixed origin to fixed destination',()=>{
  const a=sample(shot,1000),b=sample(shot,1050),c=sample(shot,1100);
@@ -22,4 +22,13 @@ test('zero distance and long shots remain finite and expire',()=>{
  const z=sample({...shot,tx:10},1020);assert.equal(z.head.x,10);assert.equal(z.head.y,20);
  const r={...shot,tx:20000,kind:'rocket'};assert.equal(sample(r,1480),null);
  assert.equal(sample(shot,1100).head.x,shot.tx);
+});
+
+test('only current projectile trail or impact is rendered in the viewport',()=>{
+ const camera={x:350,y:20},w=100,h=100;
+ assert.equal(visible(sample(shot,1000),camera,w,h),false);
+ assert.equal(visible(sample(shot,1050),camera,w,h),true);
+ assert.equal(visible(sample(shot,1100),camera,w,h),false);
+ assert.equal(visible(sample(shot,1100),{x:710,y:20},w,h),true);
+ assert.equal(visible(null,camera,w,h),false);
 });
