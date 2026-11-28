@@ -444,7 +444,7 @@ function ship(v,isMe,npc,dt=0){
  ctx.restore();
 }
 function drawFormation(o,offsets,heading=0){
- const graphics=window.ggGraphics161;offsets.forEach(({x,y},i)=>{ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=graphics.droneColor(drone?.design);if(!(drone?.code==='iris'&&!drone?.design&&window.ggLocalGoliath?.iris(ctx,drone.rank,heading,true)))graphics.draw(ctx,graphics.droneKind(drone?.code,drone?.rank),color,0,drone?.design?'drone:'+drone.code+':'+drone.rank+':'+drone.design:undefined);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();});
+ const graphics=window.ggGraphics161;offsets.forEach(({x,y},i)=>{ctx.save();ctx.translate(x,y);const drone=o.droneVisuals?.[i],color=graphics.droneColor(drone?.design);if(!(window.ggLocalGoliath?.drone(ctx,drone?.code,drone?.rank,drone?.design,heading,true)))graphics.draw(ctx,graphics.droneKind(drone?.code,drone?.rank),color,0,drone?.design?'drone:'+drone.code+':'+drone.rank+':'+drone.design:undefined);if(drone?.rank>1){ctx.fillStyle=color;ctx.font='8px system-ui';ctx.fillText(String(drone.rank),-2,10);}ctx.restore();});
 }
 // Visual-only interpolation: server positions remain authoritative for combat and rewards.
 function smoothPetPosition(previous,pet,alpha){
