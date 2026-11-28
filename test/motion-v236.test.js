@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const {record,position,angle,anticipate}=require('../public/motion-v236');
+const {record,position,angle,anticipate,preview}=require('../public/motion-v236');
 const p=(x,y=0,angle=0)=>({x,y,angle});
 test('remote movement fills the gaps between authoritative snapshots',()=>{
  let h=record(null,p(0),1000,0);h=record(h,p(100),1100,100);
@@ -29,7 +29,7 @@ test('history stays bounded and render clock does not reverse on jitter',()=>{
 test('render integration leaves server data untouched and loads helper first',()=>{
  const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8'),html=fs.readFileSync(require.resolve('../public/index.html'),'utf8');
  assert.ok(game.includes('ggMotion236?.record'));assert.ok(game.includes('ggMotion236?.position'));
- assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2510'));assert.ok(game.includes('old.data=o'));
+ assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2530'));assert.ok(game.includes('old.data=o'));
 });
 
 test('mouse anticipation begins immediately and never exceeds 24 world units',()=>{
@@ -48,3 +48,5 @@ test('local anticipation is disabled during attack and does not mutate server da
  assert.ok(game.includes('local&&!v.data.deadUntil&&!attacking&&dest'));
  assert.ok(game.includes('distance(me.data,dest)<8'));assert.ok(game.includes('me.visualIntent={...dest,at:performance.now()}'));
 });
+
+test('drag preview changes direction without extending prediction lifetime or mutating intent',()=>{const intent={x:200,y:100,at:10},a=p(100,100);const next=preview(intent,100,200,50);assert.deepEqual(next,{x:100,y:200,at:10});assert.deepEqual(intent,{x:200,y:100,at:10});assert.equal(anticipate(a,next,50,400).y,116);assert.equal(anticipate(a,next,111,400),null);assert.equal(preview(intent,100,200,111),intent);assert.equal(preview(intent,NaN,200,50),intent);});
