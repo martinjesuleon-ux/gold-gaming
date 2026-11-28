@@ -29,7 +29,7 @@ test('history stays bounded and render clock does not reverse on jitter',()=>{
 test('render integration leaves server data untouched and loads helper first',()=>{
  const game=fs.readFileSync(require.resolve('../public/game.js'),'utf8'),html=fs.readFileSync(require.resolve('../public/index.html'),'utf8');
  assert.ok(game.includes('ggMotion236?.record'));assert.ok(game.includes('ggMotion236?.position'));
- assert.ok(html.indexOf('motion-v236.js')<html.indexOf('game.js?v=2539'));assert.ok(game.includes('old.data=o'));
+ const motionAt=html.search(/<script\b[^>]*\bsrc="(?:\.\/)?motion-v236\.js\?v=\d+[^"\s]*"/),gameAt=html.search(/<script\b[^>]*\bsrc="(?:\.\/)?game\.js\?v=\d+[^"\s]*"/);assert.ok(motionAt>=0&&gameAt>motionAt);assert.ok(game.includes('old.data=o'));
 });
 
 test('mouse anticipation begins immediately and never exceeds 24 world units',()=>{
