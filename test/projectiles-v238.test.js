@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {LIFE,sample,visible}=require('../public/projectiles-v238');
+const {LIFE,prepare,sample,visible}=require('../public/projectiles-v238');
 const shot={x:10,y:20,tx:710,ty:20,kind:'player',ammo:'MCB-50',born:1000};
 test('laser advances continuously from fixed origin to fixed destination',()=>{
  const a=sample(shot,1000),b=sample(shot,1050),c=sample(shot,1100);
@@ -31,4 +31,11 @@ test('only current projectile trail or impact is rendered in the viewport',()=>{
  assert.equal(visible(sample(shot,1100),camera,w,h),false);
  assert.equal(visible(sample(shot,1100),{x:710,y:20},w,h),true);
  assert.equal(visible(null,camera,w,h),false);
+});
+
+test('geometry is reused between frames and invalidated on visual input change',()=>{
+ const s={...shot},first=prepare(s);assert.ok(Object.isFrozen(first));assert.equal(prepare(s),first);
+ const a=sample(s,1050);assert.equal(a.head.x,360);assert.equal(Math.abs(a.sideX),0);assert.equal(a.sideY,1);
+ s.ammo='RSB-75';assert.notEqual(prepare(s),first);assert.equal(sample(s,1050).color,'#ffc04f');
+ s.tx=1410;assert.notEqual(prepare(s).len,first.len);s.x=NaN;assert.equal(prepare(s),null);
 });
