@@ -490,9 +490,17 @@ async function stationMenu(){
   search.oninput=()=>{const q=search.value.trim().toLowerCase();for(const tile of grid.children)tile.hidden=!tile.dataset.search.includes(q);};body.append(grid,el('p','Módulos disponibles: '+d.inventory.length));if(d.broken?.length){body.append(el('h3','Módulos recuperados · rotos'));for(const item of d.broken)body.append(el('p',item.code+' · Nv. '+item.level+' · reparación pendiente'));}
  }catch(e){if(modal?.open&&mode==='Estaciones CBS')body.replaceChildren(el('p',e.message));}
 }
+function createBoosterJournal(storage){
+ const key=id=>'gg.booster.pending.v232:'+id;
+ const valid=(id,r)=>!!id&&r?.expectedAccountId===id&&['buy','activate'].includes(r.action)&&typeof r.code==='string'&&/^[A-Z0-9-]{3,24}$/.test(r.code)&&typeof r.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.requestId);
+ return {load(id){try{const r=JSON.parse(storage.getItem(key(id))||'null');return valid(id,r)?r:null;}catch{return null;}},save(id,r){if(!id)throw Error('Cuenta no disponible');if(r===null)storage.removeItem(key(id));else if(valid(id,r))storage.setItem(key(id),JSON.stringify(r));else throw Error('Solicitud inválida');}};
+}
+const boosterJournal=createBoosterJournal({getItem:k=>sessionStorage.getItem(k),setItem:(k,v)=>sessionStorage.setItem(k,v),removeItem:k=>sessionStorage.removeItem(k)});
+let boosterView=0;
 async function boosterMenu(){
+ const generation=++boosterView,accountId=state?.accountId,current=()=>modal?.open&&mode==='Boosters'&&generation===boosterView&&state?.accountId===accountId;
  body.replaceChildren(el('h2','Boosters'),el('p','Cargando…'));
- try{const d=await api('boosters');if(!modal?.open||mode!=='Boosters')return;
+ try{const d=await api('boosters');if(!current())return;const pending=boosterJournal.load(accountId);
   body.replaceChildren(el('h2','Boosters'),el('p','10.000 uridium · 10 horas · activa el tiempo adquirido. Los compartidos benefician a aliados cercanos.'));
   const grid=el('div',null,'gg13-grid gg-booster-grid'),names={damage:'Daño',xp:'Experiencia',honor:'Honor',hp:'Vida',repair:'Reparación',box:'Recursos',shield:'Escudo'};
   const duration=s=>Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min';
@@ -500,9 +508,9 @@ async function boosterMenu(){
    tile.dataset.active=String(remaining>0);const icon=el('span','✦','gg-booster-icon');icon.setAttribute('aria-hidden','true');const effects=el('div',null,'gg-reward-cards');for(const [k,v] of Object.entries(item.effects)){const chip=el('div',null,'gg-reward-chip');chip.append(el('strong','+'+Math.round(v*100)+'%'),el('small',names[k]||k));effects.append(chip);}tile.append(icon,el('h3',item.code+' · '+item.name),effects);if(item.rewardKind)tile.append(el('p','Recompensas ×2 · '+(item.rewardKind==='mission'?'al reclamar misiones':'cajas de bonificación')+' · 7 días por paquete'));if(item.premium)tile.append(el('p',d.premiumActivationEnabled?'Premium · activa el tiempo disponible':'Premium · activación restringida durante pruebas'));
    if(Object.keys(item.shared).length)tile.append(el('p','Aliados: '+Object.entries(item.shared).map(([k,v])=>names[k]+' +'+Math.round(v*100)+'%').join(' · ')));
    const time=el('section',null,'gg-booster-time');time.append(el('strong',remaining>0?'ACTIVO':'INACTIVO'),el('p','Tiempo activo: '+duration(remaining)),el('p','Tiempo disponible: '+duration(stock)));tile.append(time);
-   const run=async action=>{if(busy)return;busy=true;try{await window.gg112Booster({action,code:item.code,requestId:crypto.randomUUID()});await refresh();await boosterMenu();}catch(e){status.textContent=e.message;}finally{busy=false;}};
-   if(item.price)tile.append(button('COMPRAR '+fmt(item.price)+' U',()=>run('buy')));
-   const activate=button('ACTIVAR TIEMPO',()=>run('activate'));activate.disabled=stock<=0||(!!item.premium&&!d.premiumActivationEnabled);if(item.premium&&!d.premiumActivationEnabled)activate.textContent='TIEMPO RESERVADO';tile.append(activate);grid.append(tile);
+   const run=async action=>{if(busy||!current()||!accountId)return;const saved=boosterJournal.load(accountId);if(saved&&(saved.code!==item.code||saved.action!==action)){status.textContent='Confirma primero la operación pendiente';return;}const req=saved||{action,code:item.code,requestId:crypto.randomUUID(),expectedAccountId:accountId};busy=true;try{boosterJournal.save(accountId,req);await window.gg112Booster(req);boosterJournal.save(accountId,null);if(current())await refresh();}catch(e){if(e.retryable===false)boosterJournal.save(accountId,null);if(current())status.textContent=e.message;}finally{busy=false;if(current())await boosterMenu();}};
+   if(item.price){const buy=button(pending?.code===item.code&&pending.action==='buy'?'CONFIRMAR COMPRA PENDIENTE':'COMPRAR '+fmt(item.price)+' U',()=>run('buy'));buy.disabled=!!pending&&!(pending.code===item.code&&pending.action==='buy');tile.append(buy);}
+   const activate=button('ACTIVAR TIEMPO',()=>run('activate'));activate.disabled=pending?!(pending.code===item.code&&pending.action==='activate'):stock<=0||(!!item.premium&&!d.premiumActivationEnabled);if(pending?.code===item.code&&pending.action==='activate')activate.textContent='CONFIRMAR ACTIVACIÓN PENDIENTE';if(item.premium&&!d.premiumActivationEnabled&&!(pending?.code===item.code&&pending.action==='activate'))activate.textContent='TIEMPO RESERVADO';tile.append(activate);grid.append(tile);
   }body.append(grid);status.textContent='Uridium: '+fmt(d.balance.uridium);
  }catch(e){if(modal?.open&&mode==='Boosters')body.replaceChildren(el('p',e.message));}
 }
