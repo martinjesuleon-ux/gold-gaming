@@ -16,3 +16,13 @@ test('all-cloaked zone exposes only own pilot and empty zone emits nothing',()=>
  const players=[{id:'a',zone:'x'},{id:'b',zone:'x'}];const args={players,npcs:[],mines:[],boxes:[],zoneOf:p=>p.zone,publicPlayer:p=>({id:p.id}),isHidden:()=>true,common:()=>({time:42})};
  const z=buildZoneSnapshots(args);assert.deepEqual(snapshotFor(z.get('x'),players[0]).players,[{id:'a'}]);assert.equal(buildZoneSnapshots({...args,players:[]}).size,0);
 });
+
+test('indexed snapshot visits occupied zones only and preserves public box projection and order',()=>{
+ const {BoxIndex}=require('../box-index-v163'),boxes=new BoxIndex(),visited=[];
+ for(const b of [{id:'a',zone:'1',x:1,y:2,kind:'cargo',owner:'secret'},{id:'b',zone:'2',x:2,y:3,kind:'paladio'},{id:'c',zone:'1',x:3,y:4,kind:'cargo'},{id:'d',zone:'empty',x:4,y:5,kind:'cargo'}])boxes.set(b.id,b);
+ const players=[{id:'p1',zone:'1'},{id:'p2',zone:'1'},{id:'p3',zone:'2'}],args={players,npcs:[],mines:[],zoneOf:p=>p.zone,publicPlayer:p=>({id:p.id}),isHidden:()=>false,common:zone=>({map:zone})};
+ const reference=buildZoneSnapshots({...args,boxes:boxes.values()}),indexed=buildZoneSnapshots({...args,boxesForZone:zone=>{visited.push(zone);return boxes.inZone(zone);}});
+ assert.deepEqual(visited,['1','2']);for(const p of players)assert.deepEqual(snapshotFor(indexed.get(p.zone),p),snapshotFor(reference.get(p.zone),p));
+ assert.equal(snapshotFor(indexed.get('1'),players[0]).boxes[0].owner,undefined);
+ assert.equal(buildZoneSnapshots({...args,players:[],boxesForZone:()=>{throw Error('unoccupied zone');}}).size,0);
+});
