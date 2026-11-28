@@ -7,8 +7,13 @@ test('one owned extra can be equipped in both configurations without duplicating
  for(const c of r){assert.equal(c.launcher,'HST-2');assert.equal(c.robot,'REP-S');assert.deepEqual(c.cpus,['SL-01']);assert.equal(c.extrasUsed,3);}
  assert.equal(r[0].lasers,1);assert.equal(r[1].lasers,0);
 });
-test('physical laser, shield, engine and same-configuration duplicate restrictions remain',()=>{
- for(const c of [[['cpu','cpu'],[]],[['lf'],['lf']],[['shield'],['shield']],[['engine'],['engine']],[['missing'],[]]])assert.throws(()=>configurations('goliath',c,owned));
+test('owned laser, shield and engine can be reused across independent configurations',()=>{
+ const loadout=['lf','shield','engine'];const r=configurations('goliath',[loadout,[...loadout]],owned);
+ assert.deepEqual(r[0],r[1]);assert.equal(r[0].lasers,1);assert.ok(r[0].shield>0);
+});
+test('same-configuration duplicate and unowned equipment restrictions remain',()=>{
+ for(const id of ['cpu','lf','shield','engine','robot','hst'])assert.throws(()=>configurations('goliath',[[id,id],[]],owned),/duplicado/);
+ assert.throws(()=>configurations('goliath',[['missing'],[]],owned),/no disponible/);
 });
 test('PET holds in passive mode and catches up at a wider distance without moving when idle',()=>{
  const {travelGoal}=require('../pet-navigation-v187');const goal=(p,target)=>travelGoal(p,target,1000,{w:12000,h:8000});
